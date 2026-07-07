@@ -90,17 +90,25 @@ class Knight(Piece):
 class Pawn(Piece):
     def is_legal_move(self, board, from_y, from_x, to_y, to_x) -> bool:
         target_token = board.grid[to_y][to_x]
-        expected_dy = -1 if self.color == 'w' else 1
+        H = len(board.grid)
+        if self.color == 'w':
+            expected_dy = -1
+            start_row = H - 2 if H >= 5 else H - 1
+        else:
+            expected_dy = 1
+            start_row = 1 if H >= 5 else 0
+
         dy = to_y - from_y
         dx = to_x - from_x
 
-        if dy != expected_dy:
-            return False
-
-        if dx == 0:
-            return target_token == '.'
-        elif abs(dx) == 1:
-            return target_token != '.'
+        if dy == expected_dy:
+            if dx == 0:
+                return target_token == '.'
+            elif abs(dx) == 1:
+                return target_token != '.'
+        elif dy == 2 * expected_dy and from_y == start_row and dx == 0:
+            intermediate_token = board.grid[from_y + expected_dy][from_x]
+            return target_token == '.' and intermediate_token == '.'
 
         return False
 

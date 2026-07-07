@@ -7,6 +7,7 @@ class boardService:
         self.selected_piece = None
         self.clock = 0
         self.pending_moves = []
+        self.game_over = False
 
     def _apply_completed_moves(self):
         self.pending_moves.sort(key=lambda m: m['arrival'])
@@ -16,9 +17,19 @@ class boardService:
                 from_y, from_x = m['from']
                 to_y, to_x = m['to']
                 token = m['token']
+                # Check for game over (enemy king capture)
+                dest_token = self.board.grid[to_y][to_x]
+                if dest_token != '.' and dest_token[1] == 'K':
+                    self.game_over = True
+
+                # Promote pawn to queen if it reaches the back rank
+                if token[1] == 'P':
+                    if (token[0] == 'w' and to_y == 0) or (token[0] == 'b' and to_y == len(self.board.grid) - 1):
+                        token = token[0] + 'Q'
+
                 # Apply the move on the grid
                 self.board.grid[to_y][to_x] = token
-                if self.board.grid[from_y][from_x] == token:
+                if self.board.grid[from_y][from_x] == m['token']:
                     self.board.grid[from_y][from_x] = '.'
             else:
                 remaining.append(m)
@@ -26,6 +37,8 @@ class boardService:
 
     def click(self, x, y):
         self._apply_completed_moves()
+        if self.game_over:
+            return
         if self.pending_moves:
             return
 
