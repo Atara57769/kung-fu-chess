@@ -80,7 +80,20 @@ class Knight(Piece):
 
 class Pawn(Piece):
     def is_legal_move(self, board, from_y, from_x, to_y, to_x) -> bool:
-        return True
+        target_token = board.grid[to_y][to_x]
+        expected_dy = -1 if self.color == 'w' else 1
+        dy = to_y - from_y
+        dx = to_x - from_x
+
+        if dy != expected_dy:
+            return False
+
+        if dx == 0:
+            return target_token == '.'
+        elif abs(dx) == 1:
+            return target_token != '.'
+
+        return False
 
 
 PIECE_CLASSES = {
