@@ -1,3 +1,6 @@
+from models.pieces import get_piece
+
+
 class boardService:
     def __init__(self, board):
         self.board = board
@@ -33,10 +36,16 @@ class boardService:
                 # Replace selection with another friendly piece
                 self.selected_piece = (cell_y, cell_x)
             else:
-                # Perform the move to the new cell and clear selection
-                self.board.grid[cell_y][cell_x] = sel_token
-                self.board.grid[sel_y][sel_x] = '.'
-                self.selected_piece = None
+                # Validate the move according to the piece type
+                piece = get_piece(sel_token)
+                if piece is None or piece.is_legal_move(self.board, sel_y, sel_x, cell_y, cell_x):
+                    # Perform the move to the new cell and clear selection
+                    self.board.grid[cell_y][cell_x] = sel_token
+                    self.board.grid[sel_y][sel_x] = '.'
+                    self.selected_piece = None
+                else:
+                    # Illegal move is ignored (keep selection)
+                    pass
 
     def wait(self, ms):
         self.clock += ms
@@ -45,3 +54,4 @@ class boardService:
         """Prints the board in canonical space-separated format."""
         for row in self.board.grid:
             print(" ".join(row))
+
