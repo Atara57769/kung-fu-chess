@@ -1,6 +1,7 @@
 import sys
 from models.board import Board
 from exceptions import UnknownTokenError, RowWidthMismatchError
+from board_service import boardService
 
 
 def read_input_lines():
@@ -43,10 +44,28 @@ def extract_command_lines(lines, commands_start):
 
 
 def execute_commands(board, commands):
-    """Executes parsed commands against the initialized board."""
+    """Executes parsed commands against the initialized board using boardService."""
+    service = boardService(board)
     for cmd in commands:
         if cmd == "print board":
-            board.print()
+            service.print_board()
+        elif cmd.startswith("click "):
+            parts = cmd.split()
+            if len(parts) == 3:
+                try:
+                    x = int(parts[1])
+                    y = int(parts[2])
+                    service.click(x, y)
+                except ValueError:
+                    pass
+        elif cmd.startswith("wait "):
+            parts = cmd.split()
+            if len(parts) == 2:
+                try:
+                    ms = int(parts[1])
+                    service.wait(ms)
+                except ValueError:
+                    pass
 
 
 def main():
