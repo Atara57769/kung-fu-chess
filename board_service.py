@@ -8,6 +8,7 @@ class boardService:
         self.clock = 0
         self.pending_moves = []
         self.game_over = False
+        self.jumps = []
 
     def _apply_completed_moves(self):
         self.pending_moves.sort(key=lambda m: m['arrival'])
@@ -17,20 +18,34 @@ class boardService:
                 from_y, from_x = m['from']
                 to_y, to_x = m['to']
                 token = m['token']
-                # Check for game over (enemy king capture)
-                dest_token = self.board.grid[to_y][to_x]
-                if dest_token != '.' and dest_token[1] == 'K':
-                    self.game_over = True
 
-                # Promote pawn to queen if it reaches the back rank
-                if token[1] == 'P':
-                    if (token[0] == 'w' and to_y == 0) or (token[0] == 'b' and to_y == len(self.board.grid) - 1):
-                        token = token[0] + 'Q'
+                # Check if the destination contains an active airborne piece of the enemy
+                arrival_time = m['arrival']
+                is_captured_by_airborne = False
+                for j in self.jumps:
+                    if j['cell'] == (to_y, to_x) and j['start'] <= arrival_time <= j['end'] and j['token'][0] != token[0]:
+                        is_captured_by_airborne = True
+                        break
 
-                # Apply the move on the grid
-                self.board.grid[to_y][to_x] = token
-                if self.board.grid[from_y][from_x] == m['token']:
-                    self.board.grid[from_y][from_x] = '.'
+                if is_captured_by_airborne:
+                    # Arriving piece is captured/removed. Only clear its source cell.
+                    if self.board.grid[from_y][from_x] == m['token']:
+                        self.board.grid[from_y][from_x] = '.'
+                else:
+                    # Check for game over (enemy king capture)
+                    dest_token = self.board.grid[to_y][to_x]
+                    if dest_token != '.' and dest_token[1] == 'K':
+                        self.game_over = True
+
+                    # Promote pawn to queen if it reaches the back rank
+                    if token[1] == 'P':
+                        if (token[0] == 'w' and to_y == 0) or (token[0] == 'b' and to_y == len(self.board.grid) - 1):
+                            token = token[0] + 'Q'
+
+                    # Apply the move on the grid
+                    self.board.grid[to_y][to_x] = token
+                    if self.board.grid[from_y][from_x] == m['token']:
+                        self.board.grid[from_y][from_x] = '.'
             else:
                 remaining.append(m)
         self.pending_moves = remaining
@@ -103,6 +118,39 @@ class boardService:
                 else:
                     # Illegal move is ignored (keep selection)
                     pass
+
+    def jump(self, x, y):
+        self._apply_completed_moves()
+        if self.game_over:
+            return
+
+        # Determine board dimensions
+        H = len(self.board.grid)
+        W = self.board.width
+        
+        # Convert to cell coordinates
+        cell_x = x // 100
+        cell_y = y // 100
+        
+        # Ignore clicks outside the board boundaries
+        if not (0 <= cell_x < W and 0 <= cell_y < H):
+            return
+            
+        token = self.board.grid[cell_y][cell_x]
+        if token == '.':
+            return
+            
+        # A moving piece cannot jump (nor can a piece being captured/targeted)
+        if any(m['from'] == (cell_y, cell_x) or m['to'] == (cell_y, cell_x) for m in self.pending_moves):
+            return
+            
+        # Schedule the jump
+        self.jumps.append({
+            'cell': (cell_y, cell_x),
+            'start': self.clock,
+            'end': self.clock + 1000,
+            'token': token
+        })
 
     def wait(self, ms):
         self.clock += ms

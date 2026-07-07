@@ -66,6 +66,15 @@ def execute_commands(board, commands):
                     service.wait(ms)
                 except ValueError:
                     pass
+        elif cmd.startswith("jump "):
+            parts = cmd.split()
+            if len(parts) == 3:
+                try:
+                    x = int(parts[1])
+                    y = int(parts[2])
+                    service.jump(x, y)
+                except ValueError:
+                    pass
 
 
 def main():
