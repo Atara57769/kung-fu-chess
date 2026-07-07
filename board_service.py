@@ -26,6 +26,8 @@ class boardService:
 
     def click(self, x, y):
         self._apply_completed_moves()
+        if self.pending_moves:
+            return
 
         # Determine board dimensions
         H = len(self.board.grid)
