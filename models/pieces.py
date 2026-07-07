@@ -9,6 +9,12 @@ class Piece(ABC):
         """Determines if the move from (from_y, from_x) to (to_y, to_x) is legal for this piece."""
         pass
 
+    def get_travel_duration(self, from_y, from_x, to_y, to_x) -> int:
+        """Returns the travel duration in milliseconds."""
+        dy = to_y - from_y
+        dx = to_x - from_x
+        return max(abs(dx), abs(dy)) * 1000
+
     def _is_path_clear(self, board, from_y, from_x, to_y, to_x) -> bool:
         """Helper to verify if the path between two cells is clear of other pieces (excluding the endpoints)."""
         dy = to_y - from_y
@@ -76,6 +82,9 @@ class Knight(Piece):
         abs_dy = abs(dy)
         abs_dx = abs(dx)
         return (abs_dx == 1 and abs_dy == 2) or (abs_dx == 2 and abs_dy == 1)
+
+    def get_travel_duration(self, from_y, from_x, to_y, to_x) -> int:
+        return 3000
 
 
 class Pawn(Piece):
