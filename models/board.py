@@ -10,6 +10,12 @@ class Board:
         self.width = None
         self._parse_and_validate(board_lines)
 
+    def get_piece_at(self, cell_y: int, cell_x: int):
+        """Returns the piece at the given cell coordinates."""
+        from models.pieces import get_piece
+        token = self.grid[cell_y][cell_x]
+        return get_piece(token)
+
     def _validate_token(self, token):
         """Validates a single token representing a board cell."""
 

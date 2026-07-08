@@ -1,10 +1,17 @@
 import pytest
 import io
+import sys
 from dataclasses import dataclass
 from typing import Tuple, List, Optional
 from models.board import Board
-from board_service import boardService, PendingMove, Jump, default_promote_pawn
 from models.pieces import Piece, get_piece
+from services.board_service import boardService
+from services.game_over_service import GameOverService
+from services.jump_service import JumpService, Jump
+from services.move_execution_service import MoveExecutionService
+from services.move_scheduler import MoveScheduler, PendingMove
+from services.move_validation_service import MoveValidationService
+
 
 # Simple mock Piece for testing DI and behavior
 class MockSimplePiece(Piece):
@@ -36,62 +43,68 @@ class MockSimplePiece(Piece):
     def get_travel_duration(self, from_y, from_x, to_y, to_x) -> int:
         return self._travel_duration
 
+    def promote(self, to_y: int, grid_height: int) -> str:
+        if self._is_pawn:
+            is_white_promotion = (self.color == 'w' and to_y == 0)
+            is_black_promotion = (self.color == 'b' and to_y == grid_height - 1)
+            if is_white_promotion or is_black_promotion:
+                return self.color + "Q"
+        return self.token
 
-def test_default_promote_pawn():
-    # Not a pawn
-    non_pawn = MockSimplePiece("w", name_val="R", is_pawn_val=False)
-    assert default_promote_pawn(non_pawn, 0, 8) == "wR"
 
-    # White pawn reaching back rank (to_y = 0)
-    white_pawn = MockSimplePiece("w", name_val="P", is_pawn_val=True)
-    assert default_promote_pawn(white_pawn, 0, 8) == "wQ"
+def create_service(board, get_piece_fn=get_piece, stdout=sys.stdout):
+    if get_piece_fn is not get_piece:
+        board.get_piece_at = lambda y, x: get_piece_fn(board.grid[y][x])
+    game_over = GameOverService(board)
+    exec_service = MoveExecutionService(board, game_over)
+    jump_service = JumpService()
+    scheduler = MoveScheduler(board, jump_service, exec_service)
+    validation = MoveValidationService(board, scheduler)
 
-    # White pawn not reaching back rank
-    assert default_promote_pawn(white_pawn, 1, 8) == "wP"
-
-    # Black pawn reaching back rank (to_y = H-1 = 7)
-    black_pawn = MockSimplePiece("b", name_val="P", is_pawn_val=True)
-    assert default_promote_pawn(black_pawn, 7, 8) == "bQ"
-
-    # Black pawn not reaching back rank
-    assert default_promote_pawn(black_pawn, 6, 8) == "bP"
+    return boardService(
+        board=board,
+        stdout=stdout,
+        move_scheduler=scheduler,
+        move_validation_service=validation,
+        jump_service=jump_service,
+    )
 
 
 def test_board_service_bounds():
     board = Board(["wK .", ". ."])
-    service = boardService(board)
-    assert service._is_within_bounds(0, 0) is True
-    assert service._is_within_bounds(1, 1) is True
-    assert service._is_within_bounds(-1, 0) is False
-    assert service._is_within_bounds(0, 2) is False
-    assert service._is_within_bounds(2, 0) is False
+    service = create_service(board)
+    assert service.move_validation_service.is_within_bounds(0, 0) is True
+    assert service.move_validation_service.is_within_bounds(1, 1) is True
+    assert service.move_validation_service.is_within_bounds(-1, 0) is False
+    assert service.move_validation_service.is_within_bounds(0, 2) is False
+    assert service.move_validation_service.is_within_bounds(2, 0) is False
 
 
 def test_board_service_movement_queries():
     board = Board(["wK .", ". ."])
-    service = boardService(board)
+    service = create_service(board)
     p = MockSimplePiece("w")
-    service.pending_moves.append(PendingMove(
+    service.move_scheduler.get_pending_moves().append(PendingMove(
         from_pos=(0, 0),
         to_pos=(1, 1),
         piece=p,
         arrival=1000
     ))
-    assert service._is_piece_moving(0, 0) is True
-    assert service._is_piece_moving(1, 1) is False
-    assert service._is_destination_reserved(0, 0) is False
-    assert service._is_destination_reserved(1, 1) is True
+    assert service.move_validation_service.is_piece_moving(0, 0) is True
+    assert service.move_validation_service.is_piece_moving(1, 1) is False
+    assert service.move_validation_service.is_destination_reserved(0, 0) is False
+    assert service.move_validation_service.is_destination_reserved(1, 1) is True
 
 
 def test_board_service_airborne_enemy_capture():
     board = Board(["wP .", ". bP"])
-    service = boardService(board)
+    service = create_service(board)
     
     white_piece = MockSimplePiece("w")
     black_piece = MockSimplePiece("b")
     
     # Add a jump by white piece on cell (1, 1) from t=0 to t=1000
-    service.jumps.append(Jump(
+    service.jump_service.jumps.append(Jump(
         cell=(1, 1),
         start=0,
         end=1000,
@@ -99,33 +112,41 @@ def test_board_service_airborne_enemy_capture():
     ))
     
     # Black piece arrives at (1, 1) at t=500. Should be captured by white airborne enemy.
-    assert service._is_captured_by_airborne_enemy((1, 1), 500, black_piece) is True
+    assert service.jump_service.is_captured_by_airborne_enemy((1, 1), 500, black_piece) is True
     
     # White piece arrives at (1, 1) at t=500. Same color, should NOT be captured.
-    assert service._is_captured_by_airborne_enemy((1, 1), 500, white_piece) is False
+    assert service.jump_service.is_captured_by_airborne_enemy((1, 1), 500, white_piece) is False
     
     # Black piece arrives at (1, 1) at t=1500 (after jump ended).
-    assert service._is_captured_by_airborne_enemy((1, 1), 1500, black_piece) is False
+    assert service.jump_service.is_captured_by_airborne_enemy((1, 1), 1500, black_piece) is False
     
     # Black piece arrives at (0, 0) (different cell).
-    assert service._is_captured_by_airborne_enemy((0, 0), 500, black_piece) is False
+    assert service.jump_service.is_captured_by_airborne_enemy((0, 0), 500, black_piece) is False
 
 
 def test_board_service_check_game_over():
     board = Board(["wK bK", ". ."])
-    service = boardService(board)
-    # destination has non-king
-    service._check_game_over((1, 0))
-    assert service.game_over is False
+    
+    def get_piece_mock(token):
+        if token == "wK":
+            return MockSimplePiece("w", is_king_val=True)
+        if token == "bK":
+            return MockSimplePiece("b", is_king_val=True)
+        return None
+
+    board.get_piece_at = lambda y, x: get_piece_mock(board.grid[y][x])
+    game_over_service = GameOverService(board)
+    # destination has non-king (empty)
+    assert game_over_service.check_game_over((1, 0)) is False
 
     # destination has king
-    service._check_game_over((0, 1))
-    assert service.game_over is True
+    assert game_over_service.check_game_over((0, 1)) is True
 
 
 def test_execute_move_captured():
     board = Board(["wP .", ". ."])
-    service = boardService(board)
+    game_over = GameOverService(board)
+    exec_service = MoveExecutionService(board, game_over)
     move = PendingMove(
         from_pos=(0, 0),
         to_pos=(1, 1),
@@ -133,35 +154,36 @@ def test_execute_move_captured():
         arrival=1000
     )
     # Piece is captured. Grid at from_pos should be cleared.
-    service._execute_move(move, is_captured=True)
+    exec_service.execute_move(move, is_captured=True)
     assert board.grid[0][0] == "."
     assert board.grid[1][1] == "."
 
     # Check that source is not cleared if the token doesn't match
     board2 = Board(["wP .", ". ."])
-    service2 = boardService(board2)
+    exec_service2 = MoveExecutionService(board2, game_over)
     # Alter source token first
     board2.grid[0][0] = "."
-    service2._execute_move(move, is_captured=True)
+    exec_service2.execute_move(move, is_captured=True)
     assert board2.grid[0][0] == "."
 
 
 def test_execute_move_success():
     board = Board(["wP .", ". ."])
-    service = boardService(board)
+    game_over = GameOverService(board)
+    exec_service = MoveExecutionService(board, game_over)
     move = PendingMove(
         from_pos=(0, 0),
         to_pos=(1, 1),
         piece=MockSimplePiece("w"),
         arrival=1000
     )
-    service._execute_move(move, is_captured=False)
+    exec_service.execute_move(move, is_captured=False)
     assert board.grid[0][0] == "."
     assert board.grid[1][1] == "wP"
 
     # With non-matching source token
     board2 = Board(["wP .", ". ."])
-    service2 = boardService(board2)
+    exec_service2 = MoveExecutionService(board2, game_over)
     board2.grid[0][0] = "bK"
     move2 = PendingMove(
         from_pos=(0, 0),
@@ -169,34 +191,34 @@ def test_execute_move_success():
         piece=MockSimplePiece("w"),
         arrival=1000
     )
-    service2._execute_move(move2, is_captured=False)
+    exec_service2.execute_move(move2, is_captured=False)
     assert board2.grid[0][0] == "bK"
     assert board2.grid[1][1] == "wP"
 
 
 def test_apply_completed_moves():
     board = Board(["wP .", ". ."])
-    service = boardService(board)
+    service = create_service(board)
     p = MockSimplePiece("w")
-    service.pending_moves.extend([
+    service.move_scheduler.get_pending_moves().extend([
         PendingMove((0, 0), (1, 1), p, 1000),
         PendingMove((0, 1), (1, 0), p, 2000)
     ])
     
     # Wait until t=500. Nothing should happen.
     service.wait(500)
-    assert len(service.pending_moves) == 2
+    assert len(service.move_scheduler.get_pending_moves()) == 2
     
     # Wait until t=1200. First move should execute.
     service.wait(700) # clock is now 1200
-    assert len(service.pending_moves) == 1
+    assert len(service.move_scheduler.get_pending_moves()) == 1
     assert board.grid[1][1] == "wP"
     assert board.grid[0][0] == "."
 
 
 def test_click_edge_cases():
     board = Board(["wP .", ". bP"])
-    service = boardService(board)
+    service = create_service(board)
 
     # Click out of bounds
     service.click(-100, 0)
@@ -212,7 +234,7 @@ def test_click_edge_cases():
 
     # Click a friendly piece when another friendly is selected -> change selection
     board_friendly = Board(["wP wP", ". ."])
-    service_friendly = boardService(board_friendly)
+    service_friendly = create_service(board_friendly)
     service_friendly.click(50, 0) # selects (0, 0)
     assert service_friendly.selected_piece == (0, 0)
     service_friendly.click(150, 0) # clicks (0, 1) -> friendly wP
@@ -222,22 +244,22 @@ def test_click_edge_cases():
 def test_click_move_scheduling():
     # Use a board layout where white pawn (wP) at (1, 0) can legally move to (0, 0).
     board = Board([". .", "wP ."])
-    service = boardService(board)
+    service = create_service(board)
 
     # Click and select (1, 0)
     service.click(50, 100)
     assert service.selected_piece == (1, 0)
     # Click (0, 0) -> schedules move
     service.click(50, 0)
-    assert len(service.pending_moves) == 1
+    assert len(service.move_scheduler.get_pending_moves()) == 1
     assert service.selected_piece is None
-    assert service.pending_moves[0].from_pos == (1, 0)
-    assert service.pending_moves[0].to_pos == (0, 0)
+    assert service.move_scheduler.get_pending_moves()[0].from_pos == (1, 0)
+    assert service.move_scheduler.get_pending_moves()[0].to_pos == (0, 0)
 
 
 def test_click_move_scheduling_none_piece():
     board = Board([". .", "wP ."])
-    service = boardService(board)
+    service = create_service(board)
     # Click and select (1, 0)
     service.click(50, 100)
     assert service.selected_piece == (1, 0)
@@ -245,9 +267,9 @@ def test_click_move_scheduling_none_piece():
     board.grid[1][0] = "."
     # Click (0, 0) -> schedules move with None piece and default duration 1000
     service.click(50, 0)
-    assert len(service.pending_moves) == 1
-    assert service.pending_moves[0].piece is None
-    assert service.pending_moves[0].arrival == 1000
+    assert len(service.move_scheduler.get_pending_moves()) == 1
+    assert service.move_scheduler.get_pending_moves()[0].piece is None
+    assert service.move_scheduler.get_pending_moves()[0].arrival == 1000
 
 
 def test_click_while_moving_or_reserved_tricked():
@@ -255,44 +277,39 @@ def test_click_while_moving_or_reserved_tricked():
         def __bool__(self):
             return False
 
-    class TrickBoardService(boardService):
-        def _apply_completed_moves(self) -> None:
-            pass
-
     board = Board(["wP wP", ". ."])
-    service = TrickBoardService(board)
+    service = create_service(board)
+    service.move_scheduler.apply_completed_moves = lambda: False
     
     # 1. Test clicking a cell that is currently moving (first check: cell_y, cell_x is moving)
     p = get_piece("wP")
-    service.pending_moves = TrickList([PendingMove((0, 0), (1, 0), p, 1000)])
+    service.move_scheduler.pending_moves = TrickList([PendingMove((0, 0), (1, 0), p, 1000)])
     service.click(50, 0) # Click (0, 0) which is moving
     assert service.selected_piece is None
 
     # 2. Test selected piece is already in transit (third check: sel_y, sel_x is moving)
-    # selected_piece is (0, 0) (which is moving). Click (1, 0) (empty cell, not friendly)
     service.selected_piece = (0, 0)
     service.click(50, 100) # Clicks (1, 0)
-    assert len(service.pending_moves) == 1
+    assert len(service.move_scheduler.get_pending_moves()) == 1
     assert service.selected_piece == (0, 0)
 
     # 3. Test destination is targeted by another pending move (fourth check: destination reserved)
-    # Put a pending move targeting (1, 0)
-    service.pending_moves = TrickList([PendingMove((0, 1), (1, 0), p, 1000)])
+    service.move_scheduler.pending_moves = TrickList([PendingMove((0, 1), (1, 0), p, 1000)])
     service.selected_piece = (0, 0) # (0, 0) is not moving
     service.click(50, 100) # Click (1, 0) (destination is reserved)
-    assert len(service.pending_moves) == 1
+    assert len(service.move_scheduler.get_pending_moves()) == 1
     assert service.selected_piece == (0, 0)
 
 
 def test_click_game_over_and_pending_moves_return():
     board = Board(["wP .", ". ."])
-    service = boardService(board)
+    service = create_service(board)
     service.game_over = True
     service.click(50, 0)
     assert service.selected_piece is None
 
     service.game_over = False
-    service.pending_moves.append(PendingMove((0, 0), (1, 1), MockSimplePiece("w"), 1000))
+    service.move_scheduler.get_pending_moves().append(PendingMove((0, 0), (1, 1), MockSimplePiece("w"), 1000))
     service.click(50, 0)
     assert service.selected_piece is None
 
@@ -306,7 +323,7 @@ def test_click_illegal_move_retains_selection():
             return mock_piece
         return None
 
-    service = boardService(board, get_piece_fn=mock_get_piece)
+    service = create_service(board, get_piece_fn=mock_get_piece)
     # Select (0, 0)
     service.click(50, 0)
     assert service.selected_piece == (0, 0)
@@ -314,49 +331,49 @@ def test_click_illegal_move_retains_selection():
     service.click(950, 950)
     # Selection should still be retained
     assert service.selected_piece == (0, 0)
-    assert len(service.pending_moves) == 0
+    assert len(service.move_scheduler.get_pending_moves()) == 0
 
 
 def test_jump():
     board = Board(["wP .", ". ."])
-    service = boardService(board)
+    service = create_service(board)
 
     # Jump out of bounds
     service.jump(-100, 0)
-    assert len(service.jumps) == 0
+    assert len(service.jump_service.jumps) == 0
 
     # Jump on empty cell
     service.jump(150, 0) # cell (0, 1) -> '.'
-    assert len(service.jumps) == 0
+    assert len(service.jump_service.jumps) == 0
 
     # Jump on moving piece (ignored)
     p = get_piece("wP")
-    service.pending_moves.append(PendingMove((0, 0), (1, 0), p, 1000))
+    service.move_scheduler.get_pending_moves().append(PendingMove((0, 0), (1, 0), p, 1000))
     service.jump(50, 0) # cell (0, 0)
-    assert len(service.jumps) == 0
+    assert len(service.jump_service.jumps) == 0
 
     # Jump on destination reserved cell (ignored)
     service.jump(50, 100) # cell (1, 0) -> reserved destination
-    assert len(service.jumps) == 0
+    assert len(service.jump_service.jumps) == 0
 
     # Valid jump
-    service.pending_moves.clear()
+    service.move_scheduler.get_pending_moves().clear()
     service.jump(50, 0)
-    assert len(service.jumps) == 1
-    assert service.jumps[0].cell == (0, 0)
-    assert service.jumps[0].start == 0
-    assert service.jumps[0].end == 1000
+    assert len(service.jump_service.jumps) == 1
+    assert service.jump_service.jumps[0].cell == (0, 0)
+    assert service.jump_service.jumps[0].start == 0
+    assert service.jump_service.jumps[0].end == 1000
 
     # Jump after game over (ignored)
     service.game_over = True
-    service.jumps.clear()
+    service.jump_service.jumps.clear()
     service.jump(50, 0)
-    assert len(service.jumps) == 0
+    assert len(service.jump_service.jumps) == 0
 
 
 def test_print_board():
     board = Board(["wP .", ". bP"])
     output = io.StringIO()
-    service = boardService(board, stdout=output)
+    service = create_service(board, stdout=output)
     service.print_board()
     assert output.getvalue() == "wP .\n. bP\n"

@@ -2,6 +2,7 @@ import pytest
 import io
 import sys
 from exceptions import UnknownTokenError, RowWidthMismatchError
+from models.board import Board
 from main import (
     read_input_lines,
     find_section_indices,
@@ -101,6 +102,13 @@ def test_execute_commands():
         ("wait", 500),
         ("jump", 300, 400)
     ]
+
+
+def test_execute_commands_default_class():
+    board = Board(["wP .", ". ."])
+    output = io.StringIO()
+    execute_commands(board, ["print board"], stdout=output)
+    assert output.getvalue() == "wP .\n. .\n"
 
 
 def test_main_missing_board():

@@ -1,7 +1,7 @@
 import sys
 from models.board import Board
 from exceptions import UnknownTokenError, RowWidthMismatchError
-from board_service import boardService
+from services.board_service import boardService
 
 
 def read_input_lines(stdin=sys.stdin):
@@ -45,7 +45,28 @@ def extract_command_lines(lines, commands_start):
 
 def execute_commands(board, commands, board_service_class=boardService, stdout=sys.stdout):
     """Executes parsed commands against the initialized board using boardService."""
-    service = board_service_class(board, stdout=stdout)
+    if board_service_class is boardService:
+        from services.game_over_service import GameOverService
+        from services.jump_service import JumpService
+        from services.move_execution_service import MoveExecutionService
+        from services.move_scheduler import MoveScheduler
+        from services.move_validation_service import MoveValidationService
+
+        game_over = GameOverService(board)
+        exec_service = MoveExecutionService(board, game_over)
+        jump_service = JumpService()
+        scheduler = MoveScheduler(board, jump_service, exec_service)
+        validation = MoveValidationService(board, scheduler)
+
+        service = boardService(
+            board=board,
+            stdout=stdout,
+            move_scheduler=scheduler,
+            move_validation_service=validation,
+            jump_service=jump_service,
+        )
+    else:
+        service = board_service_class(board, stdout=stdout)
     for cmd in commands:
         if cmd == "print board":
             service.print_board()

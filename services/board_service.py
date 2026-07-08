@@ -1,0 +1,91 @@
+import sys
+from typing import Tuple, List, Optional, Callable
+from models.pieces import get_piece, Piece
+from services.move_scheduler import MoveScheduler, PendingMove
+from services.move_validation_service import MoveValidationService
+from services.jump_service import JumpService, Jump
+
+
+class boardService:
+    def __init__(
+        self,
+        board,
+        stdout,
+        move_scheduler: MoveScheduler,
+        move_validation_service: MoveValidationService,
+        jump_service: JumpService,
+    ):
+        self.board = board
+        self.stdout = stdout
+        self.move_scheduler = move_scheduler
+        self.move_validation_service = move_validation_service
+        self.jump_service = jump_service
+
+        self.selected_piece: Optional[Tuple[int, int]] = None
+        self.game_over: bool = False
+
+
+    def click(self, x: int, y: int) -> None:
+        if self.move_scheduler.apply_completed_moves():
+            self.game_over = True
+        if self.game_over or self.move_scheduler.get_pending_moves():
+            return
+
+        cell_y = y // 100
+        cell_x = x // 100
+
+        if not self.move_validation_service.is_within_bounds(cell_y, cell_x):
+            return
+
+        piece = self.board.get_piece_at(cell_y, cell_x)
+
+        if self.selected_piece is None:
+            if piece is not None:
+                if not self.move_validation_service.is_piece_moving(cell_y, cell_x):
+                    self.selected_piece = (cell_y, cell_x)
+            return
+
+        sel_y, sel_x = self.selected_piece
+        
+        sel_piece = self.board.get_piece_at(sel_y, sel_x)
+        
+        if piece is not None and sel_piece is not None and piece.color == sel_piece.color:
+            if not self.move_validation_service.is_piece_moving(cell_y, cell_x):
+                self.selected_piece = (cell_y, cell_x)
+            return
+
+        is_valid, piece_to_move, duration = self.move_validation_service.validate_move(
+            sel_y, sel_x, cell_y, cell_x
+        )
+        if is_valid:
+            self.move_scheduler.schedule_move((sel_y, sel_x), (cell_y, cell_x), piece_to_move, duration)
+            self.selected_piece = None
+
+    def jump(self, x: int, y: int) -> None:
+        if self.move_scheduler.apply_completed_moves():
+            self.game_over = True
+        if self.game_over:
+            return
+
+        cell_y = y // 100
+        cell_x = x // 100
+
+        if self.move_validation_service.validate_jump(cell_y, cell_x):
+            piece = self.board.get_piece_at(cell_y, cell_x)
+            self.jump_service.schedule_jump(
+                cell=(cell_y, cell_x),
+                start_time=self.move_scheduler.get_clock(),
+                piece=piece
+            )
+
+    def wait(self, ms: int) -> None:
+        self.move_scheduler.advance_clock(ms)
+        if self.move_scheduler.apply_completed_moves():
+            self.game_over = True
+
+    def print_board(self) -> None:
+        """Prints the board in canonical space-separated format."""
+        if self.move_scheduler.apply_completed_moves():
+            self.game_over = True
+        for row in self.board.grid:
+            print(" ".join(row), file=self.stdout)

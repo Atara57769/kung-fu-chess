@@ -34,6 +34,10 @@ class Piece(ABC):
         """Returns the travel duration in milliseconds."""
         return 1000
 
+    def promote(self, to_y: int, grid_height: int) -> str:
+        """Returns the promoted token (or current token by default)."""
+        return self.token
+
     def _is_path_clear(self, board, from_y, from_x, to_y, to_x) -> bool:
         """Helper to verify if the path between two cells is clear of other pieces (excluding the endpoints)."""
         dy = to_y - from_y
@@ -161,6 +165,15 @@ class Pawn(Piece):
             return target_token == '.' and intermediate_token == '.'
 
         return False
+
+    def promote(self, to_y: int, grid_height: int) -> str:
+        """Promotes a pawn to a queen if it reaches the opposite back rank."""
+        is_white_promotion = (self.color == 'w' and to_y == 0)
+        is_black_promotion = (self.color == 'b' and to_y == grid_height - 1)
+        if is_white_promotion or is_black_promotion:
+            from models.pieces import Queen
+            return Queen(self.color).token
+        return self.token
 
 
 PIECE_CLASSES = {
