@@ -1,5 +1,6 @@
 import pytest
 from models.pieces import get_piece, Piece, King, Rook, Bishop, Queen, Knight, Pawn
+from constants import DURATION
 
 # Mock board structure for tests
 class MockBoard:
@@ -18,7 +19,7 @@ def test_piece_base_properties():
     # Concrete piece for base properties test
     piece = King("w")
     assert piece.token == "wK"
-    assert piece.get_travel_duration(0, 0, 1, 1) == 1000
+    assert DURATION == 1000
     assert piece.is_king is True
     assert piece.is_pawn is False
 

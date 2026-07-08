@@ -1,5 +1,6 @@
 from typing import List, Tuple, Optional, Callable
 from models.pieces import Piece
+from constants import DURATION
 
 class MoveValidationService:
     def __init__(self, board, move_scheduler):
@@ -44,10 +45,7 @@ class MoveValidationService:
 
         # Check legality
         if self.is_legal_move(sel_piece, sel_y, sel_x, to_y, to_x):
-            duration = 1000
-            if sel_piece is not None:
-                duration = sel_piece.get_travel_duration(sel_y, sel_x, to_y, to_x)
-            return True, sel_piece, duration
+            return True, sel_piece, DURATION
 
         return False, None, 0
 

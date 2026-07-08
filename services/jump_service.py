@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Tuple, List
 from models.pieces import Piece
+from constants import DURATION
 
 @dataclass
 class Jump:
@@ -14,11 +15,10 @@ class JumpService:
         self.jumps: List[Jump] = []
 
     def schedule_jump(self, cell: Tuple[int, int], start_time: int, piece: Piece) -> None:
-        duration = piece.get_travel_duration(cell[0], cell[1], cell[0], cell[1]) if piece is not None else Piece.get_travel_duration(None, cell[0], cell[1], cell[0], cell[1])
         self.jumps.append(Jump(
             cell=cell,
             start=start_time,
-            end=start_time + duration,
+            end=start_time + DURATION,
             piece=piece
         ))
 

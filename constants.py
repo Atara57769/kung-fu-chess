@@ -1,0 +1,5 @@
+CELL_SIZE = 100
+EMPTY_TOKEN = '.'
+VALID_COLORS = {'w', 'b'}
+VALID_PIECES = {'K', 'Q', 'R', 'B', 'N', 'P'}
+DURATION = 1000

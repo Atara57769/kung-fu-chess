@@ -15,12 +15,11 @@ from services.move_validation_service import MoveValidationService
 
 # Simple mock Piece for testing DI and behavior
 class MockSimplePiece(Piece):
-    def __init__(self, color, name_val="P", is_king_val=False, is_pawn_val=False, travel_duration=1000):
+    def __init__(self, color, name_val="P", is_king_val=False, is_pawn_val=False):
         super().__init__(color)
         self._name = name_val
         self._is_king = is_king_val
         self._is_pawn = is_pawn_val
-        self._travel_duration = travel_duration
 
     @property
     def is_king(self) -> bool:
@@ -39,9 +38,6 @@ class MockSimplePiece(Piece):
         if to_y == 9 and to_x == 9:
             return False
         return True
-
-    def get_travel_duration(self, from_y, from_x, to_y, to_x) -> int:
-        return self._travel_duration
 
     def promote(self, to_y: int, grid_height: int) -> str:
         if self._is_pawn:

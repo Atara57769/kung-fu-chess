@@ -4,6 +4,7 @@ from models.pieces import get_piece, Piece
 from services.move_scheduler import MoveScheduler, PendingMove
 from services.move_validation_service import MoveValidationService
 from services.jump_service import JumpService, Jump
+from constants import CELL_SIZE
 
 
 class boardService:
@@ -31,8 +32,8 @@ class boardService:
         if self.game_over or self.move_scheduler.get_pending_moves():
             return
 
-        cell_y = y // 100
-        cell_x = x // 100
+        cell_y = y // CELL_SIZE
+        cell_x = x // CELL_SIZE
 
         if not self.move_validation_service.is_within_bounds(cell_y, cell_x):
             return
@@ -67,8 +68,8 @@ class boardService:
         if self.game_over:
             return
 
-        cell_y = y // 100
-        cell_x = x // 100
+        cell_y = y // CELL_SIZE
+        cell_x = x // CELL_SIZE
 
         if self.move_validation_service.validate_jump(cell_y, cell_x):
             piece = self.board.get_piece_at(cell_y, cell_x)

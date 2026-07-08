@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from constants import EMPTY_TOKEN
 
 class Piece(ABC):
     def __init__(self, color):
@@ -30,10 +31,6 @@ class Piece(ABC):
         """Determines if the move from (from_y, from_x) to (to_y, to_x) is legal for this piece."""
         pass
 
-    def get_travel_duration(self, from_y, from_x, to_y, to_x) -> int:
-        """Returns the travel duration in milliseconds."""
-        return 1000
-
     def promote(self, to_y: int, grid_height: int) -> str:
         """Returns the promoted token (or current token by default)."""
         return self.token
@@ -48,18 +45,18 @@ class Piece(ABC):
         if dy == 0:
             step = 1 if dx > 0 else -1
             for x in range(from_x + step, to_x, step):
-                if board.grid[from_y][x] != '.':
+                if board.grid[from_y][x] != EMPTY_TOKEN:
                     return False
         elif dx == 0:
             step = 1 if dy > 0 else -1
             for y in range(from_y + step, to_y, step):
-                if board.grid[y][from_x] != '.':
+                if board.grid[y][from_x] != EMPTY_TOKEN:
                     return False
         elif abs_dx == abs_dy:
             step_x = 1 if dx > 0 else -1
             step_y = 1 if dy > 0 else -1
             for i in range(1, abs_dx):
-                if board.grid[from_y + i * step_y][from_x + i * step_x] != '.':
+                if board.grid[from_y + i * step_y][from_x + i * step_x] != EMPTY_TOKEN:
                     return False
         return True
 
@@ -157,12 +154,12 @@ class Pawn(Piece):
 
         if dy == expected_dy:
             if dx == 0:
-                return target_token == '.'
+                return target_token == EMPTY_TOKEN
             elif abs(dx) == 1:
-                return target_token != '.'
+                return target_token != EMPTY_TOKEN
         elif dy == 2 * expected_dy and from_y == start_row and dx == 0:
             intermediate_token = board.grid[from_y + expected_dy][from_x]
-            return target_token == '.' and intermediate_token == '.'
+            return target_token == EMPTY_TOKEN and intermediate_token == EMPTY_TOKEN
 
         return False
 
@@ -187,7 +184,7 @@ PIECE_CLASSES = {
 
 
 def get_piece(token) -> Piece:
-    if token == '.':
+    if token == EMPTY_TOKEN:
         return None
     if len(token) < 2:
         return None

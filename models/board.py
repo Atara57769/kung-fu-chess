@@ -1,10 +1,11 @@
 from exceptions import UnknownTokenError, RowWidthMismatchError
 from models.pieces import get_piece
+from constants import EMPTY_TOKEN, VALID_COLORS, VALID_PIECES
 
 
 class Board:
-    VALID_PIECES = {'K', 'Q', 'R', 'B', 'N', 'P'}
-    VALID_COLORS = {'w', 'b'}
+    VALID_PIECES = VALID_PIECES
+    VALID_COLORS = VALID_COLORS
     def __init__(self, board_lines):
         """Initializes the board grid and width."""
         self.grid = []
@@ -19,7 +20,7 @@ class Board:
     def _validate_token(self, token):
         """Validates a single token representing a board cell."""
 
-        if token == '.':
+        if token == EMPTY_TOKEN:
             return
         if len(token) == 2 and token[0] in self.VALID_COLORS and token[1] in self.VALID_PIECES:
             return
