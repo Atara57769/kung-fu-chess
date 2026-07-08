@@ -1,6 +1,18 @@
+import sys
 from dataclasses import dataclass
 from typing import Tuple, List, Optional
 from models.pieces import get_piece, Piece
+
+
+def default_promote_pawn(piece: Piece, to_y: int, grid_height: int) -> str:
+    """Promotes a pawn to a queen if it reaches the opposite back rank."""
+    if piece.is_pawn:
+        is_white_promotion = (piece.color == 'w' and to_y == 0)
+        is_black_promotion = (piece.color == 'b' and to_y == grid_height - 1)
+        if is_white_promotion or is_black_promotion:
+            from models.pieces import Queen
+            return Queen(piece.color).token
+    return piece.token
 
 
 @dataclass
@@ -20,8 +32,11 @@ class Jump:
 
 
 class boardService:
-    def __init__(self, board):
+    def __init__(self, board, get_piece_fn=get_piece, promote_pawn_fn=default_promote_pawn, stdout=sys.stdout):
         self.board = board
+        self.get_piece = get_piece_fn
+        self.promote_pawn = promote_pawn_fn
+        self.stdout = stdout
         self.selected_piece: Optional[Tuple[int, int]] = None
         self.clock: int = 0
         self.pending_moves: List[PendingMove] = []
@@ -52,19 +67,13 @@ class boardService:
         """Checks if the destination cell contains an enemy king, setting game_over to True if so."""
         dest_y, dest_x = target_cell
         dest_token = self.board.grid[dest_y][dest_x]
-        dest_piece = get_piece(dest_token)
+        dest_piece = self.get_piece(dest_token)
         if dest_piece is not None and dest_piece.is_king:
             self.game_over = True
 
     def _promote_pawn(self, piece: Piece, to_y: int) -> str:
         """Promotes a pawn to a queen if it reaches the opposite back rank."""
-        if piece.is_pawn:
-            is_white_promotion = (piece.color == 'w' and to_y == 0)
-            is_black_promotion = (piece.color == 'b' and to_y == len(self.board.grid) - 1)
-            if is_white_promotion or is_black_promotion:
-                from models.pieces import Queen
-                return Queen(piece.color).token
-        return piece.token
+        return self.promote_pawn(piece, to_y, len(self.board.grid))
 
     def _execute_move(self, move: PendingMove, is_captured: bool) -> None:
         """Applies or discards the move based on whether the arriving piece was captured in transit."""
@@ -131,13 +140,11 @@ class boardService:
         sel_y, sel_x = self.selected_piece
         sel_token = self.board.grid[sel_y][sel_x]
         
-        piece = get_piece(token)
-        sel_piece = get_piece(sel_token)
+        piece = self.get_piece(token)
+        sel_piece = self.get_piece(sel_token)
 
         # If clicking another friendly piece, replace the selection
         if piece is not None and sel_piece is not None and piece.color == sel_piece.color:
-            if self._is_piece_moving(cell_y, cell_x):
-                return
             self.selected_piece = (cell_y, cell_x)
             return
 
@@ -184,7 +191,7 @@ class boardService:
         if self._is_piece_moving(cell_y, cell_x) or self._is_destination_reserved(cell_y, cell_x):
             return
 
-        piece = get_piece(token)
+        piece = self.get_piece(token)
         if piece is not None:
             # Schedule the jump
             self.jumps.append(Jump(
@@ -202,4 +209,4 @@ class boardService:
         """Prints the board in canonical space-separated format."""
         self._apply_completed_moves()
         for row in self.board.grid:
-            print(" ".join(row))
+            print(" ".join(row), file=self.stdout)

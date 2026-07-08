@@ -4,10 +4,10 @@ from exceptions import UnknownTokenError, RowWidthMismatchError
 from board_service import boardService
 
 
-def read_input_lines():
+def read_input_lines(stdin=sys.stdin):
     """Reads lines from standard input and strips surrounding whitespace."""
     try:
-        input_data = sys.stdin.read()
+        input_data = stdin.read()
     except KeyboardInterrupt:
         return []
     return [line.strip() for line in input_data.splitlines()]
@@ -43,9 +43,9 @@ def extract_command_lines(lines, commands_start):
     return [cmd for cmd in lines[commands_start + 1 :] if cmd]
 
 
-def execute_commands(board, commands):
+def execute_commands(board, commands, board_service_class=boardService, stdout=sys.stdout):
     """Executes parsed commands against the initialized board using boardService."""
-    service = boardService(board)
+    service = board_service_class(board, stdout=stdout)
     for cmd in commands:
         if cmd == "print board":
             service.print_board()
@@ -77,9 +77,9 @@ def execute_commands(board, commands):
                     pass
 
 
-def main():
+def main(stdin=sys.stdin, stdout=sys.stdout, exit_fn=sys.exit, board_class=Board, board_service_class=boardService):
     """Main orchestration flow of parsing, validating, and executing commands."""
-    lines = read_input_lines()
+    lines = read_input_lines(stdin)
     board_start, commands_start = find_section_indices(lines)
     
     if board_start == -1:
@@ -89,15 +89,17 @@ def main():
     commands = extract_command_lines(lines, commands_start)
 
     try:
-        board = Board(board_lines)
+        board = board_class(board_lines)
     except UnknownTokenError:
-        print("ERROR UNKNOWN_TOKEN")
-        sys.exit(0)
+        print("ERROR UNKNOWN_TOKEN", file=stdout)
+        exit_fn(0)
+        return
     except RowWidthMismatchError:
-        print("ERROR ROW_WIDTH_MISMATCH")
-        sys.exit(0)
+        print("ERROR ROW_WIDTH_MISMATCH", file=stdout)
+        exit_fn(0)
+        return
 
-    execute_commands(board, commands)
+    execute_commands(board, commands, board_service_class=board_service_class, stdout=stdout)
 
 
 if __name__ == "__main__":
