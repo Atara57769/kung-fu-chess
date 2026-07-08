@@ -3,11 +3,9 @@ import io
 from typing import Tuple, List, Optional
 from models.pieces import Piece, Queen, King, Pawn, get_piece
 from models.board import Board
-from services.game_over_service import GameOverService
 from services.jump_service import JumpService, Jump
 from services.move_scheduler import MoveScheduler, PendingMove
 from services.move_validation_service import MoveValidationService
-from services.move_execution_service import MoveExecutionService
 from services.board_service import boardService
 
 
@@ -65,7 +63,8 @@ def test_game_over_service():
         return None
 
     board.get_piece_at = lambda y, x: get_piece_mock(board.grid[y][x])
-    service = GameOverService(board)
+    jump_service = JumpService()
+    service = MoveScheduler(board, jump_service)
     
     assert service.check_game_over((0, 0)) is True
     assert service.check_game_over((0, 1)) is False
@@ -97,9 +96,7 @@ def test_jump_service():
 def test_move_scheduler():
     board = Board(["wP .", ". ."])
     jump_service = JumpService()
-    game_over = GameOverService(board)
-    exec_service = MoveExecutionService(board, game_over)
-    scheduler = MoveScheduler(jump_service, exec_service)
+    scheduler = MoveScheduler(board, jump_service)
     p = DummyPiece("w")
     
     scheduler.schedule_move((0, 0), (1, 1), p, 1500)
@@ -113,9 +110,7 @@ def test_move_scheduler():
 def test_move_validation_service():
     board = Board(["wK .", ". ."])
     jump_service = JumpService()
-    game_over = GameOverService(board)
-    exec_service = MoveExecutionService(board, game_over)
-    scheduler = MoveScheduler(jump_service, exec_service)
+    scheduler = MoveScheduler(board, jump_service)
     service = MoveValidationService(board, scheduler)
 
     # is_within_bounds
@@ -147,28 +142,21 @@ def test_move_execution_service():
     p_white_pawn = PromotableDummyPiece("w", name_val="P", is_pawn_val=True)
     move = PendingMove((0, 0), (1, 1), p_white_pawn, 1000)
 
-    class MockGameOverService:
-        def check_game_over(self, target_cell):
-            return True
-
-    exec_service = MoveExecutionService(
-        board=board,
-        game_over_service=MockGameOverService()
-    )
+    jump_service = JumpService()
+    scheduler = MoveScheduler(board, jump_service)
+    scheduler.check_game_over = lambda pos: True
 
     # Move success, check promotion and game over propagation
-    is_game_over = exec_service.execute_move(move, is_captured=False)
+    is_game_over = scheduler.execute_move(move, is_captured=False)
     assert is_game_over is True
     assert board.grid[0][0] == "."
     assert board.grid[1][1] == "wQ"
 
     # Reset and test captured in transit case
     board2 = Board(["wP .", ". ."])
-    exec_service2 = MoveExecutionService(
-        board=board2,
-        game_over_service=MockGameOverService()
-    )
-    is_game_over_captured = exec_service2.execute_move(move, is_captured=True)
+    scheduler2 = MoveScheduler(board2, jump_service)
+    scheduler2.check_game_over = lambda pos: True
+    is_game_over_captured = scheduler2.execute_move(move, is_captured=True)
     assert is_game_over_captured is False
     assert board2.grid[0][0] == "."
     assert board2.grid[1][1] == "."
@@ -179,9 +167,7 @@ def test_board_service_di():
     board = Board(["wP .", ". ."])
     
     custom_jump = JumpService()
-    custom_game_over = GameOverService(board)
-    custom_execution = MoveExecutionService(board, custom_game_over)
-    custom_scheduler = MoveScheduler(custom_jump, custom_execution)
+    custom_scheduler = MoveScheduler(board, custom_jump)
     custom_validation = MoveValidationService(board, custom_scheduler)
 
     import sys
@@ -228,9 +214,7 @@ def test_board_service_di():
 def test_move_validation_service_direct():
     board = Board(["wK wP", ". ."])
     jump_service = JumpService()
-    game_over = GameOverService(board)
-    exec_service = MoveExecutionService(board, game_over)
-    scheduler = MoveScheduler(jump_service, exec_service)
+    scheduler = MoveScheduler(board, jump_service)
     service = MoveValidationService(board, scheduler)
 
     # 1. Target out of bounds
@@ -261,9 +245,7 @@ def test_board_service_game_over_triggers():
     import sys
     board = Board(["wP bK", ". ."])
     jump_service = JumpService()
-    game_over = GameOverService(board)
-    exec_service = MoveExecutionService(board, game_over)
-    scheduler = MoveScheduler(jump_service, exec_service)
+    scheduler = MoveScheduler(board, jump_service)
     validation = MoveValidationService(board, scheduler)
     
     p_pawn = get_piece("wP")
@@ -276,9 +258,7 @@ def test_board_service_game_over_triggers():
 
     # Reset and check print_board() triggers game over
     board2 = Board(["wP bK", ". ."])
-    game_over2 = GameOverService(board2)
-    exec_service2 = MoveExecutionService(board2, game_over2)
-    scheduler2 = MoveScheduler(jump_service, exec_service2)
+    scheduler2 = MoveScheduler(board2, jump_service)
     validation2 = MoveValidationService(board2, scheduler2)
     scheduler2.schedule_move((0, 0), (0, 1), p_pawn, 1000)
     scheduler2.advance_clock(1000)
@@ -288,9 +268,7 @@ def test_board_service_game_over_triggers():
 
     # Reset and check jump() triggers game over
     board3 = Board(["wP bK", ". ."])
-    game_over3 = GameOverService(board3)
-    exec_service3 = MoveExecutionService(board3, game_over3)
-    scheduler3 = MoveScheduler(jump_service, exec_service3)
+    scheduler3 = MoveScheduler(board3, jump_service)
     validation3 = MoveValidationService(board3, scheduler3)
     scheduler3.schedule_move((0, 0), (0, 1), p_pawn, 1000)
     scheduler3.advance_clock(1000)
@@ -303,9 +281,7 @@ def test_board_service_click_game_over():
     import sys
     board = Board(["wP bK", ". ."])
     jump_service = JumpService()
-    game_over = GameOverService(board)
-    exec_service = MoveExecutionService(board, game_over)
-    scheduler = MoveScheduler(jump_service, exec_service)
+    scheduler = MoveScheduler(board, jump_service)
     validation = MoveValidationService(board, scheduler)
     
     p_pawn = get_piece("wP")

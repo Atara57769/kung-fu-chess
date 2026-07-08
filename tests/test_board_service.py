@@ -6,9 +6,7 @@ from typing import Tuple, List, Optional
 from models.board import Board
 from models.pieces import Piece, get_piece
 from services.board_service import boardService
-from services.game_over_service import GameOverService
 from services.jump_service import JumpService, Jump
-from services.move_execution_service import MoveExecutionService
 from services.move_scheduler import MoveScheduler, PendingMove
 from services.move_validation_service import MoveValidationService
 
@@ -51,10 +49,8 @@ class MockSimplePiece(Piece):
 def create_service(board, get_piece_fn=get_piece, stdout=sys.stdout):
     if get_piece_fn is not get_piece:
         board.get_piece_at = lambda y, x: get_piece_fn(board.grid[y][x])
-    game_over = GameOverService(board)
-    exec_service = MoveExecutionService(board, game_over)
     jump_service = JumpService()
-    scheduler = MoveScheduler(jump_service, exec_service)
+    scheduler = MoveScheduler(board, jump_service)
     validation = MoveValidationService(board, scheduler)
 
     return boardService(
@@ -131,18 +127,19 @@ def test_board_service_check_game_over():
         return None
 
     board.get_piece_at = lambda y, x: get_piece_mock(board.grid[y][x])
-    game_over_service = GameOverService(board)
+    jump_service = JumpService()
+    scheduler = MoveScheduler(board, jump_service)
     # destination has non-king (empty)
-    assert game_over_service.check_game_over((1, 0)) is False
+    assert scheduler.check_game_over((1, 0)) is False
 
     # destination has king
-    assert game_over_service.check_game_over((0, 1)) is True
+    assert scheduler.check_game_over((0, 1)) is True
 
 
 def test_execute_move_captured():
     board = Board(["wP .", ". ."])
-    game_over = GameOverService(board)
-    exec_service = MoveExecutionService(board, game_over)
+    jump_service = JumpService()
+    scheduler = MoveScheduler(board, jump_service)
     move = PendingMove(
         from_pos=(0, 0),
         to_pos=(1, 1),
@@ -150,36 +147,36 @@ def test_execute_move_captured():
         arrival=1000
     )
     # Piece is captured. Grid at from_pos should be cleared.
-    exec_service.execute_move(move, is_captured=True)
+    scheduler.execute_move(move, is_captured=True)
     assert board.grid[0][0] == "."
     assert board.grid[1][1] == "."
 
     # Check that source is not cleared if the token doesn't match
     board2 = Board(["wP .", ". ."])
-    exec_service2 = MoveExecutionService(board2, game_over)
+    scheduler2 = MoveScheduler(board2, jump_service)
     # Alter source token first
     board2.grid[0][0] = "."
-    exec_service2.execute_move(move, is_captured=True)
+    scheduler2.execute_move(move, is_captured=True)
     assert board2.grid[0][0] == "."
 
 
 def test_execute_move_success():
     board = Board(["wP .", ". ."])
-    game_over = GameOverService(board)
-    exec_service = MoveExecutionService(board, game_over)
+    jump_service = JumpService()
+    scheduler = MoveScheduler(board, jump_service)
     move = PendingMove(
         from_pos=(0, 0),
         to_pos=(1, 1),
         piece=MockSimplePiece("w"),
         arrival=1000
     )
-    exec_service.execute_move(move, is_captured=False)
+    scheduler.execute_move(move, is_captured=False)
     assert board.grid[0][0] == "."
     assert board.grid[1][1] == "wP"
 
     # With non-matching source token
     board2 = Board(["wP .", ". ."])
-    exec_service2 = MoveExecutionService(board2, game_over)
+    scheduler2 = MoveScheduler(board2, jump_service)
     board2.grid[0][0] = "bK"
     move2 = PendingMove(
         from_pos=(0, 0),
@@ -187,7 +184,7 @@ def test_execute_move_success():
         piece=MockSimplePiece("w"),
         arrival=1000
     )
-    exec_service2.execute_move(move2, is_captured=False)
+    scheduler2.execute_move(move2, is_captured=False)
     assert board2.grid[0][0] == "bK"
     assert board2.grid[1][1] == "wP"
 
