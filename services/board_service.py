@@ -1,9 +1,12 @@
 import sys
 from typing import Tuple, List, Optional, Callable
 from models.pieces import get_piece, Piece
-from services.move_scheduler import MoveScheduler, PendingMove
+from services.move_scheduler import MoveScheduler
+from models.coordinate import Coordinate
+from models.pending_move import PendingMove
 from services.move_validation_service import MoveValidationService
-from services.jump_service import JumpService, Jump
+from services.jump_service import JumpService
+from models.jump import Jump
 from constants import CELL_SIZE
 
 
@@ -27,9 +30,10 @@ class boardService:
 
 
     def click(self, x: int, y: int) -> None:
+
         if self.move_scheduler.apply_completed_moves():
             self.game_over = True
-        if self.game_over or self.move_scheduler.get_pending_moves():
+        if self.game_over:
             return
 
         cell_y = y // CELL_SIZE
@@ -59,7 +63,7 @@ class boardService:
             sel_y, sel_x, cell_y, cell_x
         )
         if is_valid:
-            self.move_scheduler.schedule_move((sel_y, sel_x), (cell_y, cell_x), piece_to_move, duration)
+            self.move_scheduler.schedule_move(Coordinate(sel_y, sel_x), Coordinate(cell_y, cell_x), piece_to_move, duration)
             self.selected_piece = None
 
     def jump(self, x: int, y: int) -> None:

@@ -1,14 +1,7 @@
-from dataclasses import dataclass
 from typing import Tuple, List
 from models.pieces import Piece
 from constants import DURATION
-
-@dataclass
-class Jump:
-    cell: Tuple[int, int]
-    start: int
-    end: int
-    piece: Piece
+from models.jump import Jump
 
 class JumpService:
     def __init__(self):

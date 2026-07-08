@@ -1,15 +1,8 @@
-from dataclasses import dataclass
 from typing import Tuple, List
-from models.pieces import Piece
 from constants import EMPTY_TOKEN
-
-
-@dataclass
-class PendingMove:
-    from_pos: Tuple[int, int]
-    to_pos: Tuple[int, int]
-    piece: Piece
-    arrival: int
+from models.coordinate import Coordinate
+from models.pending_move import PendingMove
+from models.pieces import Piece
 
 class MoveScheduler:
     def __init__(self, board ,jump_service):
@@ -24,7 +17,7 @@ class MoveScheduler:
     def get_pending_moves(self) -> List[PendingMove]:
         return self.pending_moves
 
-    def schedule_move(self, from_pos: Tuple[int, int], to_pos: Tuple[int, int], piece: Piece, duration: int) -> None:
+    def schedule_move(self, from_pos: Coordinate, to_pos: Coordinate, piece: Piece, duration: int) -> None:
         arrival = self.clock + duration
         self.pending_moves.append(PendingMove(
             from_pos=from_pos,
@@ -36,10 +29,9 @@ class MoveScheduler:
     def advance_clock(self, ms: int) -> None:
         self.clock += ms
     
-    def check_game_over(self, target_cell: Tuple[int, int]) -> bool:
+    def check_game_over(self, target_cell: Coordinate) -> bool:
         """Checks if the destination cell contains an enemy king, returning True if so."""
-        dest_y, dest_x = target_cell
-        dest_piece = self.board.get_piece_at(dest_y, dest_x)
+        dest_piece = self.board.get_piece_at(target_cell.y, target_cell.x)
         return dest_piece is not None and dest_piece.is_king
 
 
@@ -48,8 +40,8 @@ class MoveScheduler:
         Executes a move on the board grid.
         Returns True if a game over condition is detected during execution.
         """
-        from_y, from_x = move.from_pos
-        to_y, to_x = move.to_pos
+        from_y, from_x = move.from_pos.y, move.from_pos.x
+        to_y, to_x = move.to_pos.y, move.to_pos.x
 
         if is_captured:
             # Arriving piece is captured/removed. Only clear its source cell.
@@ -82,7 +74,7 @@ class MoveScheduler:
                 continue
             
             is_captured = self.jump_service.is_captured_by_airborne_enemy(
-                target_cell=move.to_pos,
+                target_cell=(move.to_pos.y, move.to_pos.x),
                 arrival_time=move.arrival,
                 piece=move.piece
             )
@@ -92,6 +84,7 @@ class MoveScheduler:
                 
         self.pending_moves = remaining_moves
         return game_over_detected
+
     
     
     
