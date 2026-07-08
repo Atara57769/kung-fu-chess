@@ -67,35 +67,50 @@ def execute_commands(board, commands, board_service_class=boardService, stdout=s
         )
     else:
         service = board_service_class(board, stdout=stdout)
-    for cmd in commands:
-        if cmd == "print board":
+    def handle_print(parts):
+        if parts == ["print", "board"]:
             service.print_board()
-        elif cmd.startswith("click "):
-            parts = cmd.split()
-            if len(parts) == 3:
-                try:
-                    x = int(parts[1])
-                    y = int(parts[2])
-                    service.click(x, y)
-                except ValueError:
-                    pass
-        elif cmd.startswith("wait "):
-            parts = cmd.split()
-            if len(parts) == 2:
-                try:
-                    ms = int(parts[1])
-                    service.wait(ms)
-                except ValueError:
-                    pass
-        elif cmd.startswith("jump "):
-            parts = cmd.split()
-            if len(parts) == 3:
-                try:
-                    x = int(parts[1])
-                    y = int(parts[2])
-                    service.jump(x, y)
-                except ValueError:
-                    pass
+
+    def handle_click(parts):
+        if len(parts) == 3:
+            try:
+                x = int(parts[1])
+                y = int(parts[2])
+                service.click(x, y)
+            except ValueError:
+                pass
+
+    def handle_wait(parts):
+        if len(parts) == 2:
+            try:
+                ms = int(parts[1])
+                service.wait(ms)
+            except ValueError:
+                pass
+
+    def handle_jump(parts):
+        if len(parts) == 3:
+            try:
+                x = int(parts[1])
+                y = int(parts[2])
+                service.jump(x, y)
+            except ValueError:
+                pass
+
+    command_handlers = {
+        "print": handle_print,
+        "click": handle_click,
+        "wait": handle_wait,
+        "jump": handle_jump,
+    }
+
+    for cmd in commands:
+        parts = cmd.split()
+        if not parts:
+            continue
+        handler = command_handlers.get(parts[0])
+        if handler:
+            handler(parts)
 
 
 def main(stdin=sys.stdin, stdout=sys.stdout, exit_fn=sys.exit, board_class=Board, board_service_class=boardService):
