@@ -1,4 +1,5 @@
 from exceptions import UnknownTokenError, RowWidthMismatchError
+from models.pieces import get_piece
 
 
 class Board:
@@ -12,7 +13,6 @@ class Board:
 
     def get_piece_at(self, cell_y: int, cell_x: int):
         """Returns the piece at the given cell coordinates."""
-        from models.pieces import get_piece
         token = self.grid[cell_y][cell_x]
         return get_piece(token)
 

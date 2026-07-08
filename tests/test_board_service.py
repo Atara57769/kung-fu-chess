@@ -58,7 +58,7 @@ def create_service(board, get_piece_fn=get_piece, stdout=sys.stdout):
     game_over = GameOverService(board)
     exec_service = MoveExecutionService(board, game_over)
     jump_service = JumpService()
-    scheduler = MoveScheduler(board, jump_service, exec_service)
+    scheduler = MoveScheduler(jump_service, exec_service)
     validation = MoveValidationService(board, scheduler)
 
     return boardService(

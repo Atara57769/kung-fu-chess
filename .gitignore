@@ -3,3 +3,4 @@ __pycache__/
 *$py.class
 .DS_Store
 .coverage
+test_runner.py

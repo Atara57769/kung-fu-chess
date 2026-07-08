@@ -31,8 +31,8 @@ class MoveValidationService:
         if not self.is_within_bounds(to_y, to_x):
             return False, None, 0
 
-        piece = self.board.get_piece_at(to_y, to_x)
         sel_piece = self.board.get_piece_at(sel_y, sel_x)
+        piece = self.board.get_piece_at(to_y, to_x)
 
         # If clicking another friendly piece, it's not a move (selection will be updated outside)
         if piece is not None and sel_piece is not None and piece.color == sel_piece.color:

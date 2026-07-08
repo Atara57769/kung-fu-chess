@@ -14,10 +14,11 @@ class JumpService:
         self.jumps: List[Jump] = []
 
     def schedule_jump(self, cell: Tuple[int, int], start_time: int, piece: Piece) -> None:
+        duration = piece.get_travel_duration(cell[0], cell[1], cell[0], cell[1]) if piece is not None else Piece.get_travel_duration(None, cell[0], cell[1], cell[0], cell[1])
         self.jumps.append(Jump(
             cell=cell,
             start=start_time,
-            end=start_time + 1000,
+            end=start_time + duration,
             piece=piece
         ))
 

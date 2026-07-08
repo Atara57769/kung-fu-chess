@@ -55,7 +55,7 @@ def execute_commands(board, commands, board_service_class=boardService, stdout=s
         game_over = GameOverService(board)
         exec_service = MoveExecutionService(board, game_over)
         jump_service = JumpService()
-        scheduler = MoveScheduler(board, jump_service, exec_service)
+        scheduler = MoveScheduler(jump_service, exec_service)
         validation = MoveValidationService(board, scheduler)
 
         service = boardService(

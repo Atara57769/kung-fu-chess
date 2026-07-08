@@ -10,8 +10,7 @@ class PendingMove:
     arrival: int
 
 class MoveScheduler:
-    def __init__(self, board, jump_service, move_execution_service):
-        self.board = board
+    def __init__(self, jump_service, move_execution_service):
         self.jump_service = jump_service
         self.move_execution_service = move_execution_service
         self.clock: int = 0
