@@ -4,6 +4,27 @@ class Piece(ABC):
     def __init__(self, color):
         self.color = color
 
+    @property
+    def is_king(self) -> bool:
+        """Returns True if the piece is a King."""
+        return False
+
+    @property
+    def is_pawn(self) -> bool:
+        """Returns True if the piece is a Pawn."""
+        return False
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Returns the single-character name representing the piece type."""
+        pass
+
+    @property
+    def token(self) -> str:
+        """Returns the two-character string representing the piece (e.g. 'wK')."""
+        return self.color + self.name
+
     @abstractmethod
     def is_legal_move(self, board, from_y, from_x, to_y, to_x) -> bool:
         """Determines if the move from (from_y, from_x) to (to_y, to_x) is legal for this piece."""
@@ -40,6 +61,14 @@ class Piece(ABC):
 
 
 class King(Piece):
+    @property
+    def is_king(self) -> bool:
+        return True
+
+    @property
+    def name(self) -> str:
+        return 'K'
+
     def is_legal_move(self, board, from_y, from_x, to_y, to_x) -> bool:
         dy = to_y - from_y
         dx = to_x - from_x
@@ -47,6 +76,10 @@ class King(Piece):
 
 
 class Rook(Piece):
+    @property
+    def name(self) -> str:
+        return 'R'
+
     def is_legal_move(self, board, from_y, from_x, to_y, to_x) -> bool:
         dy = to_y - from_y
         dx = to_x - from_x
@@ -56,6 +89,10 @@ class Rook(Piece):
 
 
 class Bishop(Piece):
+    @property
+    def name(self) -> str:
+        return 'B'
+
     def is_legal_move(self, board, from_y, from_x, to_y, to_x) -> bool:
         dy = to_y - from_y
         dx = to_x - from_x
@@ -65,6 +102,10 @@ class Bishop(Piece):
 
 
 class Queen(Piece):
+    @property
+    def name(self) -> str:
+        return 'Q'
+
     def is_legal_move(self, board, from_y, from_x, to_y, to_x) -> bool:
         dy = to_y - from_y
         dx = to_x - from_x
@@ -74,6 +115,10 @@ class Queen(Piece):
 
 
 class Knight(Piece):
+    @property
+    def name(self) -> str:
+        return 'N'
+
     def is_legal_move(self, board, from_y, from_x, to_y, to_x) -> bool:
         dy = to_y - from_y
         dx = to_x - from_x
@@ -85,6 +130,14 @@ class Knight(Piece):
 
 
 class Pawn(Piece):
+    @property
+    def is_pawn(self) -> bool:
+        return True
+
+    @property
+    def name(self) -> str:
+        return 'P'
+
     def is_legal_move(self, board, from_y, from_x, to_y, to_x) -> bool:
         target_token = board.grid[to_y][to_x]
         H = len(board.grid)
