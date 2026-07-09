@@ -22,7 +22,11 @@ class MoveValidationService:
     def is_legal_move(self, piece: Piece, from_pos: Cell, to_pos: Cell) -> bool:
         if piece is None:
             return True
-        return piece.is_legal_move(self.board, from_pos, to_pos)
+        from rules.piece_rules import RULES
+        rule = RULES.get(piece.kind)
+        if rule:
+            return rule.is_move_valid(self.board, from_pos, to_pos)
+        return False
 
     def validate_move(self, sel_y: int, sel_x: int, to_y: int, to_x: int) -> bool:
         """

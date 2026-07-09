@@ -1,6 +1,6 @@
 import pytest
 from typing import Tuple, List, Optional
-from models.pieces import Piece, Queen, King, Pawn, get_piece
+from models.pieces import Piece, get_piece
 from models.board import Board
 from services.jump_service import JumpService
 from models.jump import Jump
@@ -15,44 +15,39 @@ import io
 # Mock piece for testing sub-service logic
 class DummyPiece(Piece):
     def __init__(self, color: str, name_val: str = "P", is_king_val: bool = False, is_pawn_val: bool = False):
-        super().__init__(color)
-        self._name = name_val
-        self._is_king = is_king_val
-        self._is_pawn = is_pawn_val
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def is_king(self) -> bool:
-        return self._is_king
-
-    @property
-    def is_pawn(self) -> bool:
-        return self._is_pawn
-
-    def is_legal_move(self, board, from_pos: Cell, to_pos: Cell) -> bool:
-        return True
+        kind = "K" if is_king_val else ("P" if is_pawn_val or name_val == "P" else "Q")
+        if name_val == "R":
+            kind = "R"
+        elif name_val == "B":
+            kind = "B"
+        elif name_val == "N":
+            kind = "N"
+        super().__init__(color, kind)
 
 
 def test_promotion():
-    # White pawn promoting
-    p_white_pawn = Pawn("w")
-    assert p_white_pawn.promote(0, 8) == "wQ"
-    # White pawn not promoting
-    assert p_white_pawn.promote(1, 8) == "wP"
+    board = Board([". .", ". ."])
+    scheduler = MoveScheduler(board, JumpService())
+    
+    # White pawn promoting at y=0 on 2x2 board
+    p1 = Piece("w", "P", Cell(1, 0))
+    move1 = PendingMove(Cell(1, 0), Cell(0, 0), p1, 1000)
+    scheduler.execute_move(move1, is_captured=False)
+    assert board.grid[0][0] == "wQ"
+    
+    # White pawn not promoting at y=1 on 2x2 board
+    board.grid = [[".", "."], [".", "."]]
+    p2 = Piece("w", "P", Cell(0, 0))
+    move2 = PendingMove(Cell(0, 0), Cell(1, 0), p2, 1000)
+    scheduler.execute_move(move2, is_captured=False)
+    assert board.grid[1][0] == "wP"
 
-    # Black pawn promoting
-    p_black_pawn = Pawn("b")
-    assert p_black_pawn.promote(7, 8) == "bQ"
-    # Black pawn not promoting
-    assert p_black_pawn.promote(6, 8) == "bP"
-
-    # Non-pawn (base class promote)
-    from models.pieces import Knight
-    p_knight = Knight("w")
-    assert p_knight.promote(0, 8) == "wN"
+    # Non-pawn (knight) not promoting
+    board.grid = [[".", "."], [".", "."]]
+    p3 = Piece("w", "N", Cell(1, 0))
+    move3 = PendingMove(Cell(1, 0), Cell(0, 0), p3, 1000)
+    scheduler.execute_move(move3, is_captured=False)
+    assert board.grid[0][0] == "wN"
 
 
 def test_game_over_service():
@@ -131,18 +126,14 @@ def test_move_validation_service():
 
     # is_legal_move
     assert service.is_legal_move(None, Cell(0, 0), Cell(1, 1)) is True
-    assert service.is_legal_move(p, Cell(0, 0), Cell(1, 1)) is True
+    assert service.is_legal_move(p, Cell(0, 0), Cell(1, 1)) is False  # wP/Dummy cannot move diagonally by rules module!
 
 
 def test_move_execution_service():
-    board = Board(["wP .", ". ."])
+    board = Board([". .", "wP ."])
     
-    class PromotableDummyPiece(DummyPiece):
-        def promote(self, to_y, grid_height):
-            return "wQ"
-
-    p_white_pawn = PromotableDummyPiece("w", name_val="P", is_pawn_val=True)
-    move = PendingMove(Cell(0, 0), Cell(1, 1), p_white_pawn, 1000)
+    p_white_pawn = Piece("w", "P", Cell(1, 0))
+    move = PendingMove(Cell(1, 0), Cell(0, 0), p_white_pawn, 1000)
 
     scheduler = MoveScheduler(board, JumpService())
     scheduler.check_game_over = lambda target_cell: True
@@ -150,17 +141,17 @@ def test_move_execution_service():
     # Move success, check promotion and game over propagation
     is_game_over = scheduler.execute_move(move, is_captured=False)
     assert is_game_over is True
-    assert board.grid[0][0] == "."
-    assert board.grid[1][1] == "wQ"
+    assert board.grid[1][0] == "."
+    assert board.grid[0][0] == "wQ"
 
     # Reset and test captured in transit case
-    board2 = Board(["wP .", ". ."])
+    board2 = Board([". .", "wP ."])
     scheduler2 = MoveScheduler(board2, JumpService())
     scheduler2.check_game_over = lambda target_cell: True
     is_game_over_captured = scheduler2.execute_move(move, is_captured=True)
     assert is_game_over_captured is False
+    assert board2.grid[1][0] == "."
     assert board2.grid[0][0] == "."
-    assert board2.grid[1][1] == "."
 
 
 def test_board_service_di():
@@ -203,14 +194,6 @@ def test_board_service_di():
     service.jump_service.jumps = [Jump((0, 0), 0, 100, p)]
     assert len(custom_jump.jumps) == 1
 
-    # Cover piece promote customization
-    class CustomPromotePiece(DummyPiece):
-        def promote(self, to_y, grid_height):
-            return "custom_promo"
-    
-    custom_p = CustomPromotePiece("w")
-    assert custom_p.promote(0, 8) == "custom_promo"
-
 
 def test_move_validation_service_direct():
     board = Board(["wK wP", ". ."])
@@ -228,9 +211,8 @@ def test_move_validation_service_direct():
 
     # 3. Illegal move
     class IllegalPiece(Piece):
-        @property
-        def name(self): return "P"
-        def is_legal_move(self, board, from_pos, to_pos): return False
+        def __init__(self, color):
+            super().__init__(color, "X")
 
     board.grid[0][0] = "wX"
     def get_illegal_piece(token):

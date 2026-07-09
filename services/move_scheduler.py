@@ -32,7 +32,7 @@ class MoveScheduler:
     def check_game_over(self, target_cell: Cell) -> bool:
         """Checks if the destination cell contains an enemy king, returning True if so."""
         dest_piece = self.board.get_piece_at(target_cell.y, target_cell.x)
-        return dest_piece is not None and dest_piece.is_king
+        return dest_piece is not None and dest_piece.kind == "K"
 
 
     def execute_move(self, move: PendingMove, is_captured: bool) -> bool:
@@ -43,18 +43,33 @@ class MoveScheduler:
         from_y, from_x = move.from_pos.y, move.from_pos.x
         to_y, to_x = move.to_pos.y, move.to_pos.x
 
+        piece_token = EMPTY_TOKEN
+        if move.piece:
+            piece_token = move.piece.color + move.piece.kind
+
         if is_captured:
             # Arriving piece is captured/removed. Only clear its source cell.
-            if self.board.grid[from_y][from_x] == move.piece.token:
+            if self.board.grid[from_y][from_x] == piece_token:
                 self.board.grid[from_y][from_x] = EMPTY_TOKEN
             return False
 
         is_game_over = self.check_game_over(move.to_pos)
         
-        # Apply the move on the grid (piece-owned promotion called here)
-        token = move.piece.promote(to_y, self.board.height) if move.piece else EMPTY_TOKEN
+        # Apply the move on the grid (pawn promotion handled here)
+        token = EMPTY_TOKEN
+        if move.piece:
+            color = move.piece.color
+            kind = move.piece.kind
+            if kind == "P":
+                is_white_promotion = (color == "w" and to_y == 0)
+                is_black_promotion = (color == "b" and to_y == self.board.height - 1)
+                if is_white_promotion or is_black_promotion:
+                    kind = "Q"
+            token = color + kind
+            move.piece.cell = move.to_pos
+
         self.board.grid[to_y][to_x] = token
-        if self.board.grid[from_y][from_x] == move.piece.token:
+        if self.board.grid[from_y][from_x] == piece_token:
             self.board.grid[from_y][from_x] = EMPTY_TOKEN
 
         return is_game_over

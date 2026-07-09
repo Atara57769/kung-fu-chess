@@ -1,7 +1,7 @@
 import pytest
-from models.pieces import get_piece, Piece, King, Rook, Bishop, Queen, Knight, Pawn
+from models.pieces import get_piece, Piece
+from rules.piece_rules import RULES, RookRule, BishopRule, QueenRule, KnightRule, KingRule, PawnRule
 from models.cell import Cell
-from constants import DURATION
 
 # Mock board structure for tests
 class MockBoard:
@@ -10,32 +10,31 @@ class MockBoard:
         self.height = len(grid)
         self.width = len(grid[0]) if grid else 0
 
+    def get_piece_at(self, cell_y: int, cell_x: int):
+        token = self.grid[cell_y][cell_x]
+        return get_piece(token, Cell(cell_y, cell_x))
+
 def test_get_piece():
     assert get_piece(".") is None
     assert get_piece("w") is None
     assert get_piece("wZ") is None
-    assert isinstance(get_piece("wK"), King)
-    assert get_piece("wK").color == "w"
-    assert get_piece("bQ").name == "Q"
+    
+    piece = get_piece("wK", Cell(1, 1))
+    assert isinstance(piece, Piece)
+    assert piece.color == "w"
+    assert piece.kind == "K"
+    assert piece.cell == Cell(1, 1)
+
+    piece2 = get_piece("bQ")
+    assert piece2.color == "b"
+    assert piece2.kind == "Q"
+    assert piece2.cell is None
 
 def test_piece_base_properties():
-    # Concrete piece for base properties test
-    piece = King("w")
-    assert piece.token == "wK"
-    assert DURATION == 1000
-    assert piece.is_king is True
-    assert piece.is_pawn is False
-
-    pawn = Pawn("b")
-    assert pawn.is_king is False
-    assert pawn.is_pawn is True
-    
-    # Assert name properties for all classes
-    assert get_piece("wR").name == "R"
-    assert get_piece("wB").name == "B"
-    assert get_piece("wN").name == "N"
-    assert get_piece("wP").name == "P"
-    assert get_piece("wQ").name == "Q"
+    piece = Piece("w", "K", Cell(0, 0))
+    assert piece.color == "w"
+    assert piece.kind == "K"
+    assert piece.cell == Cell(0, 0)
 
 def test_king_moves():
     board = MockBoard([
@@ -43,12 +42,12 @@ def test_king_moves():
         [".", "wK", "."],
         [".", ".", "."]
     ])
-    king = get_piece("wK")
-    assert king.is_legal_move(board, Cell(1, 1), Cell(0, 0)) is True
-    assert king.is_legal_move(board, Cell(1, 1), Cell(0, 1)) is True
-    assert king.is_legal_move(board, Cell(1, 1), Cell(1, 2)) is True
-    assert king.is_legal_move(board, Cell(1, 1), Cell(1, 1)) is False  # (0, 0) move
-    assert king.is_legal_move(board, Cell(1, 1), Cell(1, 3)) is False  # too far
+    rule = RULES["K"]
+    assert rule.is_move_valid(board, Cell(1, 1), Cell(0, 0)) is True
+    assert rule.is_move_valid(board, Cell(1, 1), Cell(0, 1)) is True
+    assert rule.is_move_valid(board, Cell(1, 1), Cell(1, 2)) is True
+    assert rule.is_move_valid(board, Cell(1, 1), Cell(1, 1)) is False  # (0, 0) move
+    assert rule.is_move_valid(board, Cell(1, 1), Cell(1, 3)) is False  # too far
 
 def test_rook_moves():
     # Path is clear
@@ -57,13 +56,13 @@ def test_rook_moves():
         [".", "wR", "."],
         [".", ".", "."]
     ])
-    rook = get_piece("wR")
-    assert rook.is_legal_move(board_clear, Cell(1, 1), Cell(1, 2)) is True  # right
-    assert rook.is_legal_move(board_clear, Cell(1, 1), Cell(1, 0)) is True  # left
-    assert rook.is_legal_move(board_clear, Cell(1, 1), Cell(0, 1)) is True  # up
-    assert rook.is_legal_move(board_clear, Cell(1, 1), Cell(2, 1)) is True  # down
-    assert rook.is_legal_move(board_clear, Cell(1, 1), Cell(0, 0)) is False  # diagonal
-    assert rook.is_legal_move(board_clear, Cell(1, 1), Cell(1, 1)) is False  # stay
+    rule = RULES["R"]
+    assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(1, 2)) is True  # right
+    assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(1, 0)) is True  # left
+    assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(0, 1)) is True  # up
+    assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(2, 1)) is True  # down
+    assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(0, 0)) is False  # diagonal
+    assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(1, 1)) is False  # stay
 
     # Path is blocked horizontally
     board_blocked_h = MockBoard([
@@ -71,7 +70,7 @@ def test_rook_moves():
         ["wP", "wP", "wR"],
         [".", ".", "."]
     ])
-    assert rook.is_legal_move(board_blocked_h, Cell(1, 2), Cell(1, 0)) is False
+    assert rule.is_move_valid(board_blocked_h, Cell(1, 2), Cell(1, 0)) is False
 
     # Path is blocked vertically
     board_blocked_v = MockBoard([
@@ -79,7 +78,7 @@ def test_rook_moves():
         [".", "bP", "."],
         [".", "wR", "."]
     ])
-    assert rook.is_legal_move(board_blocked_v, Cell(2, 1), Cell(0, 1)) is False
+    assert rule.is_move_valid(board_blocked_v, Cell(2, 1), Cell(0, 1)) is False
 
 def test_bishop_moves():
     board_clear = MockBoard([
@@ -87,13 +86,13 @@ def test_bishop_moves():
         [".", "wB", "."],
         [".", ".", "."]
     ])
-    bishop = get_piece("wB")
-    assert bishop.is_legal_move(board_clear, Cell(1, 1), Cell(0, 0)) is True
-    assert bishop.is_legal_move(board_clear, Cell(1, 1), Cell(0, 2)) is True
-    assert bishop.is_legal_move(board_clear, Cell(1, 1), Cell(2, 0)) is True
-    assert bishop.is_legal_move(board_clear, Cell(1, 1), Cell(2, 2)) is True
-    assert bishop.is_legal_move(board_clear, Cell(1, 1), Cell(1, 2)) is False  # orthogonal
-    assert bishop.is_legal_move(board_clear, Cell(1, 1), Cell(1, 1)) is False  # stay
+    rule = RULES["B"]
+    assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(0, 0)) is True
+    assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(0, 2)) is True
+    assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(2, 0)) is True
+    assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(2, 2)) is True
+    assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(1, 2)) is False  # orthogonal
+    assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(1, 1)) is False  # stay
 
     # Blocked diagonal path
     board_blocked = MockBoard([
@@ -101,15 +100,13 @@ def test_bishop_moves():
         [".", "wB", "."],
         [".", ".", "."]
     ])
-    # Note: path clear checks excluding endpoints, so from (1, 1) to (0, 0) has no intermediate cell,
-    # so we need a larger board to test blocked diagonal intermediate cell.
     board_large_blocked = MockBoard([
         [".", ".", ".", "."],
         [".", "bP", ".", "."],
         [".", ".", "wB", "."],
         [".", ".", ".", "."]
     ])
-    assert bishop.is_legal_move(board_large_blocked, Cell(2, 2), Cell(0, 0)) is False
+    assert rule.is_move_valid(board_large_blocked, Cell(2, 2), Cell(0, 0)) is False
 
 def test_queen_moves():
     board = MockBoard([
@@ -118,11 +115,11 @@ def test_queen_moves():
         [".", ".", ".", "."],
         [".", ".", ".", "."]
     ])
-    queen = get_piece("wQ")
-    assert queen.is_legal_move(board, Cell(1, 1), Cell(1, 3)) is True  # straight
-    assert queen.is_legal_move(board, Cell(1, 1), Cell(3, 3)) is True  # diagonal
-    assert queen.is_legal_move(board, Cell(1, 1), Cell(3, 2)) is False  # L-shape
-    assert queen.is_legal_move(board, Cell(1, 1), Cell(1, 1)) is False  # stay
+    rule = RULES["Q"]
+    assert rule.is_move_valid(board, Cell(1, 1), Cell(1, 3)) is True  # straight
+    assert rule.is_move_valid(board, Cell(1, 1), Cell(3, 3)) is True  # diagonal
+    assert rule.is_move_valid(board, Cell(1, 1), Cell(3, 2)) is False  # L-shape
+    assert rule.is_move_valid(board, Cell(1, 1), Cell(1, 1)) is False  # stay
 
 def test_knight_moves():
     board = MockBoard([
@@ -131,15 +128,13 @@ def test_knight_moves():
         [".", ".", ".", "."],
         [".", ".", ".", "."]
     ])
-    knight = get_piece("wN")
-    assert knight.is_legal_move(board, Cell(1, 1), Cell(3, 2)) is True  # L-shape
-    assert knight.is_legal_move(board, Cell(1, 1), Cell(2, 3)) is True  # L-shape
-    assert knight.is_legal_move(board, Cell(1, 1), Cell(1, 3)) is False  # horizontal
-    assert knight.is_legal_move(board, Cell(1, 1), Cell(1, 1)) is False
+    rule = RULES["N"]
+    assert rule.is_move_valid(board, Cell(1, 1), Cell(3, 2)) is True  # L-shape
+    assert rule.is_move_valid(board, Cell(1, 1), Cell(2, 3)) is True  # L-shape
+    assert rule.is_move_valid(board, Cell(1, 1), Cell(1, 3)) is False  # horizontal
+    assert rule.is_move_valid(board, Cell(1, 1), Cell(1, 1)) is False
 
 def test_pawn_moves():
-    # White Pawn - large board (H >= 5)
-    # y Cells: 0, 1, 2, 3, 4. start_row = H - 2 = 3. expected_dy = -1
     board_w = MockBoard([
         [".", ".", "."],
         [".", ".", "."],
@@ -147,13 +142,13 @@ def test_pawn_moves():
         [".", "wP", "."],
         [".", ".", "."]
     ])
-    pawn_w = get_piece("wP")
+    rule = RULES["P"]
     # Single step forward to empty
-    assert pawn_w.is_legal_move(board_w, Cell(3, 1), Cell(2, 1)) is True
+    assert rule.is_move_valid(board_w, Cell(3, 1), Cell(2, 1)) is True
     # Double step forward from start_row to empty
-    assert pawn_w.is_legal_move(board_w, Cell(3, 1), Cell(1, 1)) is True
+    assert rule.is_move_valid(board_w, Cell(3, 1), Cell(1, 1)) is True
 
-    # Blocked double step (intermediate blocked)
+    # Blocked double step
     board_w_blocked = MockBoard([
         [".", ".", "."],
         [".", ".", "."],
@@ -161,10 +156,10 @@ def test_pawn_moves():
         [".", "wP", "."],
         [".", ".", "."]
     ])
-    assert pawn_w.is_legal_move(board_w_blocked, Cell(3, 1), Cell(1, 1)) is False
+    assert rule.is_move_valid(board_w_blocked, Cell(3, 1), Cell(1, 1)) is False
 
     # Blocked single step
-    assert pawn_w.is_legal_move(board_w_blocked, Cell(3, 1), Cell(2, 1)) is False
+    assert rule.is_move_valid(board_w_blocked, Cell(3, 1), Cell(2, 1)) is False
 
     # Capture move
     board_w_capture = MockBoard([
@@ -174,11 +169,11 @@ def test_pawn_moves():
         [".", "wP", "."],
         [".", ".", "."]
     ])
-    assert pawn_w.is_legal_move(board_w_capture, Cell(3, 1), Cell(2, 0)) is True  # capture left
-    assert pawn_w.is_legal_move(board_w_capture, Cell(3, 1), Cell(2, 2)) is True  # capture right
-    assert pawn_w.is_legal_move(board_w_capture, Cell(3, 1), Cell(2, 1)) is True  # step to empty
+    assert rule.is_move_valid(board_w_capture, Cell(3, 1), Cell(2, 0)) is True
+    assert rule.is_move_valid(board_w_capture, Cell(3, 1), Cell(2, 2)) is True
+    assert rule.is_move_valid(board_w_capture, Cell(3, 1), Cell(2, 1)) is True
 
-    # Diagonal move to empty (illegal)
+    # Diagonal move to empty
     board_w_diag_empty = MockBoard([
         [".", ".", "."],
         [".", ".", "."],
@@ -186,18 +181,17 @@ def test_pawn_moves():
         [".", "wP", "."],
         [".", ".", "."]
     ])
-    assert pawn_w.is_legal_move(board_w_diag_empty, Cell(3, 1), Cell(2, 0)) is False
+    assert rule.is_move_valid(board_w_diag_empty, Cell(3, 1), Cell(2, 0)) is False
 
-    # White Pawn - small board (H = 3, H < 5). start_row = H - 1 = 2.
+    # White Pawn - small board (H = 3)
     board_w_small = MockBoard([
         [".", ".", "."],
         [".", ".", "."],
         [".", "wP", "."]
     ])
-    # Expected start_row is 2. Let's do double step from 2. expected_dy = -1, 2 * expected_dy = -2. Target row 0.
-    assert pawn_w.is_legal_move(board_w_small, Cell(2, 1), Cell(0, 1)) is True
+    assert rule.is_move_valid(board_w_small, Cell(2, 1), Cell(0, 1)) is True
 
-    # Black Pawn - large board (H >= 5). start_row = 1. expected_dy = 1
+    # Black Pawn - large board
     board_b = MockBoard([
         [".", ".", "."],
         [".", "bP", "."],
@@ -205,19 +199,18 @@ def test_pawn_moves():
         [".", ".", "."],
         [".", ".", "."]
     ])
-    pawn_b = get_piece("bP")
-    assert pawn_b.is_legal_move(board_b, Cell(1, 1), Cell(2, 1)) is True  # single step
-    assert pawn_b.is_legal_move(board_b, Cell(1, 1), Cell(3, 1)) is True  # double step
+    assert rule.is_move_valid(board_b, Cell(1, 1), Cell(2, 1)) is True
+    assert rule.is_move_valid(board_b, Cell(1, 1), Cell(3, 1)) is True
 
-    # Black Pawn - small board (H = 3, H < 5). start_row = 0.
+    # Black Pawn - small board
     board_b_small = MockBoard([
         [".", "bP", "."],
         [".", ".", "."],
         [".", ".", "."]
     ])
-    assert pawn_b.is_legal_move(board_b_small, Cell(0, 1), Cell(2, 1)) is True  # double step
+    assert rule.is_move_valid(board_b_small, Cell(0, 1), Cell(2, 1)) is True
 
     # Other illegal moves
-    assert pawn_b.is_legal_move(board_b, Cell(1, 1), Cell(1, 1)) is False  # stay
-    assert pawn_b.is_legal_move(board_b, Cell(1, 1), Cell(1, 2)) is False  # horizontal
-    assert pawn_b.is_legal_move(board_b, Cell(2, 1), Cell(4, 1)) is False  # double step from non-start row
+    assert rule.is_move_valid(board_b, Cell(1, 1), Cell(1, 1)) is False
+    assert rule.is_move_valid(board_b, Cell(1, 1), Cell(1, 2)) is False
+    assert rule.is_move_valid(board_b, Cell(2, 1), Cell(4, 1)) is False

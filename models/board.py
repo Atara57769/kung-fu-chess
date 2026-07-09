@@ -1,3 +1,4 @@
+from models.cell import Cell
 from exceptions import UnknownTokenError, RowWidthMismatchError
 from models.pieces import get_piece
 from constants import EMPTY_TOKEN, VALID_COLORS, VALID_PIECES
@@ -16,7 +17,7 @@ class Board:
     def get_piece_at(self, cell_y: int, cell_x: int):
         """Returns the piece at the given cell Cells."""
         token = self.grid[cell_y][cell_x]
-        return get_piece(token)
+        return get_piece(token, Cell(cell_y, cell_x))
 
     def _validate_token(self, token):
         """Validates a single token representing a board cell."""

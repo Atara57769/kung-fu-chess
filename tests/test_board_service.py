@@ -17,36 +17,14 @@ from services.move_validation_service import MoveValidationService
 # Simple mock Piece for testing DI and behavior
 class MockSimplePiece(Piece):
     def __init__(self, color, name_val="P", is_king_val=False, is_pawn_val=False):
-        super().__init__(color)
-        self._name = name_val
-        self._is_king = is_king_val
-        self._is_pawn = is_pawn_val
-
-    @property
-    def is_king(self) -> bool:
-        return self._is_king
-
-    @property
-    def is_pawn(self) -> bool:
-        return self._is_pawn
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    def is_legal_move(self, board, from_pos: Cell, to_pos: Cell) -> bool:
-        # Allow all moves for mock tests unless it's a specific Cell
-        if to_pos.y == 9 and to_pos.x == 9:
-            return False
-        return True
-
-    def promote(self, to_y: int, grid_height: int) -> str:
-        if self._is_pawn:
-            is_white_promotion = (self.color == 'w' and to_y == 0)
-            is_black_promotion = (self.color == 'b' and to_y == grid_height - 1)
-            if is_white_promotion or is_black_promotion:
-                return self.color + "Q"
-        return self.token
+        kind = "K" if is_king_val else ("P" if is_pawn_val or name_val == "P" else "Q")
+        if name_val == "R":
+            kind = "R"
+        elif name_val == "B":
+            kind = "B"
+        elif name_val == "N":
+            kind = "N"
+        super().__init__(color, kind)
 
 
 def create_service(board, get_piece_fn=get_piece, stdout=sys.stdout):
