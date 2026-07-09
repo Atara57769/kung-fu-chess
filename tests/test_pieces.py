@@ -1,5 +1,6 @@
 import pytest
-from models.pieces import get_piece, Piece
+from models.pieces import PieceFactory, Piece
+get_piece = PieceFactory.get_piece
 from rules.piece_rules import RULES, RookRule, BishopRule, QueenRule, KnightRule, KingRule, PawnRule
 from models.cell import Cell
 

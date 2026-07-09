@@ -1,6 +1,7 @@
 import pytest
 from typing import Tuple, List, Optional
-from models.pieces import Piece, get_piece
+from models.pieces import Piece, PieceFactory
+get_piece = PieceFactory.get_piece
 from models.board import Board
 from services.jump_service import JumpService
 from models.jump import Jump
@@ -33,22 +34,27 @@ def test_promotion():
     p1 = Piece("w", "P", Cell(1, 0))
     move1 = PendingMove(Cell(1, 0), Cell(0, 0), p1, 1000)
     scheduler.execute_move(move1, is_captured=False)
-    assert board.grid[0][0] == "wQ"
+    assert board.grid[0][0] == Piece("w", "Q", Cell(0, 0))
     
     # White pawn not promoting at y=1 on 2x2 board
-    board.grid = [[".", "."], [".", "."]]
+    board.grid = [[None, None], [None, None]]
     p2 = Piece("w", "P", Cell(0, 0))
     move2 = PendingMove(Cell(0, 0), Cell(1, 0), p2, 1000)
     scheduler.execute_move(move2, is_captured=False)
-    assert board.grid[1][0] == "wP"
+    assert board.grid[1][0] == Piece("w", "P", Cell(1, 0))
 
     # Non-pawn (knight) not promoting
-    board.grid = [[".", "."], [".", "."]]
+    board.grid = [[None, None], [None, None]]
     p3 = Piece("w", "N", Cell(1, 0))
     move3 = PendingMove(Cell(1, 0), Cell(0, 0), p3, 1000)
     scheduler.execute_move(move3, is_captured=False)
-    assert board.grid[0][0] == "wN"
+    assert board.grid[0][0] == Piece("w", "N", Cell(0, 0))
 
+
+def get_token(val):
+    if isinstance(val, Piece):
+        return val.color + val.kind
+    return val or "."
 
 def test_game_over_service():
     board = Board(["wK bN", ". ."])
@@ -60,7 +66,7 @@ def test_game_over_service():
             return DummyPiece("b", is_king_val=False)
         return None
 
-    board.get_piece_at = lambda y, x: get_piece_mock(board.grid[y][x])
+    board.get_piece_at = lambda y, x: get_piece_mock(get_token(board.grid[y][x]))
     scheduler = MoveScheduler(board, JumpService())
     
     assert scheduler.check_game_over(Cell(0, 0)) is True
@@ -141,8 +147,8 @@ def test_move_execution_service():
     # Move success, check promotion and game over propagation
     is_game_over = scheduler.execute_move(move, is_captured=False)
     assert is_game_over is True
-    assert board.grid[1][0] == "."
-    assert board.grid[0][0] == "wQ"
+    assert board.grid[1][0] is None
+    assert board.grid[0][0] == Piece("w", "Q", Cell(0, 0))
 
     # Reset and test captured in transit case
     board2 = Board([". .", "wP ."])
@@ -150,8 +156,8 @@ def test_move_execution_service():
     scheduler2.check_game_over = lambda target_cell: True
     is_game_over_captured = scheduler2.execute_move(move, is_captured=True)
     assert is_game_over_captured is False
-    assert board2.grid[1][0] == "."
-    assert board2.grid[0][0] == "."
+    assert board2.grid[1][0] is None
+    assert board2.grid[0][0] is None
 
 
 def test_board_service_di():
@@ -219,7 +225,7 @@ def test_move_validation_service_direct():
         if token == "wX": return IllegalPiece("w")
         return get_piece(token)
 
-    board.get_piece_at = lambda y, x: get_illegal_piece(board.grid[y][x])
+    board.get_piece_at = lambda y, x: get_illegal_piece(get_token(board.grid[y][x]))
     is_val = service.validate_move(0, 0, 1, 1)
     assert is_val is False
 

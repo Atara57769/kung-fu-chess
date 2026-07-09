@@ -2,6 +2,9 @@ import pytest
 from models.board import Board
 from exceptions import UnknownTokenError, RowWidthMismatchError
 
+from models.pieces import Piece
+from models.cell import Cell
+
 def test_board_initialization_valid():
     lines = [
         "wK . bP",
@@ -12,9 +15,9 @@ def test_board_initialization_valid():
     assert board.width == 3
     assert board.height == 3
     assert len(board.grid) == 3
-    assert board.grid[0] == ["wK", ".", "bP"]
-    assert board.grid[1] == [".", "wQ", "."]
-    assert board.grid[2] == ["wN", "bB", "wP"]
+    assert board.grid[0] == [Piece("w", "K", Cell(0, 0)), None, Piece("b", "P", Cell(0, 2))]
+    assert board.grid[1] == [None, Piece("w", "Q", Cell(1, 1)), None]
+    assert board.grid[2] == [Piece("w", "N", Cell(2, 0)), Piece("b", "B", Cell(2, 1)), Piece("w", "P", Cell(2, 2))]
 
 def test_board_initialization_empty():
     board = Board([])

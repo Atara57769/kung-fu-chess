@@ -1,6 +1,6 @@
 import sys
 from typing import Tuple, List, Optional, Callable
-from models.pieces import get_piece, Piece
+from models.pieces import Piece
 from services.move_scheduler import MoveScheduler
 from models.cell import Cell
 from models.pending_move import PendingMove
@@ -89,5 +89,5 @@ class boardService:
 
     def print_board(self) -> None:
         """Prints the board in canonical space-separated format."""
-        for row in self.board.grid:
-            print(" ".join(row), file=self.stdout)
+        from output.board_printer import print_board
+        print_board(self.board, stdout=self.stdout)

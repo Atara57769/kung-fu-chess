@@ -4,7 +4,8 @@ import sys
 from dataclasses import dataclass
 from typing import Tuple, List, Optional
 from models.board import Board
-from models.pieces import Piece, get_piece
+from models.pieces import Piece, PieceFactory
+get_piece = PieceFactory.get_piece
 from services.board_service import boardService
 from services.jump_service import JumpService
 from models.jump import Jump
@@ -27,9 +28,24 @@ class MockSimplePiece(Piece):
         super().__init__(color, kind)
 
 
+def get_token(val):
+    if isinstance(val, Piece):
+        return val.color + val.kind
+    return val or "."
+
+def check_cell(board, y, x, expected):
+    val = board.grid[y][x]
+    if expected == "." or expected is None:
+        assert val is None or val == "."
+    else:
+        if isinstance(val, Piece):
+            assert val.color + val.kind == expected
+        else:
+            assert val == expected
+
 def create_service(board, get_piece_fn=get_piece, stdout=sys.stdout):
     if get_piece_fn is not get_piece:
-        board.get_piece_at = lambda y, x: get_piece_fn(board.grid[y][x])
+        board.get_piece_at = lambda y, x: get_piece_fn(get_token(board.grid[y][x]))
     jump_service = JumpService()
     scheduler = MoveScheduler(board, jump_service)
     validation = MoveValidationService(board, scheduler)
@@ -107,7 +123,7 @@ def test_board_service_check_game_over():
             return MockSimplePiece("b", is_king_val=True)
         return None
 
-    board.get_piece_at = lambda y, x: get_piece_mock(board.grid[y][x])
+    board.get_piece_at = lambda y, x: get_piece_mock(get_token(board.grid[y][x]))
     scheduler = MoveScheduler(board, JumpService())
     # destination has non-king (empty)
     assert scheduler.check_game_over(Cell(1, 0)) is False
@@ -127,8 +143,8 @@ def test_execute_move_captured():
     )
     # Piece is captured. Grid at from_pos should be cleared.
     scheduler.execute_move(move, is_captured=True)
-    assert board.grid[0][0] == "."
-    assert board.grid[1][1] == "."
+    check_cell(board, 0, 0, ".")
+    check_cell(board, 1, 1, ".")
 
     # Check that source is not cleared if the token doesn't match
     board2 = Board(["wP .", ". ."])
@@ -136,7 +152,7 @@ def test_execute_move_captured():
     # Alter source token first
     board2.grid[0][0] = "."
     scheduler2.execute_move(move, is_captured=True)
-    assert board2.grid[0][0] == "."
+    check_cell(board2, 0, 0, ".")
 
 
 def test_execute_move_success():
@@ -149,8 +165,8 @@ def test_execute_move_success():
         arrival=1000
     )
     scheduler.execute_move(move, is_captured=False)
-    assert board.grid[0][0] == "."
-    assert board.grid[1][1] == "wP"
+    check_cell(board, 0, 0, ".")
+    check_cell(board, 1, 1, "wP")
 
     # With non-matching source token
     board2 = Board(["wP .", ". ."])
@@ -163,8 +179,8 @@ def test_execute_move_success():
         arrival=1000
     )
     scheduler2.execute_move(move2, is_captured=False)
-    assert board2.grid[0][0] == "bK"
-    assert board2.grid[1][1] == "wP"
+    check_cell(board2, 0, 0, "bK")
+    check_cell(board2, 1, 1, "wP")
 
 
 def test_apply_completed_moves():
@@ -183,8 +199,8 @@ def test_apply_completed_moves():
     # Wait until t=1200. First move should execute.
     service.wait(700) # clock is now 1200
     assert len(service.move_scheduler.get_pending_moves()) == 1
-    assert board.grid[1][1] == "wP"
-    assert board.grid[0][0] == "."
+    check_cell(board, 1, 1, "wP")
+    check_cell(board, 0, 0, ".")
 
 
 def test_click_edge_cases():
