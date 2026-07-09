@@ -10,13 +10,7 @@ class Board:
 
     def get_piece_at(self, cell_y: int, cell_x: int) -> Piece:
         """Returns the piece at the given cell coordinates."""
-        val = self.grid[cell_y][cell_x]
-        if isinstance(val, Piece):
-            return val
-        if val is None or val == "." or val == EMPTY_TOKEN:
-            return None
-        from models.pieces import PieceFactory
-        return PieceFactory.get_piece(val, Cell(cell_y, cell_x))
+        return self.grid[cell_y][cell_x]
 
     def is_inside_bounds(self, cell_y: int, cell_x: int) -> bool:
         """Checks whether a cell is inside the board boundaries."""

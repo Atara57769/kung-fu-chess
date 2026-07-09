@@ -13,6 +13,7 @@ from services.move_scheduler import MoveScheduler
 from models.cell import Cell
 from models.pending_move import PendingMove
 from services.move_validation_service import MoveValidationService
+from models.game_state import GameState
 
 
 # Simple mock Piece for testing DI and behavior
@@ -43,15 +44,24 @@ def check_cell(board, y, x, expected):
         else:
             assert val == expected
 
+def create_scheduler(board, jump_service=None):
+    state = GameState(board=board)
+    if jump_service is None:
+        jump_service = JumpService(state)
+    else:
+        jump_service.state = state
+    return MoveScheduler(state, jump_service)
+
 def create_service(board, get_piece_fn=get_piece, stdout=sys.stdout):
     if get_piece_fn is not get_piece:
         board.get_piece_at = lambda y, x: get_piece_fn(get_token(board.grid[y][x]))
-    jump_service = JumpService()
-    scheduler = MoveScheduler(board, jump_service)
-    validation = MoveValidationService(board, scheduler)
+    state = GameState(board=board)
+    jump_service = JumpService(state)
+    scheduler = MoveScheduler(state, jump_service)
+    validation = MoveValidationService(state, scheduler)
 
     return boardService(
-        board=board,
+        state=state,
         stdout=stdout,
         move_scheduler=scheduler,
         move_validation_service=validation,
@@ -124,7 +134,7 @@ def test_board_service_check_game_over():
         return None
 
     board.get_piece_at = lambda y, x: get_piece_mock(get_token(board.grid[y][x]))
-    scheduler = MoveScheduler(board, JumpService())
+    scheduler = create_scheduler(board)
     # destination has non-king (empty)
     assert scheduler.check_game_over(Cell(1, 0)) is False
 
@@ -134,7 +144,7 @@ def test_board_service_check_game_over():
 
 def test_execute_move_captured():
     board = Board(["wP .", ". ."])
-    scheduler = MoveScheduler(board, JumpService())
+    scheduler = create_scheduler(board)
     move = PendingMove(
         from_pos=Cell(0, 0),
         to_pos=Cell(1, 1),
@@ -148,16 +158,16 @@ def test_execute_move_captured():
 
     # Check that source is not cleared if the token doesn't match
     board2 = Board(["wP .", ". ."])
-    scheduler2 = MoveScheduler(board2, JumpService())
+    scheduler2 = create_scheduler(board2)
     # Alter source token first
-    board2.grid[0][0] = "."
+    board2.grid[0][0] = None
     scheduler2.execute_move(move, is_captured=True)
     check_cell(board2, 0, 0, ".")
 
 
 def test_execute_move_success():
     board = Board(["wP .", ". ."])
-    scheduler = MoveScheduler(board, JumpService())
+    scheduler = create_scheduler(board)
     move = PendingMove(
         from_pos=Cell(0, 0),
         to_pos=Cell(1, 1),
@@ -170,8 +180,8 @@ def test_execute_move_success():
 
     # With non-matching source token
     board2 = Board(["wP .", ". ."])
-    scheduler2 = MoveScheduler(board2, JumpService())
-    board2.grid[0][0] = "bK"
+    scheduler2 = create_scheduler(board2)
+    board2.grid[0][0] = Piece("b", "K", Cell(0, 0))
     move2 = PendingMove(
         from_pos=Cell(0, 0),
         to_pos=Cell(1, 1),
@@ -217,15 +227,15 @@ def test_click_edge_cases():
 
     # Click non-empty cell -> selects it
     service.click(50, 0) # cell (0, 0) -> 'wP'
-    assert service.selected_piece == (0, 0)
+    assert service.selected_piece == board.get_piece_at(0, 0)
 
     # Click a friendly piece when another friendly is selected -> change selection
     board_friendly = Board(["wP wP", ". ."])
     service_friendly = create_service(board_friendly)
     service_friendly.click(50, 0) # selects (0, 0)
-    assert service_friendly.selected_piece == (0, 0)
+    assert service_friendly.selected_piece == board_friendly.get_piece_at(0, 0)
     service_friendly.click(150, 0) # clicks (0, 1) -> friendly wP
-    assert service_friendly.selected_piece == (0, 1) # selection updated!
+    assert service_friendly.selected_piece == board_friendly.get_piece_at(0, 1) # selection updated!
 
 
 def test_click_move_scheduling():
@@ -235,7 +245,7 @@ def test_click_move_scheduling():
 
     # Click and select (1, 0)
     service.click(50, 100)
-    assert service.selected_piece == (1, 0)
+    assert service.selected_piece == board.get_piece_at(1, 0)
     # Click (0, 0) -> schedules move
     service.click(50, 0)
     assert len(service.move_scheduler.get_pending_moves()) == 1
@@ -249,9 +259,9 @@ def test_click_move_scheduling_none_piece():
     service = create_service(board)
     # Click and select (1, 0)
     service.click(50, 100)
-    assert service.selected_piece == (1, 0)
+    assert service.selected_piece == board.get_piece_at(1, 0)
     # Clear the board grid at that spot, so piece resolves to None
-    board.grid[1][0] = "."
+    board.grid[1][0] = None
     # Click (0, 0) -> schedules move with None piece and default duration 1000
     service.click(50, 0)
     assert len(service.move_scheduler.get_pending_moves()) == 1
@@ -275,17 +285,17 @@ def test_click_while_moving_or_reserved_tricked():
     assert service.selected_piece is None
 
     # 2. Test selected piece is already in transit (third check: sel_y, sel_x is moving)
-    service.selected_piece = (0, 0)
+    service.selected_piece = board.get_piece_at(0, 0)
     service.click(50, 100) # Clicks (1, 0)
     assert len(service.move_scheduler.get_pending_moves()) == 1
-    assert service.selected_piece == (0, 0)
+    assert service.selected_piece == board.get_piece_at(0, 0)
 
     # 3. Test destination is targeted by another pending move (fourth check: destination reserved)
     service.move_scheduler.pending_moves = TrickList([PendingMove(Cell(0, 1), Cell(1, 0), p, 1000)])
-    service.selected_piece = (0, 0) # (0, 0) is not moving
+    service.selected_piece = board.get_piece_at(0, 0) # (0, 0) is not moving
     service.click(50, 100) # Click (1, 0) (destination is reserved)
     assert len(service.move_scheduler.get_pending_moves()) == 1
-    assert service.selected_piece == (0, 0)
+    assert service.selected_piece == board.get_piece_at(0, 0)
 
 
 def test_click_game_over_and_pending_moves_return():
@@ -313,11 +323,11 @@ def test_click_illegal_move_retains_selection():
     service = create_service(board, get_piece_fn=mock_get_piece)
     # Select (0, 0)
     service.click(50, 0)
-    assert service.selected_piece == (0, 0)
+    assert service.selected_piece == board.get_piece_at(0, 0)
     # Move to illegal target Cells
     service.click(950, 950)
     # Selection should still be retained
-    assert service.selected_piece == (0, 0)
+    assert service.selected_piece == board.get_piece_at(0, 0)
     assert len(service.move_scheduler.get_pending_moves()) == 0
 
 

@@ -9,27 +9,42 @@ from services.jump_service import JumpService
 from models.jump import Jump
 from constants import CELL_SIZE, DURATION
 from input.board_mappr import BoardMapper
+from models.game_state import GameState
 
 
 class boardService:
     def __init__(
         self,
-        board,
+        state: GameState,
         stdout,
         move_scheduler: MoveScheduler,
         move_validation_service: MoveValidationService,
         jump_service: JumpService,
         board_mapper: Optional[BoardMapper] = None,
     ):
-        self.board = board
+        self.state = state
+        self.board = state.board
         self.stdout = stdout
         self.move_scheduler = move_scheduler
         self.move_validation_service = move_validation_service
         self.jump_service = jump_service
-        self.board_mapper = board_mapper or BoardMapper(board)
+        self.board_mapper = board_mapper or BoardMapper(self.board)
 
-        self.selected_piece: Optional[Tuple[int, int]] = None
-        self.game_over: bool = False
+    @property
+    def selected_piece(self) -> Optional[Piece]:
+        return self.state.selected_piece
+
+    @selected_piece.setter
+    def selected_piece(self, val: Optional[Piece]) -> None:
+        self.state.selected_piece = val
+
+    @property
+    def game_over(self) -> bool:
+        return self.state.game_over
+
+    @game_over.setter
+    def game_over(self, val: bool) -> None:
+        self.state.game_over = val
 
 
     def click(self, x: int, y: int) -> None:
@@ -47,16 +62,15 @@ class boardService:
         if self.selected_piece is None:
             if piece is not None:
                 if not self.move_validation_service.is_piece_moving(cell_y, cell_x):
-                    self.selected_piece = (cell_y, cell_x)
+                    self.selected_piece = piece
             return
 
-        sel_y, sel_x = self.selected_piece
+        sel_piece = self.selected_piece
+        sel_y, sel_x = sel_piece.cell.y, sel_piece.cell.x
         
-        sel_piece = self.board.get_piece_at(sel_y, sel_x)
-        
-        if piece is not None and sel_piece is not None and piece.color == sel_piece.color:
+        if piece is not None and piece.color == sel_piece.color:
             if not self.move_validation_service.is_piece_moving(cell_y, cell_x):
-                self.selected_piece = (cell_y, cell_x)
+                self.selected_piece = piece
             return
 
         if self.move_validation_service.validate_move(sel_y, sel_x, cell_y, cell_x):

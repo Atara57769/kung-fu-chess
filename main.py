@@ -49,13 +49,15 @@ def execute_commands(board, commands, board_service_class=boardService, stdout=s
         from services.jump_service import JumpService
         from services.move_scheduler import MoveScheduler
         from services.move_validation_service import MoveValidationService
+        from models.game_state import GameState
 
-        jump_service = JumpService()
-        scheduler = MoveScheduler(board, jump_service)
-        validation = MoveValidationService(board, scheduler)
+        state = GameState(board=board)
+        jump_service = JumpService(state)
+        scheduler = MoveScheduler(state, jump_service)
+        validation = MoveValidationService(state, scheduler)
 
         service = boardService(
-            board=board,
+            state=state,
             stdout=stdout,
             move_scheduler=scheduler,
             move_validation_service=validation,

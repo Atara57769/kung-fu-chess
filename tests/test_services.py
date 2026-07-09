@@ -10,7 +10,17 @@ from models.cell import Cell
 from models.pending_move import PendingMove
 from services.move_validation_service import MoveValidationService
 from services.board_service import boardService
+from models.game_state import GameState
 import io
+
+
+def create_scheduler(board, jump_service=None):
+    state = GameState(board=board)
+    if jump_service is None:
+        jump_service = JumpService(state)
+    else:
+        jump_service.state = state
+    return MoveScheduler(state, jump_service)
 
 
 # Mock piece for testing sub-service logic
@@ -28,7 +38,7 @@ class DummyPiece(Piece):
 
 def test_promotion():
     board = Board([". .", ". ."])
-    scheduler = MoveScheduler(board, JumpService())
+    scheduler = create_scheduler(board)
     
     # White pawn promoting at y=0 on 2x2 board
     p1 = Piece("w", "P", Cell(1, 0))
@@ -67,7 +77,7 @@ def test_game_over_service():
         return None
 
     board.get_piece_at = lambda y, x: get_piece_mock(get_token(board.grid[y][x]))
-    scheduler = MoveScheduler(board, JumpService())
+    scheduler = create_scheduler(board)
     
     assert scheduler.check_game_over(Cell(0, 0)) is True
     assert scheduler.check_game_over(Cell(0, 1)) is False
@@ -99,7 +109,7 @@ def test_jump_service():
 def test_move_scheduler():
     board = Board(["wP .", ". ."])
     jump_service = JumpService()
-    scheduler = MoveScheduler(board, jump_service)
+    scheduler = create_scheduler(board, jump_service)
     p = DummyPiece("w")
     
     scheduler.schedule_move(Cell(0, 0), Cell(1, 1), p, 1500)
@@ -113,8 +123,8 @@ def test_move_scheduler():
 def test_move_validation_service():
     board = Board(["wK .", ". ."])
     jump_service = JumpService()
-    scheduler = MoveScheduler(board, jump_service)
-    service = MoveValidationService(board, scheduler)
+    scheduler = create_scheduler(board, jump_service)
+    service = MoveValidationService(scheduler.state, scheduler)
 
     # is_within_bounds
     assert service.is_within_bounds(0, 0) is True
@@ -141,7 +151,7 @@ def test_move_execution_service():
     p_white_pawn = Piece("w", "P", Cell(1, 0))
     move = PendingMove(Cell(1, 0), Cell(0, 0), p_white_pawn, 1000)
 
-    scheduler = MoveScheduler(board, JumpService())
+    scheduler = create_scheduler(board)
     scheduler.check_game_over = lambda target_cell: True
 
     # Move success, check promotion and game over propagation
@@ -152,7 +162,7 @@ def test_move_execution_service():
 
     # Reset and test captured in transit case
     board2 = Board([". .", "wP ."])
-    scheduler2 = MoveScheduler(board2, JumpService())
+    scheduler2 = create_scheduler(board2)
     scheduler2.check_game_over = lambda target_cell: True
     is_game_over_captured = scheduler2.execute_move(move, is_captured=True)
     assert is_game_over_captured is False
@@ -165,12 +175,12 @@ def test_board_service_di():
     board = Board(["wP .", ". ."])
     
     custom_jump = JumpService()
-    custom_scheduler = MoveScheduler(board, custom_jump)
-    custom_validation = MoveValidationService(board, custom_scheduler)
+    custom_scheduler = create_scheduler(board, custom_jump)
+    custom_validation = MoveValidationService(custom_scheduler.state, custom_scheduler)
 
     import sys
     service = boardService(
-        board=board,
+        state=custom_scheduler.state,
         stdout=sys.stdout,
         move_scheduler=custom_scheduler,
         move_validation_service=custom_validation,
@@ -184,7 +194,7 @@ def test_board_service_di():
 
     # Test basic integration
     service.click(0, 0) # Select wP at (0, 0)
-    assert service.selected_piece == (0, 0)
+    assert service.selected_piece == board.get_piece_at(0, 0)
 
     # Verify clock and pending_moves properties redirect successfully
     assert service.move_scheduler.get_clock() == 0
@@ -204,8 +214,8 @@ def test_board_service_di():
 def test_move_validation_service_direct():
     board = Board(["wK wP", ". ."])
     jump_service = JumpService()
-    scheduler = MoveScheduler(board, jump_service)
-    service = MoveValidationService(board, scheduler)
+    scheduler = create_scheduler(board, jump_service)
+    service = MoveValidationService(scheduler.state, scheduler)
 
     # 1. Target out of bounds
     is_val = service.validate_move(0, 0, 5, 5)
@@ -234,24 +244,24 @@ def test_board_service_game_over_triggers():
     import sys
     board = Board(["wP bK", ". ."])
     jump_service = JumpService()
-    scheduler = MoveScheduler(board, jump_service)
-    validation = MoveValidationService(board, scheduler)
+    scheduler = create_scheduler(board, jump_service)
+    validation = MoveValidationService(scheduler.state, scheduler)
     
     p_pawn = get_piece("wP")
     scheduler.schedule_move(Cell(0, 0), Cell(0, 1), p_pawn, 1000)
     
     # 1. wait() causes game over
-    service = boardService(board, sys.stdout, scheduler, validation, jump_service)
+    service = boardService(scheduler.state, sys.stdout, scheduler, validation, jump_service)
     service.wait(1000)
     assert service.game_over is True
 
     # Reset and check print_board() does not trigger game over, but wait() does
     board2 = Board(["wP bK", ". ."])
-    scheduler2 = MoveScheduler(board2, jump_service)
-    validation2 = MoveValidationService(board2, scheduler2)
+    scheduler2 = create_scheduler(board2, jump_service)
+    validation2 = MoveValidationService(scheduler2.state, scheduler2)
     scheduler2.schedule_move(Cell(0, 0), Cell(0, 1), p_pawn, 1000)
     scheduler2.advance_clock(1000)
-    service2 = boardService(board2, io.StringIO(), scheduler2, validation2, jump_service)
+    service2 = boardService(scheduler2.state, io.StringIO(), scheduler2, validation2, jump_service)
     service2.print_board()
     assert service2.game_over is False
     service2.wait(0)
@@ -259,11 +269,11 @@ def test_board_service_game_over_triggers():
 
     # Reset and check jump() does not trigger game over, but wait() does
     board3 = Board(["wP bK", ". ."])
-    scheduler3 = MoveScheduler(board3, jump_service)
-    validation3 = MoveValidationService(board3, scheduler3)
+    scheduler3 = create_scheduler(board3, jump_service)
+    validation3 = MoveValidationService(scheduler3.state, scheduler3)
     scheduler3.schedule_move(Cell(0, 0), Cell(0, 1), p_pawn, 1000)
     scheduler3.advance_clock(1000)
-    service3 = boardService(board3, sys.stdout, scheduler3, validation3, jump_service)
+    service3 = boardService(scheduler3.state, sys.stdout, scheduler3, validation3, jump_service)
     service3.jump(0, 0)
     assert service3.game_over is False
     service3.wait(0)
@@ -274,14 +284,14 @@ def test_board_service_click_game_over():
     import sys
     board = Board(["wP bK", ". ."])
     jump_service = JumpService()
-    scheduler = MoveScheduler(board, jump_service)
-    validation = MoveValidationService(board, scheduler)
+    scheduler = create_scheduler(board, jump_service)
+    validation = MoveValidationService(scheduler.state, scheduler)
     
     p_pawn = get_piece("wP")
     scheduler.schedule_move(Cell(0, 0), Cell(0, 1), p_pawn, 1000)
     scheduler.advance_clock(1000)
     
-    service = boardService(board, sys.stdout, scheduler, validation, jump_service)
+    service = boardService(scheduler.state, sys.stdout, scheduler, validation, jump_service)
     service.click(50, 0)
     assert service.game_over is False
     service.wait(0)

@@ -1,11 +1,23 @@
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 from models.pieces import Piece
 from constants import DURATION
 from models.jump import Jump
+from models.game_state import GameState
 
 class JumpService:
-    def __init__(self):
-        self.jumps: List[Jump] = []
+    def __init__(self, state: Optional[GameState] = None):
+        if state is None:
+            from models.board import Board
+            state = GameState(Board([]))
+        self.state = state
+
+    @property
+    def jumps(self) -> List[Jump]:
+        return self.state.jumps
+
+    @jumps.setter
+    def jumps(self, val: List[Jump]) -> None:
+        self.state.jumps = val
 
     def schedule_jump(self, cell: Tuple[int, int], start_time: int, piece: Piece) -> None:
         self.jumps.append(Jump(

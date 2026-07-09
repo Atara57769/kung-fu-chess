@@ -3,13 +3,30 @@ from constants import EMPTY_TOKEN
 from models.cell import Cell
 from models.pending_move import PendingMove
 from models.pieces import Piece
+from models.game_state import GameState
+from services.jump_service import JumpService
 
 class MoveScheduler:
-    def __init__(self, board ,jump_service):
-        self.board = board
+    def __init__(self, state: GameState, jump_service: JumpService):
+        self.state = state
+        self.board = state.board
         self.jump_service = jump_service
-        self.clock: int = 0
-        self.pending_moves: List[PendingMove] = []
+
+    @property
+    def clock(self) -> int:
+        return self.state.clock
+
+    @clock.setter
+    def clock(self, val: int) -> None:
+        self.state.clock = val
+
+    @property
+    def pending_moves(self) -> List[PendingMove]:
+        return self.state.pending_moves
+
+    @pending_moves.setter
+    def pending_moves(self, val: List[PendingMove]) -> None:
+        self.state.pending_moves = val
 
     def get_clock(self) -> int:
         return self.clock
@@ -108,7 +125,3 @@ class MoveScheduler:
                 
         self.pending_moves = remaining_moves
         return game_over_detected
-
-    
-    
-    

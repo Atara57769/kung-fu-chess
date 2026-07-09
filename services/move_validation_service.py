@@ -1,10 +1,13 @@
 from typing import List, Tuple, Optional, Callable
 from models.pieces import Piece
 from models.cell import Cell
+from models.game_state import GameState
+from services.move_scheduler import MoveScheduler
 
 class MoveValidationService:
-    def __init__(self, board, move_scheduler):
-        self.board = board
+    def __init__(self, state: GameState, move_scheduler: MoveScheduler):
+        self.state = state
+        self.board = state.board
         self.move_scheduler = move_scheduler
 
     def is_within_bounds(self, row: int, col: int) -> bool:
