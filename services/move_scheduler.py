@@ -84,7 +84,7 @@ class MoveScheduler:
                     if is_white_promotion or is_black_promotion:
                         current_piece.kind = "Q"
                         move.piece.kind = "Q"
-                self.board.move_piece(move.from_pos, move.to_pos)
+                self.board.move_piece(move.from_pos, move.to_pos, move.piece)
             else:
                 # Fallback: place the piece at destination and clear source if it matches (for tests mocking direct grid writes)
                 if orig_kind == "P":

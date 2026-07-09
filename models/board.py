@@ -16,10 +16,22 @@ class Board:
         """Checks whether a cell is inside the board boundaries."""
         return 0 <= cell_y < self.height and 0 <= cell_x < self.width
 
-    def move_piece(self, from_pos: Cell, to_pos: Cell) -> None:
+    def move_piece(self, from_pos: Cell, to_pos: Cell, piece: Piece) -> None:
         """Moves a piece from from_pos to to_pos after it has been validated."""
-        piece = self.grid[from_pos.y][from_pos.x]
-        if piece is not None:
+        source_y, source_x = from_pos.y, from_pos.x
+        if piece.cell is not None:
+            source_y, source_x = piece.cell.y, piece.cell.x
+
+        grid_piece = self.grid[source_y][source_x]
+        match = (grid_piece is not None and 
+                 grid_piece.color == piece.color and 
+                 (grid_piece.kind == piece.kind or (grid_piece.kind == "Q" and piece.kind == "P")))
+
+        if not match:
             piece.cell = to_pos
-        self.grid[to_pos.y][to_pos.x] = piece
-        self.grid[from_pos.y][from_pos.x] = None
+            self.grid[to_pos.y][to_pos.x] = piece
+        else:
+            piece.cell = to_pos
+            self.grid[to_pos.y][to_pos.x] = piece
+            if (source_y, source_x) != (to_pos.y, to_pos.x):
+                self.grid[source_y][source_x] = None
