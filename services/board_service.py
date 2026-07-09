@@ -31,8 +31,6 @@ class boardService:
 
     def click(self, x: int, y: int) -> None:
 
-        if self.move_scheduler.apply_completed_moves():
-            self.game_over = True
         if self.game_over:
             return
 
@@ -67,8 +65,7 @@ class boardService:
             self.selected_piece = None
 
     def jump(self, x: int, y: int) -> None:
-        if self.move_scheduler.apply_completed_moves():
-            self.game_over = True
+        
         if self.game_over:
             return
 
@@ -90,7 +87,5 @@ class boardService:
 
     def print_board(self) -> None:
         """Prints the board in canonical space-separated format."""
-        if self.move_scheduler.apply_completed_moves():
-            self.game_over = True
         for row in self.board.grid:
             print(" ".join(row), file=self.stdout)

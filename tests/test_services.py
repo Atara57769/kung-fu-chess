@@ -257,7 +257,7 @@ def test_board_service_game_over_triggers():
     service.wait(1000)
     assert service.game_over is True
 
-    # Reset and check print_board() triggers game over
+    # Reset and check print_board() does not trigger game over, but wait() does
     board2 = Board(["wP bK", ". ."])
     scheduler2 = MoveScheduler(board2, jump_service)
     validation2 = MoveValidationService(board2, scheduler2)
@@ -265,9 +265,11 @@ def test_board_service_game_over_triggers():
     scheduler2.advance_clock(1000)
     service2 = boardService(board2, io.StringIO(), scheduler2, validation2, jump_service)
     service2.print_board()
+    assert service2.game_over is False
+    service2.wait(0)
     assert service2.game_over is True
 
-    # Reset and check jump() triggers game over
+    # Reset and check jump() does not trigger game over, but wait() does
     board3 = Board(["wP bK", ". ."])
     scheduler3 = MoveScheduler(board3, jump_service)
     validation3 = MoveValidationService(board3, scheduler3)
@@ -275,6 +277,8 @@ def test_board_service_game_over_triggers():
     scheduler3.advance_clock(1000)
     service3 = boardService(board3, sys.stdout, scheduler3, validation3, jump_service)
     service3.jump(0, 0)
+    assert service3.game_over is False
+    service3.wait(0)
     assert service3.game_over is True
 
 
@@ -291,6 +295,8 @@ def test_board_service_click_game_over():
     
     service = boardService(board, sys.stdout, scheduler, validation, jump_service)
     service.click(50, 0)
+    assert service.game_over is False
+    service.wait(0)
     assert service.game_over is True
 
     service.click(50, 0)
