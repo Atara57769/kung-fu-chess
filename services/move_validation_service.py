@@ -16,11 +16,13 @@ class MoveValidationService:
 
     def is_piece_moving(self, row: int, col: int) -> bool:
         """Checks if a piece at (row, col) is currently in transit as a source of a pending move."""
-        return any(move.from_pos == Cell(row, col) for move in self.move_scheduler.get_pending_moves())
+        from rules.rule_engine import RuleEngine
+        return RuleEngine().is_piece_moving(Cell(row, col), self.move_scheduler.get_pending_moves())
 
     def is_destination_reserved(self, row: int, col: int) -> bool:
         """Checks if a cell (row, col) is the target destination of any pending move."""
-        return any(move.to_pos == Cell(row, col) for move in self.move_scheduler.get_pending_moves())
+        from rules.rule_engine import RuleEngine
+        return RuleEngine().is_destination_reserved(Cell(row, col), self.move_scheduler.get_pending_moves())
 
     def is_legal_move(self, piece: Piece, from_pos: Cell, to_pos: Cell) -> bool:
         if piece is None:
@@ -48,6 +50,10 @@ class MoveValidationService:
 
         # Check transit validation
         if self.is_piece_moving(sel_y, sel_x) or self.is_destination_reserved(to_y, to_x):
+            return False
+
+        from rules.rule_engine import RuleEngine
+        if RuleEngine().enemy_is_moving(self.board, Cell(sel_y, sel_x), self.move_scheduler.get_pending_moves()):
             return False
 
         # Check legality

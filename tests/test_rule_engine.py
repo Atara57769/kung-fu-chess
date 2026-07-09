@@ -107,3 +107,70 @@ def test_rule_engine_edge_cases():
     bad_piece = Piece("w", "X", Cell(0, 0))
     board.grid[0][0] = bad_piece
     assert engine.illegal_to_move(board, Cell(0, 0), Cell(1, 1)) is False
+
+
+def test_rule_engine_enemy_is_moving():
+    lines = [
+        "wK . .",
+        ". . .",
+        ". . bK"
+    ]
+    board = Board(lines)
+    engine = RuleEngine()
+    cell_from = Cell(0, 0)
+    cell_to = Cell(1, 1)
+
+    # 1. Test when no enemy is moving (pending_moves is empty)
+    assert engine.is_move_valid(board, cell_from, cell_to, []) is True
+
+    # 2. Test when enemy bK is moving
+    opp_piece = board.get_piece_at(2, 2)
+    from models.pending_move import PendingMove
+    pending_moves = [PendingMove(Cell(2, 2), Cell(2, 1), opp_piece, 1000)]
+    assert engine.enemy_is_moving(board, cell_from, pending_moves) is True
+    assert engine.is_move_valid(board, cell_from, cell_to, pending_moves) is False
+
+    # 3. Test when friendly wP is moving (should not block own color moves)
+    board.grid[0][1] = Piece("w", "P", Cell(0, 1))
+    friendly_piece = board.get_piece_at(0, 1)
+    pending_moves_friendly = [PendingMove(Cell(0, 1), Cell(0, 2), friendly_piece, 1000)]
+    assert engine.enemy_is_moving(board, cell_from, pending_moves_friendly) is False
+    assert engine.is_move_valid(board, cell_from, cell_to, pending_moves_friendly) is True
+
+
+def test_rule_engine_transit_validation():
+    lines = [
+        "wK . .",
+        ". . .",
+        ". . bK"
+    ]
+    board = Board(lines)
+    engine = RuleEngine()
+    
+    cell_from = Cell(0, 0)
+    cell_to = Cell(1, 1)
+    
+    from models.pending_move import PendingMove
+    moving_piece = board.get_piece_at(0, 0)
+    pending_moves = [PendingMove(cell_from, cell_to, moving_piece, 1000)]
+    
+    # 1. Test is_piece_moving
+    assert engine.is_piece_moving(cell_from, pending_moves) is True
+    assert engine.is_piece_moving(cell_to, pending_moves) is False
+    assert engine.is_piece_moving(None, pending_moves) is False
+    assert engine.is_piece_moving(cell_from, None) is False
+    
+    # 2. Test is_destination_reserved
+    assert engine.is_destination_reserved(cell_to, pending_moves) is True
+    assert engine.is_destination_reserved(cell_from, pending_moves) is False
+    assert engine.is_destination_reserved(None, pending_moves) is False
+    assert engine.is_destination_reserved(cell_to, None) is False
+    
+    # 3. Test is_move_valid validation paths
+    # a. when the source piece is already moving, it shouldn't be valid to move it again
+    assert engine.is_move_valid(board, cell_from, Cell(0, 1), pending_moves) is False
+    
+    # b. when the destination is already reserved, a move to it shouldn't be valid
+    other_piece = board.get_piece_at(2, 2)
+    # other_piece (bK) tries to move to the same reserved destination (cell_to)
+    assert engine.is_move_valid(board, Cell(2, 2), cell_to, pending_moves) is False

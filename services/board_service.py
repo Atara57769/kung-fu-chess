@@ -75,7 +75,14 @@ class boardService:
 
         if self.move_validation_service.validate_move(sel_y, sel_x, cell_y, cell_x):
             piece_to_move = self.board.get_piece_at(sel_y, sel_x)
-            self.move_scheduler.schedule_move(Cell(sel_y, sel_x), Cell(cell_y, cell_x), piece_to_move, DURATION)
+            dy = cell_y - sel_y
+            dx = cell_x - sel_x
+            if piece_to_move is not None and piece_to_move.kind == 'N':
+                distance = abs(dy) + abs(dx)
+            else:
+                distance = max(abs(dy), abs(dx))
+            move_duration = distance * DURATION
+            self.move_scheduler.schedule_move(Cell(sel_y, sel_x), Cell(cell_y, cell_x), piece_to_move, move_duration)
             self.selected_piece = None
 
     def jump(self, x: int, y: int) -> None:

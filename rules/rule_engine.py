@@ -3,10 +3,10 @@ from models.pieces import Piece
 from models.cell import Cell
 
 class RuleEngine:
-    def is_move_valid(self, board: Board, cell_from: Cell, cell_to: Cell) -> bool:
+    def is_move_valid(self, board: Board, cell_from: Cell, cell_to: Cell, pending_moves: list = None) -> bool:
         """
         Validates a move on the board from cell_from to cell_to.
-        Calls the four check functions and returns True if all are True.
+        Calls the check functions and returns True if all are True.
         """
         if self.outside_board(board, cell_from, cell_to):
             return False
@@ -14,10 +14,47 @@ class RuleEngine:
             return False
         if self.friendly_destination(board, cell_from, cell_to):
             return False
+        if self.is_piece_moving(cell_from, pending_moves):
+            return False
+        if self.is_destination_reserved(cell_to, pending_moves):
+            return False
+        if self.enemy_is_moving(board, cell_from, pending_moves):
+            return False
         if not self.illegal_to_move(board, cell_from, cell_to):
             return False
 
         return True
+
+    def is_piece_moving(self, cell: Cell, pending_moves: list) -> bool:
+        """
+        Checks if a piece at the cell is currently in transit as a source of a pending move.
+        Returns True if the piece is moving.
+        """
+        if cell is None or pending_moves is None:
+            return False
+        return any(move.from_pos == cell for move in pending_moves)
+
+    def is_destination_reserved(self, cell: Cell, pending_moves: list) -> bool:
+        """
+        Checks if a cell is the target destination of any pending move.
+        Returns True if the destination cell is reserved.
+        """
+        if cell is None or pending_moves is None:
+            return False
+        return any(move.to_pos == cell for move in pending_moves)
+
+    def enemy_is_moving(self, board: Board, cell_from: Cell, pending_moves: list) -> bool:
+        """
+        Checks if any enemy piece is currently moving.
+        Returns True if an enemy piece is moving, and False otherwise.
+        """
+        if cell_from is None or not board.is_inside_bounds(cell_from.y, cell_from.x) or pending_moves is None:
+            return False
+        piece = board.get_piece_at(cell_from.y, cell_from.x)
+        if piece is None:
+            return False
+        opp_color = 'b' if piece.color == 'w' else 'w'
+        return any(move.piece is not None and move.piece.color == opp_color for move in pending_moves)
 
     def outside_board(self, board: Board, cell_from: Cell, cell_to: Cell) -> bool:
         """
