@@ -219,11 +219,11 @@ def test_move_validation_service_direct():
     service = MoveValidationService(board, scheduler)
 
     # 1. Target out of bounds
-    is_val, piece, duration = service.validate_move(0, 0, 5, 5)
+    is_val = service.validate_move(0, 0, 5, 5)
     assert is_val is False
 
     # 2. Friendly target
-    is_val, piece, duration = service.validate_move(0, 0, 0, 1)
+    is_val = service.validate_move(0, 0, 0, 1)
     assert is_val is False
 
     # 3. Illegal move
@@ -238,7 +238,7 @@ def test_move_validation_service_direct():
         return get_piece(token)
 
     board.get_piece_at = lambda y, x: get_illegal_piece(board.grid[y][x])
-    is_val, piece, duration = service.validate_move(0, 0, 1, 1)
+    is_val = service.validate_move(0, 0, 1, 1)
     assert is_val is False
 
 

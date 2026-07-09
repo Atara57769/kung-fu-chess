@@ -7,7 +7,7 @@ from models.pending_move import PendingMove
 from services.move_validation_service import MoveValidationService
 from services.jump_service import JumpService
 from models.jump import Jump
-from constants import CELL_SIZE
+from constants import CELL_SIZE, DURATION
 
 
 class boardService:
@@ -57,11 +57,9 @@ class boardService:
                 self.selected_piece = (cell_y, cell_x)
             return
 
-        is_valid, piece_to_move, duration = self.move_validation_service.validate_move(
-            sel_y, sel_x, cell_y, cell_x
-        )
-        if is_valid:
-            self.move_scheduler.schedule_move(Coordinate(sel_y, sel_x), Coordinate(cell_y, cell_x), piece_to_move, duration)
+        if self.move_validation_service.validate_move(sel_y, sel_x, cell_y, cell_x):
+            piece_to_move = self.board.get_piece_at(sel_y, sel_x)
+            self.move_scheduler.schedule_move(Coordinate(sel_y, sel_x), Coordinate(cell_y, cell_x), piece_to_move, DURATION)
             self.selected_piece = None
 
     def jump(self, x: int, y: int) -> None:
