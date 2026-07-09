@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from constants import EMPTY_TOKEN
-from models.coordinate import Coordinate
+from models.cell import Cell
 
 class Piece(ABC):
     def __init__(self, color):
@@ -28,7 +28,7 @@ class Piece(ABC):
         return self.color + self.name
 
     @abstractmethod
-    def is_legal_move(self, board, from_pos: Coordinate, to_pos: Coordinate) -> bool:
+    def is_legal_move(self, board, from_pos: Cell, to_pos: Cell) -> bool:
         """Determines if the move from from_pos to to_pos is legal for this piece."""
         pass
 
@@ -36,7 +36,7 @@ class Piece(ABC):
         """Returns the promoted token (or current token by default)."""
         return self.token
 
-    def _is_path_clear(self, board, from_pos: Coordinate, to_pos: Coordinate) -> bool:
+    def _is_path_clear(self, board, from_pos: Cell, to_pos: Cell) -> bool:
         """Helper to verify if the path between two cells is clear of other pieces (excluding the endpoints)."""
         dy = to_pos.y - from_pos.y
         dx = to_pos.x - from_pos.x
@@ -71,7 +71,7 @@ class King(Piece):
     def name(self) -> str:
         return 'K'
 
-    def is_legal_move(self, board, from_pos: Coordinate, to_pos: Coordinate) -> bool:
+    def is_legal_move(self, board, from_pos: Cell, to_pos: Cell) -> bool:
         dy = to_pos.y - from_pos.y
         dx = to_pos.x - from_pos.x
         return abs(dx) <= 1 and abs(dy) <= 1 and not (dx == 0 and dy == 0)
@@ -82,7 +82,7 @@ class Rook(Piece):
     def name(self) -> str:
         return 'R'
 
-    def is_legal_move(self, board, from_pos: Coordinate, to_pos: Coordinate) -> bool:
+    def is_legal_move(self, board, from_pos: Cell, to_pos: Cell) -> bool:
         dy = to_pos.y - from_pos.y
         dx = to_pos.x - from_pos.x
         if not (dx == 0 or dy == 0) or (dx == 0 and dy == 0):
@@ -95,7 +95,7 @@ class Bishop(Piece):
     def name(self) -> str:
         return 'B'
 
-    def is_legal_move(self, board, from_pos: Coordinate, to_pos: Coordinate) -> bool:
+    def is_legal_move(self, board, from_pos: Cell, to_pos: Cell) -> bool:
         dy = to_pos.y - from_pos.y
         dx = to_pos.x - from_pos.x
         if abs(dx) != abs(dy) or (dx == 0 and dy == 0):
@@ -108,7 +108,7 @@ class Queen(Piece):
     def name(self) -> str:
         return 'Q'
 
-    def is_legal_move(self, board, from_pos: Coordinate, to_pos: Coordinate) -> bool:
+    def is_legal_move(self, board, from_pos: Cell, to_pos: Cell) -> bool:
         dy = to_pos.y - from_pos.y
         dx = to_pos.x - from_pos.x
         if not (dx == 0 or dy == 0 or abs(dx) == abs(dy)) or (dx == 0 and dy == 0):
@@ -121,7 +121,7 @@ class Knight(Piece):
     def name(self) -> str:
         return 'N'
 
-    def is_legal_move(self, board, from_pos: Coordinate, to_pos: Coordinate) -> bool:
+    def is_legal_move(self, board, from_pos: Cell, to_pos: Cell) -> bool:
         dy = to_pos.y - from_pos.y
         dx = to_pos.x - from_pos.x
         abs_dy = abs(dy)
@@ -140,9 +140,9 @@ class Pawn(Piece):
     def name(self) -> str:
         return 'P'
 
-    def is_legal_move(self, board, from_pos: Coordinate, to_pos: Coordinate) -> bool:
+    def is_legal_move(self, board, from_pos: Cell, to_pos: Cell) -> bool:
         target_token = board.grid[to_pos.y][to_pos.x]
-        H = len(board.grid)
+        H = board.height
         if self.color == 'w':
             expected_dy = -1
             start_row = H - 2 if H >= 5 else H - 1

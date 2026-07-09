@@ -1,6 +1,6 @@
 from typing import List, Tuple, Optional, Callable
 from models.pieces import Piece
-from models.coordinate import Coordinate
+from models.cell import Cell
 
 class MoveValidationService:
     def __init__(self, board, move_scheduler):
@@ -8,18 +8,18 @@ class MoveValidationService:
         self.move_scheduler = move_scheduler
 
     def is_within_bounds(self, row: int, col: int) -> bool:
-        """Checks if the cell coordinates (row, col) are within the board boundaries."""
-        return 0 <= col < self.board.width and 0 <= row < len(self.board.grid)
+        """Checks if the cell Cells (row, col) are within the board boundaries."""
+        return 0 <= col < self.board.width and 0 <= row < self.board.height
 
     def is_piece_moving(self, row: int, col: int) -> bool:
         """Checks if a piece at (row, col) is currently in transit as a source of a pending move."""
-        return any(move.from_pos == Coordinate(row, col) for move in self.move_scheduler.get_pending_moves())
+        return any(move.from_pos == Cell(row, col) for move in self.move_scheduler.get_pending_moves())
 
     def is_destination_reserved(self, row: int, col: int) -> bool:
         """Checks if a cell (row, col) is the target destination of any pending move."""
-        return any(move.to_pos == Coordinate(row, col) for move in self.move_scheduler.get_pending_moves())
+        return any(move.to_pos == Cell(row, col) for move in self.move_scheduler.get_pending_moves())
 
-    def is_legal_move(self, piece: Piece, from_pos: Coordinate, to_pos: Coordinate) -> bool:
+    def is_legal_move(self, piece: Piece, from_pos: Cell, to_pos: Cell) -> bool:
         if piece is None:
             return True
         return piece.is_legal_move(self.board, from_pos, to_pos)
@@ -44,10 +44,10 @@ class MoveValidationService:
             return False
 
         # Check legality
-        return self.is_legal_move(sel_piece, Coordinate(sel_y, sel_x), Coordinate(to_y, to_x))
+        return self.is_legal_move(sel_piece, Cell(sel_y, sel_x), Cell(to_y, to_x))
 
     def validate_jump(self, cell_y: int, cell_x: int) -> bool:
-        """Validates if a jump can be performed on the given cell coordinates."""
+        """Validates if a jump can be performed on the given cell Cells."""
         if not self.is_within_bounds(cell_y, cell_x):
             return False
         piece = self.board.get_piece_at(cell_y, cell_x)

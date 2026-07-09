@@ -9,7 +9,7 @@ from services.board_service import boardService
 from services.jump_service import JumpService
 from models.jump import Jump
 from services.move_scheduler import MoveScheduler
-from models.coordinate import Coordinate
+from models.cell import Cell
 from models.pending_move import PendingMove
 from services.move_validation_service import MoveValidationService
 
@@ -34,8 +34,8 @@ class MockSimplePiece(Piece):
     def name(self) -> str:
         return self._name
 
-    def is_legal_move(self, board, from_pos: Coordinate, to_pos: Coordinate) -> bool:
-        # Allow all moves for mock tests unless it's a specific coordinate
+    def is_legal_move(self, board, from_pos: Cell, to_pos: Cell) -> bool:
+        # Allow all moves for mock tests unless it's a specific Cell
         if to_pos.y == 9 and to_pos.x == 9:
             return False
         return True
@@ -80,8 +80,8 @@ def test_board_service_movement_queries():
     service = create_service(board)
     p = MockSimplePiece("w")
     service.move_scheduler.get_pending_moves().append(PendingMove(
-        from_pos=Coordinate(0, 0),
-        to_pos=Coordinate(1, 1),
+        from_pos=Cell(0, 0),
+        to_pos=Cell(1, 1),
         piece=p,
         arrival=1000
     ))
@@ -132,18 +132,18 @@ def test_board_service_check_game_over():
     board.get_piece_at = lambda y, x: get_piece_mock(board.grid[y][x])
     scheduler = MoveScheduler(board, JumpService())
     # destination has non-king (empty)
-    assert scheduler.check_game_over(Coordinate(1, 0)) is False
+    assert scheduler.check_game_over(Cell(1, 0)) is False
 
     # destination has king
-    assert scheduler.check_game_over(Coordinate(0, 1)) is True
+    assert scheduler.check_game_over(Cell(0, 1)) is True
 
 
 def test_execute_move_captured():
     board = Board(["wP .", ". ."])
     scheduler = MoveScheduler(board, JumpService())
     move = PendingMove(
-        from_pos=Coordinate(0, 0),
-        to_pos=Coordinate(1, 1),
+        from_pos=Cell(0, 0),
+        to_pos=Cell(1, 1),
         piece=MockSimplePiece("w"),
         arrival=1000
     )
@@ -165,8 +165,8 @@ def test_execute_move_success():
     board = Board(["wP .", ". ."])
     scheduler = MoveScheduler(board, JumpService())
     move = PendingMove(
-        from_pos=Coordinate(0, 0),
-        to_pos=Coordinate(1, 1),
+        from_pos=Cell(0, 0),
+        to_pos=Cell(1, 1),
         piece=MockSimplePiece("w"),
         arrival=1000
     )
@@ -179,8 +179,8 @@ def test_execute_move_success():
     scheduler2 = MoveScheduler(board2, JumpService())
     board2.grid[0][0] = "bK"
     move2 = PendingMove(
-        from_pos=Coordinate(0, 0),
-        to_pos=Coordinate(1, 1),
+        from_pos=Cell(0, 0),
+        to_pos=Cell(1, 1),
         piece=MockSimplePiece("w"),
         arrival=1000
     )
@@ -194,8 +194,8 @@ def test_apply_completed_moves():
     service = create_service(board)
     p = MockSimplePiece("w")
     service.move_scheduler.get_pending_moves().extend([
-        PendingMove(Coordinate(0, 0), Coordinate(1, 1), p, 1000),
-        PendingMove(Coordinate(0, 1), Coordinate(1, 0), p, 2000)
+        PendingMove(Cell(0, 0), Cell(1, 1), p, 1000),
+        PendingMove(Cell(0, 1), Cell(1, 0), p, 2000)
     ])
     
     # Wait until t=500. Nothing should happen.
@@ -246,8 +246,8 @@ def test_click_move_scheduling():
     service.click(50, 0)
     assert len(service.move_scheduler.get_pending_moves()) == 1
     assert service.selected_piece is None
-    assert service.move_scheduler.get_pending_moves()[0].from_pos == Coordinate(1, 0)
-    assert service.move_scheduler.get_pending_moves()[0].to_pos == Coordinate(0, 0)
+    assert service.move_scheduler.get_pending_moves()[0].from_pos == Cell(1, 0)
+    assert service.move_scheduler.get_pending_moves()[0].to_pos == Cell(0, 0)
 
 
 def test_click_move_scheduling_none_piece():
@@ -276,7 +276,7 @@ def test_click_while_moving_or_reserved_tricked():
     
     # 1. Test clicking a cell that is currently moving (first check: cell_y, cell_x is moving)
     p = get_piece("wP")
-    service.move_scheduler.pending_moves = TrickList([PendingMove(Coordinate(0, 0), Coordinate(1, 0), p, 1000)])
+    service.move_scheduler.pending_moves = TrickList([PendingMove(Cell(0, 0), Cell(1, 0), p, 1000)])
     service.click(50, 0) # Click (0, 0) which is moving
     assert service.selected_piece is None
 
@@ -287,7 +287,7 @@ def test_click_while_moving_or_reserved_tricked():
     assert service.selected_piece == (0, 0)
 
     # 3. Test destination is targeted by another pending move (fourth check: destination reserved)
-    service.move_scheduler.pending_moves = TrickList([PendingMove(Coordinate(0, 1), Coordinate(1, 0), p, 1000)])
+    service.move_scheduler.pending_moves = TrickList([PendingMove(Cell(0, 1), Cell(1, 0), p, 1000)])
     service.selected_piece = (0, 0) # (0, 0) is not moving
     service.click(50, 100) # Click (1, 0) (destination is reserved)
     assert len(service.move_scheduler.get_pending_moves()) == 1
@@ -302,7 +302,7 @@ def test_click_game_over_and_pending_moves_return():
     assert service.selected_piece is None
 
     service.game_over = False
-    service.move_scheduler.get_pending_moves().append(PendingMove(Coordinate(0, 0), Coordinate(1, 1), MockSimplePiece("w"), 1000))
+    service.move_scheduler.get_pending_moves().append(PendingMove(Cell(0, 0), Cell(1, 1), MockSimplePiece("w"), 1000))
     service.click(50, 0)
     assert service.selected_piece is None
 
@@ -320,7 +320,7 @@ def test_click_illegal_move_retains_selection():
     # Select (0, 0)
     service.click(50, 0)
     assert service.selected_piece == (0, 0)
-    # Move to illegal target coordinates
+    # Move to illegal target Cells
     service.click(950, 950)
     # Selection should still be retained
     assert service.selected_piece == (0, 0)
@@ -341,7 +341,7 @@ def test_jump():
 
     # Jump on moving piece (ignored)
     p = get_piece("wP")
-    service.move_scheduler.get_pending_moves().append(PendingMove(Coordinate(0, 0), Coordinate(1, 0), p, 1000))
+    service.move_scheduler.get_pending_moves().append(PendingMove(Cell(0, 0), Cell(1, 0), p, 1000))
     service.jump(50, 0) # cell (0, 0)
     assert len(service.jump_service.jumps) == 0
 

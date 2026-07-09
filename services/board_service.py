@@ -2,12 +2,13 @@ import sys
 from typing import Tuple, List, Optional, Callable
 from models.pieces import get_piece, Piece
 from services.move_scheduler import MoveScheduler
-from models.coordinate import Coordinate
+from models.cell import Cell
 from models.pending_move import PendingMove
 from services.move_validation_service import MoveValidationService
 from services.jump_service import JumpService
 from models.jump import Jump
 from constants import CELL_SIZE, DURATION
+from input.board_mappr import BoardMapper
 
 
 class boardService:
@@ -18,12 +19,14 @@ class boardService:
         move_scheduler: MoveScheduler,
         move_validation_service: MoveValidationService,
         jump_service: JumpService,
+        board_mapper: Optional[BoardMapper] = None,
     ):
         self.board = board
         self.stdout = stdout
         self.move_scheduler = move_scheduler
         self.move_validation_service = move_validation_service
         self.jump_service = jump_service
+        self.board_mapper = board_mapper or BoardMapper(board)
 
         self.selected_piece: Optional[Tuple[int, int]] = None
         self.game_over: bool = False
@@ -34,11 +37,10 @@ class boardService:
         if self.game_over:
             return
 
-        cell_y = y // CELL_SIZE
-        cell_x = x // CELL_SIZE
-
-        if not self.move_validation_service.is_within_bounds(cell_y, cell_x):
+        cell = self.board_mapper.pixel_to_cell(x, y)
+        if cell is None:
             return
+        cell_y, cell_x = cell.y, cell.x
 
         piece = self.board.get_piece_at(cell_y, cell_x)
 
@@ -59,7 +61,7 @@ class boardService:
 
         if self.move_validation_service.validate_move(sel_y, sel_x, cell_y, cell_x):
             piece_to_move = self.board.get_piece_at(sel_y, sel_x)
-            self.move_scheduler.schedule_move(Coordinate(sel_y, sel_x), Coordinate(cell_y, cell_x), piece_to_move, DURATION)
+            self.move_scheduler.schedule_move(Cell(sel_y, sel_x), Cell(cell_y, cell_x), piece_to_move, DURATION)
             self.selected_piece = None
 
     def jump(self, x: int, y: int) -> None:
@@ -67,8 +69,10 @@ class boardService:
         if self.game_over:
             return
 
-        cell_y = y // CELL_SIZE
-        cell_x = x // CELL_SIZE
+        cell = self.board_mapper.pixel_to_cell(x, y)
+        if cell is None:
+            return
+        cell_y, cell_x = cell.y, cell.x
 
         if self.move_validation_service.validate_jump(cell_y, cell_x):
             piece = self.board.get_piece_at(cell_y, cell_x)

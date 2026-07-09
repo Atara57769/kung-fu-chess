@@ -10,6 +10,7 @@ def test_board_initialization_valid():
     ]
     board = Board(lines)
     assert board.width == 3
+    assert board.height == 3
     assert len(board.grid) == 3
     assert board.grid[0] == ["wK", ".", "bP"]
     assert board.grid[1] == [".", "wQ", "."]
@@ -18,6 +19,7 @@ def test_board_initialization_valid():
 def test_board_initialization_empty():
     board = Board([])
     assert board.width == 0
+    assert board.height == 0
     assert board.grid == []
 
 def test_board_unknown_token():

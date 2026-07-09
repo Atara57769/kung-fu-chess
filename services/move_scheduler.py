@@ -1,6 +1,6 @@
 from typing import Tuple, List
 from constants import EMPTY_TOKEN
-from models.coordinate import Coordinate
+from models.cell import Cell
 from models.pending_move import PendingMove
 from models.pieces import Piece
 
@@ -17,7 +17,7 @@ class MoveScheduler:
     def get_pending_moves(self) -> List[PendingMove]:
         return self.pending_moves
 
-    def schedule_move(self, from_pos: Coordinate, to_pos: Coordinate, piece: Piece, duration: int) -> None:
+    def schedule_move(self, from_pos: Cell, to_pos: Cell, piece: Piece, duration: int) -> None:
         arrival = self.clock + duration
         self.pending_moves.append(PendingMove(
             from_pos=from_pos,
@@ -29,7 +29,7 @@ class MoveScheduler:
     def advance_clock(self, ms: int) -> None:
         self.clock += ms
     
-    def check_game_over(self, target_cell: Coordinate) -> bool:
+    def check_game_over(self, target_cell: Cell) -> bool:
         """Checks if the destination cell contains an enemy king, returning True if so."""
         dest_piece = self.board.get_piece_at(target_cell.y, target_cell.x)
         return dest_piece is not None and dest_piece.is_king
@@ -52,7 +52,7 @@ class MoveScheduler:
         is_game_over = self.check_game_over(move.to_pos)
         
         # Apply the move on the grid (piece-owned promotion called here)
-        token = move.piece.promote(to_y, len(self.board.grid)) if move.piece else EMPTY_TOKEN
+        token = move.piece.promote(to_y, self.board.height) if move.piece else EMPTY_TOKEN
         self.board.grid[to_y][to_x] = token
         if self.board.grid[from_y][from_x] == move.piece.token:
             self.board.grid[from_y][from_x] = EMPTY_TOKEN

@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from models.coordinate import Coordinate
+from models.cell import Cell
 from models.pieces import Piece
 
 @dataclass
 class PendingMove:
-    from_pos: Coordinate
-    to_pos: Coordinate
+    from_pos: Cell
+    to_pos: Cell
     piece: Piece
     arrival: int

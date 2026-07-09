@@ -7,13 +7,14 @@ class Board:
     VALID_PIECES = VALID_PIECES
     VALID_COLORS = VALID_COLORS
     def __init__(self, board_lines):
-        """Initializes the board grid and width."""
+        """Initializes the board grid, width, and height."""
         self.grid = []
         self.width = None
+        self.height = None
         self._parse_and_validate(board_lines)
 
     def get_piece_at(self, cell_y: int, cell_x: int):
-        """Returns the piece at the given cell coordinates."""
+        """Returns the piece at the given cell Cells."""
         token = self.grid[cell_y][cell_x]
         return get_piece(token)
 
@@ -45,5 +46,7 @@ class Board:
             
         if self.width is None:
             self.width = 0
+            
+        self.height = len(self.grid)
 
     

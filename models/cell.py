@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
 @dataclass(frozen=True)
-class Coordinate:
+class Cell:
     y: int
     x: int

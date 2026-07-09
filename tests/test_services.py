@@ -5,7 +5,7 @@ from models.board import Board
 from services.jump_service import JumpService
 from models.jump import Jump
 from services.move_scheduler import MoveScheduler
-from models.coordinate import Coordinate
+from models.cell import Cell
 from models.pending_move import PendingMove
 from services.move_validation_service import MoveValidationService
 from services.board_service import boardService
@@ -32,7 +32,7 @@ class DummyPiece(Piece):
     def is_pawn(self) -> bool:
         return self._is_pawn
 
-    def is_legal_move(self, board, from_pos: Coordinate, to_pos: Coordinate) -> bool:
+    def is_legal_move(self, board, from_pos: Cell, to_pos: Cell) -> bool:
         return True
 
 
@@ -68,9 +68,9 @@ def test_game_over_service():
     board.get_piece_at = lambda y, x: get_piece_mock(board.grid[y][x])
     scheduler = MoveScheduler(board, JumpService())
     
-    assert scheduler.check_game_over(Coordinate(0, 0)) is True
-    assert scheduler.check_game_over(Coordinate(0, 1)) is False
-    assert scheduler.check_game_over(Coordinate(1, 0)) is False
+    assert scheduler.check_game_over(Cell(0, 0)) is True
+    assert scheduler.check_game_over(Cell(0, 1)) is False
+    assert scheduler.check_game_over(Cell(1, 0)) is False
 
 
 def test_jump_service():
@@ -82,16 +82,16 @@ def test_jump_service():
     service.schedule_jump((2, 2), 100, p_white)
     
     # Airborne capture checking:
-    # 1. Target coordinate match, inside time window, opposite color -> Captured
+    # 1. Target Cell match, inside time window, opposite color -> Captured
     assert service.is_captured_by_airborne_enemy((2, 2), 500, p_black) is True
     
     # 2. Same color -> Not captured
     assert service.is_captured_by_airborne_enemy((2, 2), 500, p_white) is False
 
-    # 3. Target coordinate match, outside time window -> Not captured
+    # 3. Target Cell match, outside time window -> Not captured
     assert service.is_captured_by_airborne_enemy((2, 2), 1200, p_black) is False
 
-    # 4. Target coordinate mismatch -> Not captured
+    # 4. Target Cell mismatch -> Not captured
     assert service.is_captured_by_airborne_enemy((1, 1), 500, p_black) is False
 
 
@@ -101,7 +101,7 @@ def test_move_scheduler():
     scheduler = MoveScheduler(board, jump_service)
     p = DummyPiece("w")
     
-    scheduler.schedule_move(Coordinate(0, 0), Coordinate(1, 1), p, 1500)
+    scheduler.schedule_move(Cell(0, 0), Cell(1, 1), p, 1500)
     assert len(scheduler.get_pending_moves()) == 1
     assert scheduler.get_pending_moves()[0].arrival == 1500
 
@@ -122,7 +122,7 @@ def test_move_validation_service():
 
     # is_piece_moving and is_destination_reserved
     p = DummyPiece("w")
-    scheduler.pending_moves = [PendingMove(Coordinate(0, 0), Coordinate(1, 1), p, 1000)]
+    scheduler.pending_moves = [PendingMove(Cell(0, 0), Cell(1, 1), p, 1000)]
     
     assert service.is_piece_moving(0, 0) is True
     assert service.is_piece_moving(1, 1) is False
@@ -130,8 +130,8 @@ def test_move_validation_service():
     assert service.is_destination_reserved(1, 1) is True
 
     # is_legal_move
-    assert service.is_legal_move(None, Coordinate(0, 0), Coordinate(1, 1)) is True
-    assert service.is_legal_move(p, Coordinate(0, 0), Coordinate(1, 1)) is True
+    assert service.is_legal_move(None, Cell(0, 0), Cell(1, 1)) is True
+    assert service.is_legal_move(p, Cell(0, 0), Cell(1, 1)) is True
 
 
 def test_move_execution_service():
@@ -142,7 +142,7 @@ def test_move_execution_service():
             return "wQ"
 
     p_white_pawn = PromotableDummyPiece("w", name_val="P", is_pawn_val=True)
-    move = PendingMove(Coordinate(0, 0), Coordinate(1, 1), p_white_pawn, 1000)
+    move = PendingMove(Cell(0, 0), Cell(1, 1), p_white_pawn, 1000)
 
     scheduler = MoveScheduler(board, JumpService())
     scheduler.check_game_over = lambda target_cell: True
@@ -196,7 +196,7 @@ def test_board_service_di():
 
     assert len(service.move_scheduler.get_pending_moves()) == 0
     p = DummyPiece("w")
-    service.move_scheduler.pending_moves = [PendingMove(Coordinate(0, 0), Coordinate(1, 1), p, 200)]
+    service.move_scheduler.pending_moves = [PendingMove(Cell(0, 0), Cell(1, 1), p, 200)]
     assert len(custom_scheduler.get_pending_moves()) == 1
 
     assert len(service.jump_service.jumps) == 0
@@ -250,7 +250,7 @@ def test_board_service_game_over_triggers():
     validation = MoveValidationService(board, scheduler)
     
     p_pawn = get_piece("wP")
-    scheduler.schedule_move(Coordinate(0, 0), Coordinate(0, 1), p_pawn, 1000)
+    scheduler.schedule_move(Cell(0, 0), Cell(0, 1), p_pawn, 1000)
     
     # 1. wait() causes game over
     service = boardService(board, sys.stdout, scheduler, validation, jump_service)
@@ -261,7 +261,7 @@ def test_board_service_game_over_triggers():
     board2 = Board(["wP bK", ". ."])
     scheduler2 = MoveScheduler(board2, jump_service)
     validation2 = MoveValidationService(board2, scheduler2)
-    scheduler2.schedule_move(Coordinate(0, 0), Coordinate(0, 1), p_pawn, 1000)
+    scheduler2.schedule_move(Cell(0, 0), Cell(0, 1), p_pawn, 1000)
     scheduler2.advance_clock(1000)
     service2 = boardService(board2, io.StringIO(), scheduler2, validation2, jump_service)
     service2.print_board()
@@ -273,7 +273,7 @@ def test_board_service_game_over_triggers():
     board3 = Board(["wP bK", ". ."])
     scheduler3 = MoveScheduler(board3, jump_service)
     validation3 = MoveValidationService(board3, scheduler3)
-    scheduler3.schedule_move(Coordinate(0, 0), Coordinate(0, 1), p_pawn, 1000)
+    scheduler3.schedule_move(Cell(0, 0), Cell(0, 1), p_pawn, 1000)
     scheduler3.advance_clock(1000)
     service3 = boardService(board3, sys.stdout, scheduler3, validation3, jump_service)
     service3.jump(0, 0)
@@ -290,7 +290,7 @@ def test_board_service_click_game_over():
     validation = MoveValidationService(board, scheduler)
     
     p_pawn = get_piece("wP")
-    scheduler.schedule_move(Coordinate(0, 0), Coordinate(0, 1), p_pawn, 1000)
+    scheduler.schedule_move(Cell(0, 0), Cell(0, 1), p_pawn, 1000)
     scheduler.advance_clock(1000)
     
     service = boardService(board, sys.stdout, scheduler, validation, jump_service)
