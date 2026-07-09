@@ -1,26 +1,34 @@
 import pytest
+import io
+import sys
 from typing import Tuple, List, Optional
 from models.pieces import Piece, PieceFactory
 get_piece = PieceFactory.get_piece
 from models.board import Board
 from services.jump_service import JumpService
 from models.jump import Jump
-from services.move_scheduler import MoveScheduler
 from models.cell import Cell
 from models.pending_move import PendingMove
-from services.move_validation_service import MoveValidationService
-from services.board_service import boardService
 from models.game_state import GameState
-import io
+from engine.controller import Controller
+from engine.game_engine import GameEngine
+from realtime.real_time_arbiter import RealTimeArbiter
+from rules.rule_engine import RuleEngine
 
 
-def create_scheduler(board, jump_service=None):
-    state = GameState(board=board)
-    if jump_service is None:
-        jump_service = JumpService(state)
-    else:
-        jump_service.state = state
-    return MoveScheduler(state, jump_service)
+def create_state(board):
+    return GameState(board=board)
+
+def create_controller(board, stdout=sys.stdout):
+    state = create_state(board)
+    engine = GameEngine()
+    return Controller(state, engine, stdout), state
+
+
+def get_token(val):
+    if isinstance(val, Piece):
+        return val.color + val.kind
+    return val or "."
 
 
 # Mock piece for testing sub-service logic
@@ -38,37 +46,39 @@ class DummyPiece(Piece):
 
 def test_promotion():
     board = Board([". .", ". ."])
-    scheduler = create_scheduler(board)
-    
+    state = create_state(board)
+    arbiter = RealTimeArbiter()
+
     # White pawn promoting at y=0 on 2x2 board
     p1 = Piece("w", "P", Cell(1, 0))
+    board.grid[1][0] = p1
     move1 = PendingMove(Cell(1, 0), Cell(0, 0), p1, 1000)
-    scheduler.execute_move(move1, is_captured=False)
+    arbiter.apply_pawn_promotion(state, move1)
+    arbiter.execute_move_on_board(state, move1)
     assert board.grid[0][0] == Piece("w", "Q", Cell(0, 0))
-    
+
     # White pawn not promoting at y=1 on 2x2 board
     board.grid = [[None, None], [None, None]]
     p2 = Piece("w", "P", Cell(0, 0))
+    board.grid[0][0] = p2
     move2 = PendingMove(Cell(0, 0), Cell(1, 0), p2, 1000)
-    scheduler.execute_move(move2, is_captured=False)
+    arbiter.apply_pawn_promotion(state, move2)
+    arbiter.execute_move_on_board(state, move2)
     assert board.grid[1][0] == Piece("w", "P", Cell(1, 0))
 
     # Non-pawn (knight) not promoting
     board.grid = [[None, None], [None, None]]
     p3 = Piece("w", "N", Cell(1, 0))
+    board.grid[1][0] = p3
     move3 = PendingMove(Cell(1, 0), Cell(0, 0), p3, 1000)
-    scheduler.execute_move(move3, is_captured=False)
+    arbiter.apply_pawn_promotion(state, move3)
+    arbiter.execute_move_on_board(state, move3)
     assert board.grid[0][0] == Piece("w", "N", Cell(0, 0))
 
 
-def get_token(val):
-    if isinstance(val, Piece):
-        return val.color + val.kind
-    return val or "."
-
 def test_game_over_service():
     board = Board(["wK bN", ". ."])
-    
+
     def get_piece_mock(token: str) -> Optional[Piece]:
         if token == "wK":
             return DummyPiece("w", is_king_val=True)
@@ -77,25 +87,28 @@ def test_game_over_service():
         return None
 
     board.get_piece_at = lambda y, x: get_piece_mock(get_token(board.grid[y][x]))
-    scheduler = create_scheduler(board)
-    
-    assert scheduler.check_game_over(Cell(0, 0)) is True
-    assert scheduler.check_game_over(Cell(0, 1)) is False
-    assert scheduler.check_game_over(Cell(1, 0)) is False
+    state = create_state(board)
+    arbiter = RealTimeArbiter()
+
+    assert arbiter.check_game_over(state, Cell(0, 0)) is True
+    assert arbiter.check_game_over(state, Cell(0, 1)) is False
+    assert arbiter.check_game_over(state, Cell(1, 0)) is False
 
 
 def test_jump_service():
-    service = JumpService()
+    board = Board([". ."])
+    state = create_state(board)
+    service = JumpService(state)
     p_white = DummyPiece("w")
     p_black = DummyPiece("b")
 
     # Schedule a jump at (2, 2) from t=100 to t=1100
     service.schedule_jump((2, 2), 100, p_white)
-    
+
     # Airborne capture checking:
     # 1. Target Cell match, inside time window, opposite color -> Captured
     assert service.is_captured_by_airborne_enemy((2, 2), 500, p_black) is True
-    
+
     # 2. Same color -> Not captured
     assert service.is_captured_by_airborne_enemy((2, 2), 500, p_white) is False
 
@@ -106,196 +119,201 @@ def test_jump_service():
     assert service.is_captured_by_airborne_enemy((1, 1), 500, p_black) is False
 
 
-def test_move_scheduler():
-    board = Board(["wP .", ". ."])
-    jump_service = JumpService()
-    scheduler = create_scheduler(board, jump_service)
+def test_game_engine_schedule_move():
+    """Tests that GameEngine.request_move appends a PendingMove with correct arrival."""
+    board = Board([". .", "wP ."])
+    state = create_state(board)
+    engine = GameEngine()
     p = DummyPiece("w")
-    
-    scheduler.schedule_move(Cell(0, 0), Cell(1, 1), p, 1500)
-    assert len(scheduler.get_pending_moves()) == 1
-    assert scheduler.get_pending_moves()[0].arrival == 1500
 
-    scheduler.advance_clock(500)
-    assert scheduler.get_clock() == 500
+    engine.request_move(state, Cell(1, 0), Cell(0, 0))
+    assert len(state.pending_moves) == 1
+    assert state.pending_moves[0].arrival == 1000  # distance=1, DURATION=1000
+
+    state.clock = 500
+    state.pending_moves.clear()
+    engine.request_move(state, Cell(1, 0), Cell(0, 0))
+    assert state.pending_moves[0].arrival == 1500
 
 
-def test_move_validation_service():
+def test_game_engine_wait_advances_clock():
+    board = Board(["wP .", ". ."])
+    state = create_state(board)
+    engine = GameEngine()
+
+    engine.wait(state, 500)
+    assert state.clock == 500
+
+
+def test_rule_engine_validation():
     board = Board(["wK .", ". ."])
-    jump_service = JumpService()
-    scheduler = create_scheduler(board, jump_service)
-    service = MoveValidationService(scheduler.state, scheduler)
+    state = create_state(board)
+    rule = RuleEngine()
 
-    # is_within_bounds
-    assert service.is_within_bounds(0, 0) is True
-    assert service.is_within_bounds(-1, 0) is False
-    assert service.is_within_bounds(0, 2) is False
+    # is_within_bounds via board
+    assert board.is_inside_bounds(0, 0) is True
+    assert board.is_inside_bounds(-1, 0) is False
+    assert board.is_inside_bounds(0, 2) is False
 
     # is_piece_moving and is_destination_reserved
     p = DummyPiece("w")
-    scheduler.pending_moves = [PendingMove(Cell(0, 0), Cell(1, 1), p, 1000)]
-    
-    assert service.is_piece_moving(0, 0) is True
-    assert service.is_piece_moving(1, 1) is False
-    assert service.is_destination_reserved(0, 0) is False
-    assert service.is_destination_reserved(1, 1) is True
+    state.pending_moves = [PendingMove(Cell(0, 0), Cell(1, 1), p, 1000)]
 
-    # is_legal_move
-    assert service.is_legal_move(None, Cell(0, 0), Cell(1, 1)) is True
-    assert service.is_legal_move(p, Cell(0, 0), Cell(1, 1)) is False  # wP/Dummy cannot move diagonally by rules module!
+    assert rule.is_piece_moving(Cell(0, 0), state.pending_moves) is True
+    assert rule.is_piece_moving(Cell(1, 1), state.pending_moves) is False
+    assert rule.is_destination_reserved(Cell(0, 0), state.pending_moves) is False
+    assert rule.is_destination_reserved(Cell(1, 1), state.pending_moves) is True
 
 
-def test_move_execution_service():
-    board = Board([". .", "wP ."])
-    
-    p_white_pawn = Piece("w", "P", Cell(1, 0))
-    move = PendingMove(Cell(1, 0), Cell(0, 0), p_white_pawn, 1000)
-
-    scheduler = create_scheduler(board)
-    scheduler.check_game_over = lambda target_cell: True
-
-    # Move success, check promotion and game over propagation
-    is_game_over = scheduler.execute_move(move, is_captured=False)
-    assert is_game_over is True
-    assert board.grid[1][0] is None
-    assert board.grid[0][0] == Piece("w", "Q", Cell(0, 0))
-
-    # Reset and test captured in transit case
-    board2 = Board([". .", "wP ."])
-    scheduler2 = create_scheduler(board2)
-    scheduler2.check_game_over = lambda target_cell: True
-    is_game_over_captured = scheduler2.execute_move(move, is_captured=True)
-    assert is_game_over_captured is False
-    assert board2.grid[1][0] is None
-    assert board2.grid[0][0] is None
-
-
-def test_board_service_di():
-    # Verify that boardService can construct and run cleanly with custom dependency injection
-    board = Board(["wP .", ". ."])
-    
-    custom_jump = JumpService()
-    custom_scheduler = create_scheduler(board, custom_jump)
-    custom_validation = MoveValidationService(custom_scheduler.state, custom_scheduler)
-
-    import sys
-    service = boardService(
-        state=custom_scheduler.state,
-        stdout=sys.stdout,
-        move_scheduler=custom_scheduler,
-        move_validation_service=custom_validation,
-        jump_service=custom_jump,
-    )
-
-    # Check dependencies are injected correctly
-    assert service.move_scheduler is custom_scheduler
-    assert service.move_validation_service is custom_validation
-    assert service.jump_service is custom_jump
-
-    # Test basic integration
-    service.click(0, 0) # Select wP at (0, 0)
-    assert service.selected_piece == board.get_piece_at(0, 0)
-
-    # Verify clock and pending_moves properties redirect successfully
-    assert service.move_scheduler.get_clock() == 0
-    service.move_scheduler.clock = 100
-    assert custom_scheduler.get_clock() == 100
-
-    assert len(service.move_scheduler.get_pending_moves()) == 0
-    p = DummyPiece("w")
-    service.move_scheduler.pending_moves = [PendingMove(Cell(0, 0), Cell(1, 1), p, 200)]
-    assert len(custom_scheduler.get_pending_moves()) == 1
-
-    assert len(service.jump_service.jumps) == 0
-    service.jump_service.jumps = [Jump((0, 0), 0, 100, p)]
-    assert len(custom_jump.jumps) == 1
-
-
-def test_move_validation_service_direct():
-    board = Board(["wK wP", ". ."])
-    jump_service = JumpService()
-    scheduler = create_scheduler(board, jump_service)
-    service = MoveValidationService(scheduler.state, scheduler)
-
-    # 1. Target out of bounds
-    is_val = service.validate_move(0, 0, 5, 5)
-    assert is_val is False
-
-    # 2. Friendly target
-    is_val = service.validate_move(0, 0, 0, 1)
-    assert is_val is False
-
-    # 3. Illegal move
-    class IllegalPiece(Piece):
-        def __init__(self, color):
-            super().__init__(color, "X")
-
-    board.grid[0][0] = "wX"
-    def get_illegal_piece(token):
-        if token == "wX": return IllegalPiece("w")
-        return get_piece(token)
-
-    board.get_piece_at = lambda y, x: get_illegal_piece(get_token(board.grid[y][x]))
-    is_val = service.validate_move(0, 0, 1, 1)
-    assert is_val is False
-
-
-def test_board_service_game_over_triggers():
-    import sys
+def test_controller_game_over_triggers():
     board = Board(["wP bK", ". ."])
-    jump_service = JumpService()
-    scheduler = create_scheduler(board, jump_service)
-    validation = MoveValidationService(scheduler.state, scheduler)
-    
+    controller, state = create_controller(board)
+
     p_pawn = get_piece("wP")
-    scheduler.schedule_move(Cell(0, 0), Cell(0, 1), p_pawn, 1000)
-    
-    # 1. wait() causes game over
-    service = boardService(scheduler.state, sys.stdout, scheduler, validation, jump_service)
-    service.wait(1000)
-    assert service.game_over is True
+    state.pending_moves.append(PendingMove(Cell(0, 0), Cell(0, 1), p_pawn, 1000))
+
+    # wait() causes game over
+    controller.wait(1000)
+    assert state.game_over is True
 
     # Reset and check print_board() does not trigger game over, but wait() does
     board2 = Board(["wP bK", ". ."])
-    scheduler2 = create_scheduler(board2, jump_service)
-    validation2 = MoveValidationService(scheduler2.state, scheduler2)
-    scheduler2.schedule_move(Cell(0, 0), Cell(0, 1), p_pawn, 1000)
-    scheduler2.advance_clock(1000)
-    service2 = boardService(scheduler2.state, io.StringIO(), scheduler2, validation2, jump_service)
-    service2.print_board()
-    assert service2.game_over is False
-    service2.wait(0)
-    assert service2.game_over is True
+    controller2, state2 = create_controller(board2, stdout=io.StringIO())
+    state2.pending_moves.append(PendingMove(Cell(0, 0), Cell(0, 1), p_pawn, 1000))
+    state2.clock = 1000
+    controller2.print_board()
+    assert state2.game_over is False
+    controller2.wait(0)
+    assert state2.game_over is True
 
     # Reset and check jump() does not trigger game over, but wait() does
     board3 = Board(["wP bK", ". ."])
-    scheduler3 = create_scheduler(board3, jump_service)
-    validation3 = MoveValidationService(scheduler3.state, scheduler3)
-    scheduler3.schedule_move(Cell(0, 0), Cell(0, 1), p_pawn, 1000)
-    scheduler3.advance_clock(1000)
-    service3 = boardService(scheduler3.state, sys.stdout, scheduler3, validation3, jump_service)
-    service3.jump(0, 0)
-    assert service3.game_over is False
-    service3.wait(0)
-    assert service3.game_over is True
+    controller3, state3 = create_controller(board3)
+    state3.pending_moves.append(PendingMove(Cell(0, 0), Cell(0, 1), p_pawn, 1000))
+    state3.clock = 1000
+    controller3.jump(0, 0)
+    assert state3.game_over is False
+    controller3.wait(0)
+    assert state3.game_over is True
 
 
-def test_board_service_click_game_over():
-    import sys
+def test_controller_click_game_over():
     board = Board(["wP bK", ". ."])
-    jump_service = JumpService()
-    scheduler = create_scheduler(board, jump_service)
-    validation = MoveValidationService(scheduler.state, scheduler)
-    
-    p_pawn = get_piece("wP")
-    scheduler.schedule_move(Cell(0, 0), Cell(0, 1), p_pawn, 1000)
-    scheduler.advance_clock(1000)
-    
-    service = boardService(scheduler.state, sys.stdout, scheduler, validation, jump_service)
-    service.click(50, 0)
-    assert service.game_over is False
-    service.wait(0)
-    assert service.game_over is True
+    controller, state = create_controller(board)
 
-    service.click(50, 0)
-    assert service.game_over is True
+    p_pawn = get_piece("wP")
+    state.pending_moves.append(PendingMove(Cell(0, 0), Cell(0, 1), p_pawn, 1000))
+    state.clock = 1000
+
+    controller.click(50, 0)
+    assert state.game_over is False
+    controller.wait(0)
+    assert state.game_over is True
+
+    controller.click(50, 0)
+    assert state.game_over is True
+
+
+def test_game_engine_coverage_edge_cases():
+    # 1. game_engine.request_move when game_over is True
+    board = Board(["wP .", ". ."])
+    state = create_state(board)
+    state.game_over = True
+    engine = GameEngine()
+    engine.request_move(state, Cell(0, 0), Cell(0, 1))
+    assert len(state.pending_moves) == 0
+
+    # 2. game_engine.request_move edge cases (outside bounds, friendly dest, moving source, reserved dest, enemy is moving)
+    # Re-enable game
+    state.game_over = False
+    p = get_piece("wP")
+    # Outside bounds
+    engine.request_move(state, Cell(0, 0), Cell(5, 5))
+    assert len(state.pending_moves) == 0
+
+    # Friendly destination
+    board.grid[0][1] = get_piece("wP")
+    engine.request_move(state, Cell(0, 0), Cell(0, 1))
+    assert len(state.pending_moves) == 0
+    board.grid[0][1] = None
+
+    # Source is already moving
+    state.pending_moves.append(PendingMove(Cell(0, 0), Cell(1, 0), p, 1000))
+    engine.request_move(state, Cell(0, 0), Cell(0, 1))
+    assert len(state.pending_moves) == 1
+    state.pending_moves.clear()
+
+    # Destination is reserved
+    state.pending_moves.append(PendingMove(Cell(1, 0), Cell(0, 1), p, 1000))
+    engine.request_move(state, Cell(0, 0), Cell(0, 1))
+    assert len(state.pending_moves) == 1
+    state.pending_moves.clear()
+
+    # Enemy is moving
+    board.grid[0][1] = get_piece("bP")
+    state.pending_moves.append(PendingMove(Cell(0, 1), Cell(1, 1), get_piece("bP"), 1000))
+    engine.request_move(state, Cell(0, 0), Cell(1, 0))
+    assert len(state.pending_moves) == 1  # only the enemy pending move, ours was rejected
+    state.pending_moves.clear()
+    board.grid[0][1] = None
+
+    # Source has a piece but the move is genuinely illegal (not matching piece rules)
+    engine.request_move(state, Cell(0, 0), Cell(1, 1))  # wP cannot move diagonally to empty cell
+    assert len(state.pending_moves) == 0
+
+    # Knight distance calculation branch
+    board_n = Board(["wN . .", ". . .", ". . ."])
+    state_n = create_state(board_n)
+    engine.request_move(state_n, Cell(0, 0), Cell(1, 2))  # valid N move
+    assert len(state_n.pending_moves) == 1
+    assert state_n.pending_moves[0].arrival == 3000  # distance = 1+2 = 3 * 1000
+
+
+def test_jump_service_coverage_edge_cases():
+    # 1. Default state initialization
+    js = JumpService(None)
+    assert js.state is not None
+    assert isinstance(js.state.board, Board)
+
+    # 2. setter for jumps property
+    state = create_state(Board([". ."]))
+    js2 = JumpService(state)
+    my_jumps = [Jump((0, 0), 0, 1000, get_piece("wP"))]
+    js2.jumps = my_jumps
+    assert js2.jumps == my_jumps
+
+
+def test_real_time_arbiter_coverage_edge_cases():
+    # Test pawn promotion fallback when move.piece matches color/kind check but current_piece at from_pos does not (i.e. is None or mismatch)
+    board = Board(["wP .", ". ."])
+    state = create_state(board)
+    arb = RealTimeArbiter()
+
+    # Place pawn at (0, 0)
+    p = get_piece("wP")
+    move = PendingMove(Cell(0, 0), Cell(0, 1), p, 1000)
+
+    class TrickyPiece:
+        def __init__(self):
+            self._reads = 0
+            self.kind = "P"
+        @property
+        def color(self):
+            self._reads += 1
+            if self._reads == 1:
+                return "w"
+            return "b"
+
+    tricky = TrickyPiece()
+    move_tricky = PendingMove(Cell(1, 0), Cell(0, 0), tricky, 1000)
+    arb.apply_pawn_promotion(state, move_tricky)
+    assert move_tricky.piece.kind == "Q"
+
+
+def test_main_empty_command_coverage():
+    # Test empty line in commands section does not break main/execute_commands
+    board = Board(["wP .", ". ."])
+    from main import execute_commands
+    # Simply verify running it does not raise any exceptions
+    execute_commands(board, ["", "   "])
+

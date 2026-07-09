@@ -1,7 +1,8 @@
 import sys
 from models.board import Board
 from exceptions import UnknownTokenError, RowWidthMismatchError
-from services.board_service import boardService
+from engine.controller import Controller
+from engine.game_engine import GameEngine
 
 
 def read_input_lines(stdin=sys.stdin):
@@ -43,38 +44,28 @@ def extract_command_lines(lines, commands_start):
     return [cmd for cmd in lines[commands_start + 1 :] if cmd]
 
 
-def execute_commands(board, commands, board_service_class=boardService, stdout=sys.stdout):
-    """Executes parsed commands against the initialized board using boardService."""
-    if board_service_class is boardService:
-        from services.jump_service import JumpService
-        from services.move_scheduler import MoveScheduler
-        from services.move_validation_service import MoveValidationService
-        from models.game_state import GameState
+def execute_commands(board, commands, controller_class=None, board_service_class=None, stdout=sys.stdout):
+    """Executes parsed commands against the initialized board using Controller."""
+    from models.game_state import GameState
 
-        state = GameState(board=board)
-        jump_service = JumpService(state)
-        scheduler = MoveScheduler(state, jump_service)
-        validation = MoveValidationService(state, scheduler)
+    state = GameState(board=board)
+    game_engine = GameEngine()
 
-        service = boardService(
-            state=state,
-            stdout=stdout,
-            move_scheduler=scheduler,
-            move_validation_service=validation,
-            jump_service=jump_service,
-        )
+    if controller_class is not None:
+        controller = controller_class(state, game_engine, stdout)
     else:
-        service = board_service_class(board, stdout=stdout)
+        controller = Controller(state, game_engine, stdout)
+
     def handle_print(parts):
         if parts == ["print", "board"]:
-            service.print_board()
+            controller.print_board()
 
     def handle_click(parts):
         if len(parts) == 3:
             try:
                 x = int(parts[1])
                 y = int(parts[2])
-                service.click(x, y)
+                controller.click(x, y)
             except ValueError:
                 pass
 
@@ -82,7 +73,7 @@ def execute_commands(board, commands, board_service_class=boardService, stdout=s
         if len(parts) == 2:
             try:
                 ms = int(parts[1])
-                service.wait(ms)
+                controller.wait(ms)
             except ValueError:
                 pass
 
@@ -91,7 +82,7 @@ def execute_commands(board, commands, board_service_class=boardService, stdout=s
             try:
                 x = int(parts[1])
                 y = int(parts[2])
-                service.jump(x, y)
+                controller.jump(x, y)
             except ValueError:
                 pass
 
@@ -111,11 +102,12 @@ def execute_commands(board, commands, board_service_class=boardService, stdout=s
             handler(parts)
 
 
-def main(stdin=sys.stdin, stdout=sys.stdout, exit_fn=sys.exit, board_class=Board, board_service_class=boardService):
+def main(stdin=sys.stdin, stdout=sys.stdout, exit_fn=sys.exit, board_class=Board,
+         board_service_class=None):
     """Main orchestration flow of parsing, validating, and executing commands."""
     lines = read_input_lines(stdin)
     board_start, commands_start = find_section_indices(lines)
-    
+
     if board_start == -1:
         return
 
@@ -133,7 +125,7 @@ def main(stdin=sys.stdin, stdout=sys.stdout, exit_fn=sys.exit, board_class=Board
         exit_fn(0)
         return
 
-    execute_commands(board, commands, board_service_class=board_service_class, stdout=stdout)
+    execute_commands(board, commands, stdout=stdout)
 
 
 if __name__ == "__main__":

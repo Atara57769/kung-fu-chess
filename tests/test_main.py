@@ -12,11 +12,12 @@ from main import (
     main
 )
 
-# Mock classes for testing execute_commands and main
 
-class MockBoardService:
-    def __init__(self, board, stdout=None):
-        self.board = board
+# Mock controller for testing execute_commands and main
+class MockController:
+    def __init__(self, state, game_engine, stdout):
+        self.state = state
+        self.game_engine = game_engine
         self.stdout = stdout
         self.actions = []
 
@@ -75,7 +76,7 @@ def test_extract_command_lines():
 
 
 def test_execute_commands():
-    board = "dummy_board"
+    board = Board(["wP .", ". ."])
     commands = [
         "print board",
         "click 100 200",
@@ -89,14 +90,22 @@ def test_execute_commands():
         "jump 300",        # wrong parts length
         "unknown_cmd"
     ]
-    
-    service = MockBoardService(board)
-    def mock_service_class(b, stdout=None):
-        return service
-        
-    execute_commands(board, commands, board_service_class=mock_service_class)
-    
-    assert service.actions == [
+
+    captured = []
+
+    class CapturingController(MockController):
+        pass
+
+    controller_instance = None
+
+    def mock_controller_class(state, game_engine, stdout):
+        nonlocal controller_instance
+        controller_instance = CapturingController(state, game_engine, stdout)
+        return controller_instance
+
+    execute_commands(board, commands, controller_class=mock_controller_class)
+
+    assert controller_instance.actions == [
         ("print",),
         ("click", 100, 200),
         ("wait", 500),
@@ -154,21 +163,7 @@ def test_main_row_width_mismatch_error():
 def test_main_normal_flow():
     stdin = io.StringIO("Board:\nwK .\nCommands:\nprint board\n")
     out = io.StringIO()
-    exited = []
-    def exit_fn(code):
-        exited.append(code)
 
-    service = MockBoardService(None)
-    def mock_service_class(board, stdout=None):
-        service.board = board
-        service.stdout = stdout
-        return service
-
-    class MockBoard:
-        def __init__(self, lines):
-            self.lines = lines
-
-    main(stdin=stdin, stdout=out, exit_fn=exit_fn, board_class=MockBoard, board_service_class=mock_service_class)
-    assert exited == []
-    assert len(service.actions) == 1
-    assert service.actions[0] == ("print",)
+    main(stdin=stdin, stdout=out)
+    # Default Controller + GameEngine → should print the board
+    assert "wK" in out.getvalue()
