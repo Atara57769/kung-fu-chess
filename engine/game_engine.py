@@ -24,36 +24,25 @@ class GameEngine:
         board = state.board
         pending = state.pending_moves
 
-        if rule.outside_board(board, from_cell, to_cell):
+        if not rule.is_move_valid(board, from_cell, to_cell, pending):
             return
-        if rule.friendly_destination(board, from_cell, to_cell):
-            return
-        if rule.is_piece_moving(from_cell, pending):
-            return
-        if rule.is_destination_reserved(to_cell, pending):
-            return
-        if rule.enemy_is_moving(board, from_cell, pending):
-            return
-        if not rule.illegal_to_move(board, from_cell, to_cell):
-            # illegal_to_move returns False when source is empty — allow that case
-            piece_at_src = board.get_piece_at(from_cell.y, from_cell.x)
-            if piece_at_src is not None:
-                # Source has a piece but the move is genuinely illegal
-                return
-            # Source is empty — allow scheduling with piece=None
 
         piece = state.board.get_piece_at(from_cell.y, from_cell.x)
+        duration = self.calculate_move_duration(from_cell, to_cell, piece)
+        arrival = state.clock + duration
 
+        self.schedule_move(state, from_cell, to_cell, piece, arrival)
+
+    def calculate_move_duration(self, from_cell: Cell, to_cell: Cell, piece: Optional[object]) -> int:
         dy = to_cell.y - from_cell.y
         dx = to_cell.x - from_cell.x
-        if piece is not None and piece.kind == 'N':
+        if piece is not None and getattr(piece, 'kind', None) == 'N':
             distance = abs(dy) + abs(dx)
         else:
             distance = max(abs(dy), abs(dx))
+        return distance * DURATION
 
-        duration = distance * DURATION
-        arrival = state.clock + duration
-
+    def schedule_move(self, state: GameState, from_cell: Cell, to_cell: Cell, piece: Optional[object], arrival: int) -> None:
         state.pending_moves.append(PendingMove(
             from_pos=from_cell,
             to_pos=to_cell,

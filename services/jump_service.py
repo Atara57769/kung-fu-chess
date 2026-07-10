@@ -27,10 +27,4 @@ class JumpService:
             piece=piece
         ))
 
-    def is_captured_by_airborne_enemy(self, target_cell: Tuple[int, int], arrival_time: int, piece: Piece) -> bool:
-        """Checks if the destination contains an active airborne piece of the enemy."""
-        for jump in self.jumps:
-            if jump.cell == target_cell and jump.start <= arrival_time <= jump.end:
-                if jump.piece.color != piece.color:
-                    return True
-        return False
+   

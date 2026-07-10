@@ -86,34 +86,6 @@ def test_controller_movement_queries():
     assert rule.is_destination_reserved(Cell(1, 1), state.pending_moves) is True
 
 
-def test_controller_airborne_enemy_capture():
-    board = Board(["wP .", ". bP"])
-    state = create_state(board)
-    jump_service = JumpService(state)
-
-    white_piece = MockSimplePiece("w")
-    black_piece = MockSimplePiece("b")
-
-    # Add a jump by white piece on cell (1, 1) from t=0 to t=1000
-    state.jumps.append(Jump(
-        cell=(1, 1),
-        start=0,
-        end=1000,
-        piece=white_piece
-    ))
-
-    # Black piece arrives at (1, 1) at t=500. Should be captured by white airborne enemy.
-    assert jump_service.is_captured_by_airborne_enemy((1, 1), 500, black_piece) is True
-
-    # White piece arrives at (1, 1) at t=500. Same color, should NOT be captured.
-    assert jump_service.is_captured_by_airborne_enemy((1, 1), 500, white_piece) is False
-
-    # Black piece arrives at (1, 1) at t=1500 (after jump ended).
-    assert jump_service.is_captured_by_airborne_enemy((1, 1), 1500, black_piece) is False
-
-    # Black piece arrives at (0, 0) (different cell).
-    assert jump_service.is_captured_by_airborne_enemy((0, 0), 500, black_piece) is False
-
 
 def test_controller_check_game_over():
     board = Board(["wK bK", ". ."])

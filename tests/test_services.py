@@ -100,23 +100,11 @@ def test_jump_service():
     state = create_state(board)
     service = JumpService(state)
     p_white = DummyPiece("w")
-    p_black = DummyPiece("b")
 
     # Schedule a jump at (2, 2) from t=100 to t=1100
     service.schedule_jump((2, 2), 100, p_white)
-
-    # Airborne capture checking:
-    # 1. Target Cell match, inside time window, opposite color -> Captured
-    assert service.is_captured_by_airborne_enemy((2, 2), 500, p_black) is True
-
-    # 2. Same color -> Not captured
-    assert service.is_captured_by_airborne_enemy((2, 2), 500, p_white) is False
-
-    # 3. Target Cell match, outside time window -> Not captured
-    assert service.is_captured_by_airborne_enemy((2, 2), 1200, p_black) is False
-
-    # 4. Target Cell mismatch -> Not captured
-    assert service.is_captured_by_airborne_enemy((1, 1), 500, p_black) is False
+    assert len(service.jumps) == 1
+    assert service.jumps[0].cell == (2, 2)
 
 
 def test_game_engine_schedule_move():
