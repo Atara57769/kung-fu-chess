@@ -1,4 +1,4 @@
-from output.board_parser import BoardParser
+from services.board_parser import BoardParser
 from models.cell import Cell
 from models.pieces import Piece
 from constants import EMPTY_TOKEN

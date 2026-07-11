@@ -69,7 +69,7 @@ class GameEngine:
 
     def print_board(self, state: GameState, stdout) -> None:
         """Prints the board in canonical space-separated format."""
-        from output.board_printer import print_board
+        from services.board_printer import print_board
         print_board(state.board, stdout=stdout)
 
     def is_piece_moving(self, state: GameState, cell: Cell) -> bool:

@@ -1,6 +1,6 @@
 import pytest
 import io
-from output.board_parser import BoardParser
+from services.board_parser import BoardParser
 from exceptions import UnknownTokenError, RowWidthMismatchError
 from models.pieces import Piece
 from models.cell import Cell

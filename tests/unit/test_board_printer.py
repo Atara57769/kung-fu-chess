@@ -1,5 +1,5 @@
 import io
-from output.board_printer import print_piece, print_board
+from services.board_printer import print_piece, print_board
 from models.pieces import PieceFactory
 from models.board import Board
 
