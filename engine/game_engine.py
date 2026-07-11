@@ -61,7 +61,8 @@ class GameEngine:
         if not self.can_jump(state, cell):
             return
         piece = state.board.get_piece_at(cell.y, cell.x)
-        JumpService(state).schedule_jump(
+        JumpService().schedule_jump(
+            state=state,
             cell=(cell.y, cell.x),
             start_time=state.clock,
             piece=piece,

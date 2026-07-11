@@ -6,7 +6,6 @@ from models.cell import Cell
 from models.pieces import Piece
 from factory import PieceFactory
 from models.pending_move import PendingMove
-from models.jump import Jump
 from engine.game_engine import GameEngine
 from services.jump_service import JumpService
 
@@ -81,20 +80,10 @@ def test_game_engine_request_move_validation():
 def test_jump_service():
     board = TextBoardParser().parse([". ."])
     state = GameState(board=board)
-    service = JumpService(state)
+    service = JumpService()
     p_white = PieceFactory.from_text("wP")
 
-    service.schedule_jump((2, 2), 100, p_white)
-    assert len(service.jumps) == 1
-    assert service.jumps[0].cell == (2, 2)
+    service.schedule_jump(state, (2, 2), 100, p_white)
+    assert len(state.jumps) == 1
+    assert state.jumps[0].cell == (2, 2)
 
-def test_jump_service_coverage_edge_cases():
-    js = JumpService(None)
-    assert js.state is not None
-    assert isinstance(js.state.board, Board)
-
-    state = GameState(board=TextBoardParser().parse([". ."]))
-    js2 = JumpService(state)
-    my_jumps = [Jump((0, 0), 0, 1000, PieceFactory.from_text("wP"))]
-    js2.jumps = my_jumps
-    assert js2.jumps == my_jumps
