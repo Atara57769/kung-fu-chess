@@ -1,6 +1,6 @@
 import pytest
 import io
-from services.board_parser import BoardParser
+from services.board_parser import TextBoardParser
 from exceptions import UnknownTokenError, RowWidthMismatchError
 from models.pieces import Piece
 from models.cell import Cell
@@ -19,33 +19,33 @@ def test_board_parser_valid():
         ". wQ .",
         "wN bB wP"
     ]
-    grid, width, height = BoardParser.parse(lines)
-    assert width == 3
-    assert height == 3
-    assert len(grid) == 3
-    assert grid[0] == [Piece("w", "K", Cell(0, 0)), None, Piece("b", "P", Cell(0, 2))]
-    assert grid[1] == [None, Piece("w", "Q", Cell(1, 1)), None]
-    assert grid[2] == [Piece("w", "N", Cell(2, 0)), Piece("b", "B", Cell(2, 1)), Piece("w", "P", Cell(2, 2))]
+    board = TextBoardParser().parse(lines)
+    assert board.width == 3
+    assert board.height == 3
+    assert len(board.grid) == 3
+    assert board.grid[0] == [Piece("w", "K", Cell(0, 0)), None, Piece("b", "P", Cell(0, 2))]
+    assert board.grid[1] == [None, Piece("w", "Q", Cell(1, 1)), None]
+    assert board.grid[2] == [Piece("w", "N", Cell(2, 0)), Piece("b", "B", Cell(2, 1)), Piece("w", "P", Cell(2, 2))]
 
 def test_board_parser_empty():
-    grid, width, height = BoardParser.parse([])
-    assert width == 0
-    assert height == 0
-    assert grid == []
+    board = TextBoardParser().parse([])
+    assert board.width == 0
+    assert board.height == 0
+    assert board.grid == []
 
 def test_board_parser_unknown_token():
     with pytest.raises(UnknownTokenError):
-        BoardParser.parse(["wK . xP"])
+        TextBoardParser().parse(["wK . xP"])
     with pytest.raises(UnknownTokenError):
-        BoardParser.parse(["wK . wK2"])
+        TextBoardParser().parse(["wK . wK2"])
     with pytest.raises(UnknownTokenError):
-        BoardParser.parse(["wK . zP"])
+        TextBoardParser().parse(["wK . zP"])
     with pytest.raises(UnknownTokenError):
-        BoardParser.parse(["wK . wZ"])
+        TextBoardParser().parse(["wK . wZ"])
 
 def test_board_parser_row_width_mismatch():
     with pytest.raises(RowWidthMismatchError):
-        BoardParser.parse(["wK .", "bP . bB ."])
+        TextBoardParser().parse(["wK .", "bP . bB ."])
 
 def test_read_input_lines_normal():
     stdin = io.StringIO("  line1  \n  line2\n")
@@ -83,9 +83,8 @@ def test_extract_command_lines():
     assert extract_command_lines(lines, -1) == []
 
 def test_execute_commands_edge_cases():
-    from models.board import Board
     from engine.controller import Controller
-    board = Board(["wP .", ". ."])
+    board = TextBoardParser().parse(["wP .", ". ."])
     
     commands = [
         "click abc 200",

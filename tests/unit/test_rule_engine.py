@@ -1,5 +1,6 @@
 import pytest
 from models.board import Board
+from services.board_parser import TextBoardParser
 from models.pieces import Piece
 from models.cell import Cell
 from rules.rule_engine import RuleEngine
@@ -11,7 +12,7 @@ def test_rule_engine_valid_move():
         ". . .",
         ". . ."
     ]
-    board = Board(lines)
+    board = TextBoardParser().parse(lines)
     cell_from = Cell(0, 0)
     
     engine = RuleEngine()
@@ -40,7 +41,7 @@ def test_rule_engine_valid_move():
         ". . .",
         ". . ."
     ]
-    board_pieces = Board(lines_with_pieces)
+    board_pieces = TextBoardParser().parse(lines_with_pieces)
     cell_k = Cell(0, 0)
     
     # Destination (0, 1) has friendly pawn 'wP'
@@ -60,7 +61,7 @@ def test_rule_engine_valid_move():
         ". . .",
         ". . ."
     ]
-    board_empty = Board(lines_empty_dest)
+    board_empty = TextBoardParser().parse(lines_empty_dest)
     cell_k_empty = Cell(0, 0)
     cell_one_right = Cell(0, 1)
     assert engine.illegal_to_move(board_empty, cell_k_empty, cell_one_right) is True
@@ -77,7 +78,7 @@ def test_rule_engine_edge_cases():
         ". . .",
         ". . ."
     ]
-    board = Board(lines)
+    board = TextBoardParser().parse(lines)
     engine = RuleEngine()
     
     assert engine.outside_board(board, None, Cell(0, 0)) is True
@@ -108,7 +109,7 @@ def test_rule_engine_enemy_is_moving():
         ". . .",
         ". . bK"
     ]
-    board = Board(lines)
+    board = TextBoardParser().parse(lines)
     engine = RuleEngine()
     cell_from = Cell(0, 0)
     cell_to = Cell(1, 1)
@@ -136,7 +137,7 @@ def test_rule_engine_transit_validation():
         ". . .",
         ". . bK"
     ]
-    board = Board(lines)
+    board = TextBoardParser().parse(lines)
     engine = RuleEngine()
     
     cell_from = Cell(0, 0)

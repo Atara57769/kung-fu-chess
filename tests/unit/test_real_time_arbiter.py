@@ -1,14 +1,16 @@
 import pytest
 from models.board import Board
+from services.board_parser import TextBoardParser
 from models.game_state import GameState
 from models.cell import Cell
-from models.pieces import Piece, PieceFactory
+from models.pieces import Piece
+from factory import PieceFactory
 from models.pending_move import PendingMove
 from models.jump import Jump
 from realtime.real_time_arbiter import RealTimeArbiter
 
 def test_real_time_arbiter_clock():
-    board = Board(["wK .", ". bK"])
+    board = TextBoardParser().parse(["wK .", ". bK"])
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
     
@@ -19,7 +21,7 @@ def test_real_time_arbiter_clock():
     assert state.clock == 350
 
 def test_real_time_arbiter_move_execution():
-    board = Board(["wK .", ". bK"])
+    board = TextBoardParser().parse(["wK .", ". bK"])
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
     
@@ -37,7 +39,7 @@ def test_real_time_arbiter_move_execution():
     assert len(state.pending_moves) == 0
 
 def test_real_time_arbiter_game_over_by_capture():
-    board = Board(["wK .", ". bK"])
+    board = TextBoardParser().parse(["wK .", ". bK"])
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
     
@@ -50,7 +52,7 @@ def test_real_time_arbiter_game_over_by_capture():
     assert state.game_over is True
 
 def test_real_time_arbiter_airborne_capture():
-    board = Board(["wP .", ". bK"])
+    board = TextBoardParser().parse(["wP .", ". bK"])
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
     
@@ -66,7 +68,7 @@ def test_real_time_arbiter_airborne_capture():
     assert len(state.pending_moves) == 0
 
 def test_real_time_arbiter_source_changes():
-    board = Board(["wK .", ". bK"])
+    board = TextBoardParser().parse(["wK .", ". bK"])
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
     
@@ -84,7 +86,7 @@ def test_real_time_arbiter_source_changes():
     assert w_king.cell == Cell(0, 1)
 
 def test_real_time_arbiter_escaping_king():
-    board = Board(["wR . bK", ". . ."])
+    board = TextBoardParser().parse(["wR . bK", ". . ."])
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
     
@@ -98,7 +100,7 @@ def test_real_time_arbiter_escaping_king():
     assert state.game_over is False
 
 def test_promotion():
-    board = Board([". .", ". ."])
+    board = TextBoardParser().parse([". .", ". ."])
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
 
@@ -126,7 +128,7 @@ def test_promotion():
     assert board.grid[0][0] == Piece("w", "N", Cell(0, 0))
 
 def test_game_over_service():
-    board = Board(["wK bN", ". ."])
+    board = TextBoardParser().parse(["wK bN", ". ."])
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
 
@@ -135,7 +137,7 @@ def test_game_over_service():
     assert arbiter.check_game_over(state, Cell(1, 0)) is False
 
 def test_execute_move_captured():
-    board = Board(["wP .", ". ."])
+    board = TextBoardParser().parse(["wP .", ". ."])
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
     move = PendingMove(
@@ -147,14 +149,14 @@ def test_execute_move_captured():
     arbiter.execute_capture(state, move)
     assert board.grid[0][0] is None
 
-    board2 = Board(["wP .", ". ."])
+    board2 = TextBoardParser().parse(["wP .", ". ."])
     state2 = GameState(board=board2)
     board2.grid[0][0] = None
     arbiter.execute_capture(state2, move)
     assert board2.grid[0][0] is None
 
 def test_execute_move_success():
-    board = Board(["wP .", ". ."])
+    board = TextBoardParser().parse(["wP .", ". ."])
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
     move = PendingMove(
@@ -168,11 +170,11 @@ def test_execute_move_success():
     assert board.grid[1][1] == Piece("w", "P", Cell(1, 1))
 
 def test_real_time_arbiter_coverage_edge_cases():
-    board = Board(["wP .", ". ."])
+    board = TextBoardParser().parse(["wP .", ". ."])
     state = GameState(board=board)
     arb = RealTimeArbiter()
 
-    p = PieceFactory.get_piece("wP")
+    p = PieceFactory.from_text("wP")
     move = PendingMove(Cell(0, 0), Cell(0, 1), p, 1000)
 
     class TrickyPiece:

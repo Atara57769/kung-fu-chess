@@ -1,21 +1,23 @@
 import pytest
-from models.pieces import PieceFactory, Piece
+from models.pieces import Piece
+from factory import PieceFactory
 from rules.piece_rules import RULES
 from models.cell import Cell
 from models.board import Board
+from services.board_parser import TextBoardParser
 
-def test_get_piece():
-    assert PieceFactory.get_piece(".") is None
-    assert PieceFactory.get_piece("w") is None
-    assert PieceFactory.get_piece("wZ") is None
+def test_from_text():
+    assert PieceFactory.from_text(".") is None
+    assert PieceFactory.from_text("w") is None
+    assert PieceFactory.from_text("wZ") is None
     
-    piece = PieceFactory.get_piece("wK", Cell(1, 1))
+    piece = PieceFactory.from_text("wK", Cell(1, 1))
     assert isinstance(piece, Piece)
     assert piece.color == "w"
     assert piece.kind == "K"
     assert piece.cell == Cell(1, 1)
 
-    piece2 = PieceFactory.get_piece("bQ")
+    piece2 = PieceFactory.from_text("bQ")
     assert piece2.color == "b"
     assert piece2.kind == "Q"
     assert piece2.cell is None
@@ -27,7 +29,7 @@ def test_piece_base_properties():
     assert piece.cell == Cell(0, 0)
 
 def test_king_moves():
-    board = Board([
+    board = TextBoardParser().parse([
         ". . .",
         ". wK .",
         ". . ."
@@ -40,7 +42,7 @@ def test_king_moves():
     assert rule.is_move_valid(board, Cell(1, 1), Cell(1, 3)) is False  # too far
 
 def test_rook_moves():
-    board_clear = Board([
+    board_clear = TextBoardParser().parse([
         ". . .",
         ". wR .",
         ". . ."
@@ -53,14 +55,14 @@ def test_rook_moves():
     assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(0, 0)) is False  # diagonal
     assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(1, 1)) is False  # stay
 
-    board_blocked_h = Board([
+    board_blocked_h = TextBoardParser().parse([
         ". . .",
         "wP wP wR",
         ". . ."
     ])
     assert rule.is_move_valid(board_blocked_h, Cell(1, 2), Cell(1, 0)) is False
 
-    board_blocked_v = Board([
+    board_blocked_v = TextBoardParser().parse([
         ". bP .",
         ". bP .",
         ". wR ."
@@ -68,7 +70,7 @@ def test_rook_moves():
     assert rule.is_move_valid(board_blocked_v, Cell(2, 1), Cell(0, 1)) is False
 
 def test_bishop_moves():
-    board_clear = Board([
+    board_clear = TextBoardParser().parse([
         ". . .",
         ". wB .",
         ". . ."
@@ -81,7 +83,7 @@ def test_bishop_moves():
     assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(1, 2)) is False  # orthogonal
     assert rule.is_move_valid(board_clear, Cell(1, 1), Cell(1, 1)) is False  # stay
 
-    board_large_blocked = Board([
+    board_large_blocked = TextBoardParser().parse([
         ". . . .",
         ". bP . .",
         ". . wB .",
@@ -90,7 +92,7 @@ def test_bishop_moves():
     assert rule.is_move_valid(board_large_blocked, Cell(2, 2), Cell(0, 0)) is False
 
 def test_queen_moves():
-    board = Board([
+    board = TextBoardParser().parse([
         ". . . .",
         ". wQ . .",
         ". . . .",
@@ -103,7 +105,7 @@ def test_queen_moves():
     assert rule.is_move_valid(board, Cell(1, 1), Cell(1, 1)) is False  # stay
 
 def test_knight_moves():
-    board = Board([
+    board = TextBoardParser().parse([
         ". . . .",
         ". wN . .",
         ". . . .",
@@ -116,7 +118,7 @@ def test_knight_moves():
     assert rule.is_move_valid(board, Cell(1, 1), Cell(1, 1)) is False
 
 def test_pawn_moves():
-    board_w = Board([
+    board_w = TextBoardParser().parse([
         ". . .",
         ". . .",
         ". . .",
@@ -127,7 +129,7 @@ def test_pawn_moves():
     assert rule.is_move_valid(board_w, Cell(3, 1), Cell(2, 1)) is True
     assert rule.is_move_valid(board_w, Cell(3, 1), Cell(1, 1)) is True
 
-    board_w_blocked = Board([
+    board_w_blocked = TextBoardParser().parse([
         ". . .",
         ". . .",
         ". bP .",
@@ -137,7 +139,7 @@ def test_pawn_moves():
     assert rule.is_move_valid(board_w_blocked, Cell(3, 1), Cell(1, 1)) is False
     assert rule.is_move_valid(board_w_blocked, Cell(3, 1), Cell(2, 1)) is False
 
-    board_w_capture = Board([
+    board_w_capture = TextBoardParser().parse([
         ". . .",
         ". . .",
         "bP . bP",
@@ -148,7 +150,7 @@ def test_pawn_moves():
     assert rule.is_move_valid(board_w_capture, Cell(3, 1), Cell(2, 2)) is True
     assert rule.is_move_valid(board_w_capture, Cell(3, 1), Cell(2, 1)) is True
 
-    board_w_diag_empty = Board([
+    board_w_diag_empty = TextBoardParser().parse([
         ". . .",
         ". . .",
         ". . .",
@@ -157,14 +159,14 @@ def test_pawn_moves():
     ])
     assert rule.is_move_valid(board_w_diag_empty, Cell(3, 1), Cell(2, 0)) is False
 
-    board_w_small = Board([
+    board_w_small = TextBoardParser().parse([
         ". . .",
         ". . .",
         ". wP ."
     ])
     assert rule.is_move_valid(board_w_small, Cell(2, 1), Cell(0, 1)) is True
 
-    board_b = Board([
+    board_b = TextBoardParser().parse([
         ". . .",
         ". bP .",
         ". . .",
@@ -174,7 +176,7 @@ def test_pawn_moves():
     assert rule.is_move_valid(board_b, Cell(1, 1), Cell(2, 1)) is True
     assert rule.is_move_valid(board_b, Cell(1, 1), Cell(3, 1)) is True
 
-    board_b_small = Board([
+    board_b_small = TextBoardParser().parse([
         ". bP .",
         ". . .",
         ". . ."

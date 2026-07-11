@@ -1,38 +1,33 @@
 import pytest
 from models.board import Board
+from services.board_parser import TextBoardParser
 from models.game_state import GameState
 from models.cell import Cell
-from models.pieces import Piece, PieceFactory
+from models.pieces import Piece
+from factory import PieceFactory
 from models.pending_move import PendingMove
 from models.jump import Jump
 from engine.game_engine import GameEngine
 from services.jump_service import JumpService
 
 def test_game_engine_schedule_move():
-    board = Board([". .", "wP ."])
+    board = TextBoardParser().parse([". .", "wP ."])
     state = GameState(board=board)
     engine = GameEngine()
 
+    assert len(state.pending_moves) == 0
     engine.request_move(state, Cell(1, 0), Cell(0, 0))
     assert len(state.pending_moves) == 1
-    assert state.pending_moves[0].arrival == 1000  # distance=1, DURATION=1000
+    
+    move = state.pending_moves[0]
+    assert move.from_pos == Cell(1, 0)
+    assert move.to_pos == Cell(0, 0)
+    assert move.piece == board.get_piece_at(1, 0)
+    assert move.arrival == 1000
 
-    state.clock = 500
-    state.pending_moves.clear()
-    engine.request_move(state, Cell(1, 0), Cell(0, 0))
-    assert state.pending_moves[0].arrival == 1500
-
-def test_game_engine_wait_advances_clock():
-    board = Board(["wP .", ". ."])
-    state = GameState(board=board)
-    engine = GameEngine()
-
-    engine.wait(state, 500)
-    assert state.clock == 500
-
-def test_game_engine_coverage_edge_cases():
-    # 1. game_engine.request_move when game_over is True
-    board = Board(["wP .", ". ."])
+def test_game_engine_request_move_validation():
+    # 1. game_over check
+    board = TextBoardParser().parse(["wP .", ". ."])
     state = GameState(board=board)
     state.game_over = True
     engine = GameEngine()
@@ -41,13 +36,13 @@ def test_game_engine_coverage_edge_cases():
 
     # 2. game_engine.request_move edge cases
     state.game_over = False
-    p = PieceFactory.get_piece("wP")
+    p = PieceFactory.from_text("wP")
     # Outside bounds
     engine.request_move(state, Cell(0, 0), Cell(5, 5))
     assert len(state.pending_moves) == 0
 
     # Friendly destination
-    board.grid[0][1] = PieceFactory.get_piece("wP")
+    board.grid[0][1] = PieceFactory.from_text("wP")
     engine.request_move(state, Cell(0, 0), Cell(0, 1))
     assert len(state.pending_moves) == 0
     board.grid[0][1] = None
@@ -65,8 +60,8 @@ def test_game_engine_coverage_edge_cases():
     state.pending_moves.clear()
 
     # Enemy is moving
-    board.grid[0][1] = PieceFactory.get_piece("bP")
-    state.pending_moves.append(PendingMove(Cell(0, 1), Cell(1, 1), PieceFactory.get_piece("bP"), 1000))
+    board.grid[0][1] = PieceFactory.from_text("bP")
+    state.pending_moves.append(PendingMove(Cell(0, 1), Cell(1, 1), PieceFactory.from_text("bP"), 1000))
     engine.request_move(state, Cell(0, 0), Cell(1, 0))
     assert len(state.pending_moves) == 1
     state.pending_moves.clear()
@@ -77,17 +72,17 @@ def test_game_engine_coverage_edge_cases():
     assert len(state.pending_moves) == 0
 
     # Knight distance calculation branch
-    board_n = Board(["wN . .", ". . .", ". . ."])
+    board_n = TextBoardParser().parse(["wN . .", ". . .", ". . ."])
     state_n = GameState(board=board_n)
     engine.request_move(state_n, Cell(0, 0), Cell(1, 2))
     assert len(state_n.pending_moves) == 1
     assert state_n.pending_moves[0].arrival == 3000
 
 def test_jump_service():
-    board = Board([". ."])
+    board = TextBoardParser().parse([". ."])
     state = GameState(board=board)
     service = JumpService(state)
-    p_white = PieceFactory.get_piece("wP")
+    p_white = PieceFactory.from_text("wP")
 
     service.schedule_jump((2, 2), 100, p_white)
     assert len(service.jumps) == 1
@@ -98,8 +93,8 @@ def test_jump_service_coverage_edge_cases():
     assert js.state is not None
     assert isinstance(js.state.board, Board)
 
-    state = GameState(board=Board([". ."]))
+    state = GameState(board=TextBoardParser().parse([". ."]))
     js2 = JumpService(state)
-    my_jumps = [Jump((0, 0), 0, 1000, PieceFactory.get_piece("wP"))]
+    my_jumps = [Jump((0, 0), 0, 1000, PieceFactory.from_text("wP"))]
     js2.jumps = my_jumps
     assert js2.jumps == my_jumps

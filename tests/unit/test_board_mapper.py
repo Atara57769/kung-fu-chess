@@ -2,9 +2,10 @@ import pytest
 from models.board import Board
 from models.cell import Cell
 from input.board_mappr import BoardMapper
+from services.board_parser import TextBoardParser
 
 def test_board_mapper_pixel_to_cell_valid():
-    board = Board([
+    board = TextBoardParser().parse([
         "wK .",
         ". bP"
     ])
@@ -16,7 +17,7 @@ def test_board_mapper_pixel_to_cell_valid():
     assert mapper.pixel_to_cell(150, 150) == Cell(y=1, x=1)
 
 def test_board_mapper_pixel_to_cell_out_of_bounds():
-    board = Board([
+    board = TextBoardParser().parse([
         "wK .",
         ". bP"
     ])

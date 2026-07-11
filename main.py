@@ -102,7 +102,7 @@ def execute_commands(board, commands, controller_class=None, board_service_class
             handler(parts)
 
 
-def main(stdin=sys.stdin, stdout=sys.stdout, exit_fn=sys.exit, board_class=Board,
+def main(stdin=sys.stdin, stdout=sys.stdout, exit_fn=sys.exit, board_parser=None,
          board_service_class=None):
     """Main orchestration flow of parsing, validating, and executing commands."""
     lines = read_input_lines(stdin)
@@ -114,8 +114,12 @@ def main(stdin=sys.stdin, stdout=sys.stdout, exit_fn=sys.exit, board_class=Board
     board_lines = extract_board_lines(lines, board_start, commands_start)
     commands = extract_command_lines(lines, commands_start)
 
+    if board_parser is None:
+        from services.board_parser import TextBoardParser
+        board_parser = TextBoardParser()
+
     try:
-        board = board_class(board_lines)
+        board = board_parser.parse(board_lines)
     except UnknownTokenError:
         print("ERROR UNKNOWN_TOKEN", file=stdout)
         exit_fn(0)

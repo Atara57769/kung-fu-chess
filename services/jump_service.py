@@ -7,8 +7,8 @@ from models.game_state import GameState
 class JumpService:
     def __init__(self, state: Optional[GameState] = None):
         if state is None:
-            from models.board import Board
-            state = GameState(Board([]))
+            from services.board_parser import TextBoardParser
+            state = GameState(TextBoardParser().parse([]))
         self.state = state
 
     @property

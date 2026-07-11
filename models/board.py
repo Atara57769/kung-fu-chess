@@ -1,12 +1,12 @@
-from services.board_parser import BoardParser
 from models.cell import Cell
 from models.pieces import Piece
 from constants import EMPTY_TOKEN
 
 class Board:
-    def __init__(self, board_lines):
-        """Initializes the board grid, width, and height using BoardParser."""
-        self.grid, self.width, self.height = BoardParser.parse(board_lines)
+    def __init__(self, grid, width, height):
+        self.grid = grid
+        self.width = width
+        self.height = height
 
     def get_piece_at(self, cell_y: int, cell_x: int) -> Piece:
         """Returns the piece at the given cell coordinates."""

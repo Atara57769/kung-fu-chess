@@ -1,15 +1,22 @@
-from typing import List, Optional, Tuple
+from abc import ABC, abstractmethod
+from typing import List, Optional, Any
+from models.board import Board
 from models.cell import Cell
-from models.pieces import Piece, PieceFactory
+from models.pieces import Piece
+from factory import PieceFactory
 from exceptions import UnknownTokenError, RowWidthMismatchError
 from constants import EMPTY_TOKEN, VALID_COLORS, VALID_PIECES
 
-class BoardParser:
-    @staticmethod
-    def parse(board_lines: List[str]) -> Tuple[List[List[Optional[Piece]]], int, int]:
+class BoardParser(ABC):
+    @abstractmethod
+    def parse(self, data: Any) -> Board:
+        """Parses the data and returns a Board object."""
+        pass
+
+class TextBoardParser(BoardParser):
+    def parse(self, board_lines: List[str]) -> Board:
         """
-        Parses all lines, validates dimensions, and builds a grid of Piece objects or None.
-        Returns a tuple of (grid, width, height).
+        Parses all lines, validates dimensions, and builds a Board object.
         """
         grid = []
         width = None
@@ -30,7 +37,7 @@ class BoardParser:
                     row.append(None)
                 elif len(token) == 2 and token[0] in VALID_COLORS and token[1] in VALID_PIECES:
                     # Create Piece object
-                    piece = PieceFactory.get_piece(token, Cell(y, x))
+                    piece = PieceFactory.from_text(token, Cell(y, x))
                     row.append(piece)
                 else:
                     raise UnknownTokenError("ERROR UNKNOWN_TOKEN")
@@ -41,4 +48,6 @@ class BoardParser:
             width = 0
 
         height = len(grid)
-        return grid, width, height
+        
+        # Instantiate Board and return it
+        return Board(grid, width, height)
