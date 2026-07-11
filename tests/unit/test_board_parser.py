@@ -1,0 +1,136 @@
+import pytest
+import io
+from output.board_parser import BoardParser
+from exceptions import UnknownTokenError, RowWidthMismatchError
+from models.pieces import Piece
+from models.cell import Cell
+from main import (
+    read_input_lines,
+    find_section_indices,
+    extract_board_lines,
+    extract_command_lines,
+    execute_commands,
+    main as main_func
+)
+
+def test_board_parser_valid():
+    lines = [
+        "wK . bP",
+        ". wQ .",
+        "wN bB wP"
+    ]
+    grid, width, height = BoardParser.parse(lines)
+    assert width == 3
+    assert height == 3
+    assert len(grid) == 3
+    assert grid[0] == [Piece("w", "K", Cell(0, 0)), None, Piece("b", "P", Cell(0, 2))]
+    assert grid[1] == [None, Piece("w", "Q", Cell(1, 1)), None]
+    assert grid[2] == [Piece("w", "N", Cell(2, 0)), Piece("b", "B", Cell(2, 1)), Piece("w", "P", Cell(2, 2))]
+
+def test_board_parser_empty():
+    grid, width, height = BoardParser.parse([])
+    assert width == 0
+    assert height == 0
+    assert grid == []
+
+def test_board_parser_unknown_token():
+    with pytest.raises(UnknownTokenError):
+        BoardParser.parse(["wK . xP"])
+    with pytest.raises(UnknownTokenError):
+        BoardParser.parse(["wK . wK2"])
+    with pytest.raises(UnknownTokenError):
+        BoardParser.parse(["wK . zP"])
+    with pytest.raises(UnknownTokenError):
+        BoardParser.parse(["wK . wZ"])
+
+def test_board_parser_row_width_mismatch():
+    with pytest.raises(RowWidthMismatchError):
+        BoardParser.parse(["wK .", "bP . bB ."])
+
+def test_read_input_lines_normal():
+    stdin = io.StringIO("  line1  \n  line2\n")
+    assert read_input_lines(stdin) == ["line1", "line2"]
+
+def test_read_input_lines_interrupt():
+    class InterruptingStdin:
+        def read(self):
+            raise KeyboardInterrupt()
+    assert read_input_lines(InterruptingStdin()) == []
+
+def test_find_section_indices():
+    lines = ["Other", "Board:", "wK .", "Commands:", "print board"]
+    board_start, commands_start = find_section_indices(lines)
+    assert board_start == 1
+    assert commands_start == 3
+
+    lines_missing = ["Other"]
+    assert find_section_indices(lines_missing) == (-1, -1)
+
+def test_extract_board_lines():
+    lines = ["Board:", "wK .", "Commands:", "print board"]
+    # Case with commands
+    assert extract_board_lines(lines, 0, 2) == ["wK ."]
+    # Case without commands
+    assert extract_board_lines(lines, 0, -1) == ["wK .", "Commands:", "print board"]
+    # Case with no board_start
+    assert extract_board_lines(lines, -1, 2) == []
+
+def test_extract_command_lines():
+    lines = ["Board:", "wK .", "Commands:", "print board", ""]
+    # Case with commands_start
+    assert extract_command_lines(lines, 2) == ["print board"]
+    # Case without commands_start
+    assert extract_command_lines(lines, -1) == []
+
+def test_execute_commands_edge_cases():
+    from models.board import Board
+    from engine.controller import Controller
+    board = Board(["wP .", ". ."])
+    
+    commands = [
+        "click abc 200",
+        "click 100",
+        "wait xyz",
+        "wait 500 600",
+        "jump pqr 400",
+        "jump 300",
+        "jump 100 100",  # valid jump command to cover lines 84-85
+        "unknown_cmd",
+        "",
+        "   "
+    ]
+    execute_commands(board, commands)  # Should execute without errors
+
+    # Trigger line 55
+    def dummy_controller_class(state, engine, stdout):
+         return Controller(state, engine, stdout)
+    execute_commands(board, ["print board"], controller_class=dummy_controller_class)
+
+
+def test_main_missing_board():
+    stdin = io.StringIO("Commands:\nprint board\n")
+    out = io.StringIO()
+    main_func(stdin=stdin, stdout=out)
+    assert out.getvalue() == ""
+
+def test_main_unknown_token_error():
+    stdin = io.StringIO("Board:\nwK . xP\n")
+    out = io.StringIO()
+    exited = []
+    def exit_fn(code):
+        exited.append(code)
+
+    main_func(stdin=stdin, stdout=out, exit_fn=exit_fn)
+    assert exited == [0]
+    assert "ERROR UNKNOWN_TOKEN" in out.getvalue()
+
+def test_main_row_width_mismatch_error():
+    stdin = io.StringIO("Board:\nwK .\nbP . .\n")
+    out = io.StringIO()
+    exited = []
+    def exit_fn(code):
+        exited.append(code)
+
+    main_func(stdin=stdin, stdout=out, exit_fn=exit_fn)
+    assert exited == [0]
+    assert "ERROR ROW_WIDTH_MISMATCH" in out.getvalue()

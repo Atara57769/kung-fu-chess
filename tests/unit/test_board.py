@@ -1,7 +1,6 @@
 import pytest
 from models.board import Board
 from exceptions import UnknownTokenError, RowWidthMismatchError
-
 from models.pieces import Piece
 from models.cell import Cell
 

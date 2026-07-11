@@ -3,9 +3,9 @@ from models.board import Board
 from models.pieces import Piece
 from models.cell import Cell
 from rules.rule_engine import RuleEngine
+from models.pending_move import PendingMove
 
 def test_rule_engine_valid_move():
-    # Set up a board with a white king at (0, 0)
     lines = [
         "wK . .",
         ". . .",
@@ -30,7 +30,7 @@ def test_rule_engine_valid_move():
     assert engine.is_move_valid(board, cell_out, cell_to) is False
 
     # 3. Test empty source
-    cell_empty = Cell(0, 1) # empty cell
+    cell_empty = Cell(0, 1)
     assert engine.empty_source(board, cell_empty) is True
     assert engine.is_move_valid(board, cell_empty, cell_to) is False
 
@@ -51,11 +51,10 @@ def test_rule_engine_valid_move():
     # Destination (0, 2) has enemy pawn 'bP'
     cell_enemy = Cell(0, 2)
     assert engine.friendly_destination(board_pieces, cell_k, cell_enemy) is False
-    # King cannot move two cells horizontally normally, so rule validation check (illegal_to_move) will still be False
+    # King cannot move two cells horizontally normally, so rule validation check will still be False
     assert engine.is_move_valid(board_pieces, cell_k, cell_enemy) is False
 
     # 5. Test piece rule check (illegal to move check)
-    # White King moving 1 cell right to (0, 1) when it is empty is legal
     lines_empty_dest = [
         "wK . bP",
         ". . .",
@@ -72,7 +71,6 @@ def test_rule_engine_valid_move():
     assert engine.illegal_to_move(board_empty, cell_k_empty, cell_two_right) is False
     assert engine.is_move_valid(board_empty, cell_k_empty, cell_two_right) is False
 
-
 def test_rule_engine_edge_cases():
     lines = [
         "wK . .",
@@ -82,7 +80,6 @@ def test_rule_engine_edge_cases():
     board = Board(lines)
     engine = RuleEngine()
     
-    # None parameters handling
     assert engine.outside_board(board, None, Cell(0, 0)) is True
     assert engine.outside_board(board, Cell(0, 0), None) is True
     assert engine.empty_source(board, None) is True
@@ -91,23 +88,19 @@ def test_rule_engine_edge_cases():
     assert engine.illegal_to_move(board, None, Cell(0, 0)) is False
     assert engine.illegal_to_move(board, Cell(0, 0), None) is False
     
-    # Out of bounds cell handling
     cell_out = Cell(-1, 0)
     assert engine.empty_source(board, cell_out) is True
     assert engine.friendly_destination(board, cell_out, Cell(0, 0)) is False
     assert engine.friendly_destination(board, Cell(0, 0), cell_out) is False
     assert engine.illegal_to_move(board, cell_out, Cell(0, 0)) is False
     
-    # Empty source piece checks
     cell_empty = Cell(0, 1)
     assert engine.friendly_destination(board, cell_empty, Cell(0, 0)) is False
     assert engine.illegal_to_move(board, cell_empty, Cell(0, 0)) is False
     
-    # Piece with invalid/unknown kind
     bad_piece = Piece("w", "X", Cell(0, 0))
     board.grid[0][0] = bad_piece
     assert engine.illegal_to_move(board, Cell(0, 0), Cell(1, 1)) is False
-
 
 def test_rule_engine_enemy_is_moving():
     lines = [
@@ -120,22 +113,21 @@ def test_rule_engine_enemy_is_moving():
     cell_from = Cell(0, 0)
     cell_to = Cell(1, 1)
 
-    # 1. Test when no enemy is moving (pending_moves is empty)
     assert engine.is_move_valid(board, cell_from, cell_to, []) is True
 
-    # 2. Test when enemy bK is moving
     opp_piece = board.get_piece_at(2, 2)
-    from models.pending_move import PendingMove
     pending_moves = [PendingMove(Cell(2, 2), Cell(2, 1), opp_piece, 1000)]
     assert engine.enemy_is_moving(board, cell_from, pending_moves) is True
     assert engine.is_move_valid(board, cell_from, cell_to, pending_moves) is False
 
-    # 3. Test when friendly wP is moving (should not block own color moves)
     board.grid[0][1] = Piece("w", "P", Cell(0, 1))
     friendly_piece = board.get_piece_at(0, 1)
     pending_moves_friendly = [PendingMove(Cell(0, 1), Cell(0, 2), friendly_piece, 1000)]
     assert engine.enemy_is_moving(board, cell_from, pending_moves_friendly) is False
     assert engine.is_move_valid(board, cell_from, cell_to, pending_moves_friendly) is True
+
+    # Empty cell (piece is None)
+    assert engine.enemy_is_moving(board, Cell(0, 2), pending_moves_friendly) is False
 
 
 def test_rule_engine_transit_validation():
@@ -150,27 +142,20 @@ def test_rule_engine_transit_validation():
     cell_from = Cell(0, 0)
     cell_to = Cell(1, 1)
     
-    from models.pending_move import PendingMove
     moving_piece = board.get_piece_at(0, 0)
     pending_moves = [PendingMove(cell_from, cell_to, moving_piece, 1000)]
     
-    # 1. Test is_piece_moving
     assert engine.is_piece_moving(cell_from, pending_moves) is True
     assert engine.is_piece_moving(cell_to, pending_moves) is False
     assert engine.is_piece_moving(None, pending_moves) is False
     assert engine.is_piece_moving(cell_from, None) is False
     
-    # 2. Test is_destination_reserved
     assert engine.is_destination_reserved(cell_to, pending_moves) is True
     assert engine.is_destination_reserved(cell_from, pending_moves) is False
     assert engine.is_destination_reserved(None, pending_moves) is False
     assert engine.is_destination_reserved(cell_to, None) is False
     
-    # 3. Test is_move_valid validation paths
-    # a. when the source piece is already moving, it shouldn't be valid to move it again
     assert engine.is_move_valid(board, cell_from, Cell(0, 1), pending_moves) is False
     
-    # b. when the destination is already reserved, a move to it shouldn't be valid
     other_piece = board.get_piece_at(2, 2)
-    # other_piece (bK) tries to move to the same reserved destination (cell_to)
     assert engine.is_move_valid(board, Cell(2, 2), cell_to, pending_moves) is False
