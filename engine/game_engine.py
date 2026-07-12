@@ -35,19 +35,10 @@ class GameEngine:
         if piece is not None and piece.cooldown_until > state.clock:
             return
 
-        duration = self.calculate_move_duration(from_cell, to_cell, piece)
+        duration = self.collision_service.get_move_duration(from_cell, to_cell, piece)
         arrival = state.clock + duration
 
         self.schedule_move(state, from_cell, to_cell, piece, arrival)
-
-    def calculate_move_duration(self, from_cell: Cell, to_cell: Cell, piece: Optional[object]) -> int:
-        dy = to_cell.y - from_cell.y
-        dx = to_cell.x - from_cell.x
-        if piece is not None and piece.kind == PIECE_KNIGHT:
-            distance = abs(dy) + abs(dx)
-        else:
-            distance = max(abs(dy), abs(dx))
-        return distance * DURATION
 
     def schedule_move(self, state: GameState, from_cell: Cell, to_cell: Cell, piece: Optional[object], arrival: int) -> None:
         new_move = PendingMove(
