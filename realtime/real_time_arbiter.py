@@ -1,6 +1,7 @@
 from models.game_state import GameState
 from models.pending_move import PendingMove
 from models.cell import Cell
+from constants import COLOR_WHITE, COLOR_BLACK, PIECE_KING, PIECE_QUEEN, PIECE_PAWN
 
 class RealTimeArbiter:
     def advance_clock(self, game_state: GameState, ms: int) -> None:
@@ -24,7 +25,7 @@ class RealTimeArbiter:
         if current_piece is not None:
             grid_piece = board.grid[from_y][from_x]
             if grid_piece is not None and grid_piece.color == current_piece.color and (
-                grid_piece.kind == current_piece.kind or (grid_piece.kind == "P" and current_piece.kind == "Q")
+                grid_piece.kind == current_piece.kind or (grid_piece.kind == PIECE_PAWN and current_piece.kind == PIECE_QUEEN)
             ):
                 board.grid[from_y][from_x] = None
 
@@ -32,9 +33,9 @@ class RealTimeArbiter:
         """Checks if the destination cell contains an enemy king."""
         board = game_state.board
         dest_piece = board.get_piece_at(target_cell.y, target_cell.x)
-        if dest_piece is not None and dest_piece.kind == "K":
+        if dest_piece is not None and dest_piece.kind == PIECE_KING:
             for move in game_state.pending_moves:
-                if move.piece is not None and move.piece.color == dest_piece.color and move.piece.kind == "K":
+                if move.piece is not None and move.piece.color == dest_piece.color and move.piece.kind == PIECE_KING:
                     return False
             return True
         return False
@@ -50,18 +51,18 @@ class RealTimeArbiter:
             current_piece = move.piece
             
             if current_piece is not None and current_piece.color == color and current_piece.kind == orig_kind:
-                if orig_kind == "P":
-                    is_white_promotion = (color == "w" and to_y == 0)
-                    is_black_promotion = (color == "b" and to_y == board.height - 1)
+                if orig_kind == PIECE_PAWN:
+                    is_white_promotion = (color == COLOR_WHITE and to_y == 0)
+                    is_black_promotion = (color == COLOR_BLACK and to_y == board.height - 1)
                     if is_white_promotion or is_black_promotion:
-                        current_piece.kind = "Q"
-                        move.piece.kind = "Q"
+                        current_piece.kind = PIECE_QUEEN
+                        move.piece.kind = PIECE_QUEEN
             else:
-                if orig_kind == "P":
-                    is_white_promotion = (color == "w" and to_y == 0)
-                    is_black_promotion = (color == "b" and to_y == board.height - 1)
+                if orig_kind == PIECE_PAWN:
+                    is_white_promotion = (color == COLOR_WHITE and to_y == 0)
+                    is_black_promotion = (color == COLOR_BLACK and to_y == board.height - 1)
                     if is_white_promotion or is_black_promotion:
-                        move.piece.kind = "Q"
+                        move.piece.kind = PIECE_QUEEN
 
     def execute_move_on_board(self, game_state: GameState, move: PendingMove) -> None:
         """Moves the piece on the board from from_pos to to_pos."""

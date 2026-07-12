@@ -3,8 +3,8 @@ from models.cell import Cell
 
 @dataclass
 class Piece:
-    color: str  # "w" / "b"
-    kind: str   # "K" / "Q" / "R" / "B" / "N" / "P"
+    color: str  
+    kind: str   
     cell: Cell = None
 
 

@@ -1,9 +1,10 @@
+from typing import List, Optional
 from models.cell import Cell
 from models.pieces import Piece
-from constants import EMPTY_TOKEN
+from constants import EMPTY_TOKEN, PIECE_QUEEN, PIECE_PAWN
 
 class Board:
-    def __init__(self, grid, width, height):
+    def __init__(self, grid: List[List[Optional[Piece]]], width: int, height: int):
         self.grid = grid
         self.width = width
         self.height = height
@@ -25,7 +26,7 @@ class Board:
         grid_piece = self.grid[source_y][source_x]
         match = (grid_piece is not None and 
                  grid_piece.color == piece.color and 
-                 (grid_piece.kind == piece.kind or (grid_piece.kind == "Q" and piece.kind == "P")))
+                 (grid_piece.kind == piece.kind or (grid_piece.kind == PIECE_QUEEN and piece.kind == PIECE_PAWN)))
 
         if not match:
             piece.cell = to_pos

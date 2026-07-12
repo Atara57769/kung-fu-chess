@@ -1,6 +1,7 @@
 from models.board import Board
 from models.pieces import Piece
 from models.cell import Cell
+from constants import COLOR_WHITE, COLOR_BLACK
 
 class RuleEngine:
     def is_move_valid(self, board: Board, cell_from: Cell, cell_to: Cell, pending_moves: list = None) -> bool:
@@ -53,7 +54,7 @@ class RuleEngine:
         piece = board.get_piece_at(cell_from.y, cell_from.x)
         if piece is None:
             return False
-        opp_color = 'b' if piece.color == 'w' else 'w'
+        opp_color = COLOR_BLACK if piece.color == COLOR_WHITE else COLOR_WHITE
         return any(move.piece is not None and move.piece.color == opp_color for move in pending_moves)
 
     def outside_board(self, board: Board, cell_from: Cell, cell_to: Cell) -> bool:
