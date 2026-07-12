@@ -169,7 +169,7 @@ def test_rule_engine_dependency_injection():
         def is_move_valid(self, rule_engine, board, cell_from, cell_to, pending_moves=None):
             return True
 
-    board = TextBoardParser().parse([". .", ". ."])
+    board = TextBoardParser().parse(["wK .", ". ."])
     mock_rules = MockBoardRules()
     engine = RuleEngine(board_rules=mock_rules)
     

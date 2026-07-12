@@ -30,20 +30,25 @@ class Controller:
             self.state.selected_piece = None
             return
 
+        if self.state.selected_piece is None:
+            self._handle_no_selection_state(cell)
+        else:
+            self._handle_selected_state(cell)
+
+    def _handle_no_selection_state(self, cell: Cell) -> None:
         board = self.state.board
         piece = board.get_piece_at(cell)
+        if piece is None:
+            return  # empty cell, nothing to select
+        # Only select if not already in transit
+        if not self.game_engine.is_piece_moving(self.state, cell):
+            self.state.selected_piece = piece
 
-        # --- No piece selected yet ---
-        if self.state.selected_piece is None:
-            if piece is None:
-                return  # empty cell, nothing to select
-            # Only select if not already in transit
-            if not self.game_engine.is_piece_moving(self.state, cell):
-                self.state.selected_piece = piece
-            return
-
-        # --- Piece already selected ---
+    def _handle_selected_state(self, cell: Cell) -> None:
+        board = self.state.board
+        piece = board.get_piece_at(cell)
         sel_piece = self.state.selected_piece
+        
         sel_cell = sel_piece.cell
 
         # Clicking a friendly piece → re-select (if not moving)
