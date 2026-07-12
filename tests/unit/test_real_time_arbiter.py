@@ -161,7 +161,7 @@ def test_execute_move_success():
     move = PendingMove(
         from_pos=Cell(0, 0),
         to_pos=Cell(1, 1),
-        piece=Piece("w", "P", Cell(0, 0)),
+        piece=board.get_piece_at(Cell(0, 0)),
         arrival=1000
     )
     arbiter.execute_move_on_board(state, move)

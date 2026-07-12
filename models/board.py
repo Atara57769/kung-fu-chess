@@ -24,9 +24,7 @@ class Board:
             source_y, source_x = piece.cell.y, piece.cell.x
 
         grid_piece = self.grid[source_y][source_x]
-        match = (grid_piece is not None and 
-                 grid_piece.color == piece.color and 
-                 (grid_piece.kind == piece.kind or (grid_piece.kind == PIECE_QUEEN and piece.kind == PIECE_PAWN)))
+        match = (grid_piece is piece)
 
         if not match:
             piece.cell = to_pos
