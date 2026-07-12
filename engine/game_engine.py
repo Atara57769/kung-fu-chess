@@ -3,10 +3,14 @@ from models.game_state import GameState
 from models.cell import Cell
 from models.pending_move import PendingMove
 from constants import DURATION
+from rules.rule_engine import RuleEngine
 
 
 class GameEngine:
     """Stateless engine that operates exclusively on GameState."""
+
+    def __init__(self, rule_engine=None):
+        self.rule_engine = rule_engine or RuleEngine()
 
     def request_move(self, state: GameState, from_cell: Cell, to_cell: Cell) -> None:
         """
@@ -19,15 +23,13 @@ class GameEngine:
         if state.game_over:
             return
 
-        from rules.rule_engine import RuleEngine
-        rule = RuleEngine()
         board = state.board
         pending = state.pending_moves
 
-        if not rule.is_move_valid(board, from_cell, to_cell, pending):
+        if not self.rule_engine.is_move_valid(board, from_cell, to_cell, pending):
             return
 
-        piece = state.board.get_piece_at(from_cell.y, from_cell.x)
+        piece = state.board.get_piece_at(from_cell)
         if piece is not None and piece.cooldown_until > state.clock:
             return
 
@@ -63,7 +65,7 @@ class GameEngine:
         from services.jump_service import JumpService
         if not self.can_jump(state, cell):
             return
-        piece = state.board.get_piece_at(cell.y, cell.x)
+        piece = state.board.get_piece_at(cell)
         JumpService().schedule_jump(
             state=state,
             cell=(cell.y, cell.x),
@@ -78,15 +80,12 @@ class GameEngine:
 
     def is_piece_moving(self, state: GameState, cell: Cell) -> bool:
         """Returns True if the piece at cell is the source of a pending move."""
-        from rules.rule_engine import RuleEngine
-        return RuleEngine().is_piece_moving(cell, state.pending_moves)
+        return self.rule_engine.is_piece_moving(cell, state.pending_moves)
 
     def can_jump(self, state: GameState, cell: Cell) -> bool:
         """Returns True if a jump on cell is currently allowed."""
-        from rules.rule_engine import RuleEngine
-        rule = RuleEngine()
         pending = state.pending_moves
-        piece = state.board.get_piece_at(cell.y, cell.x)
+        piece = state.board.get_piece_at(cell)
         if piece is not None and piece.cooldown_until > state.clock:
             return False
-        return not rule.is_piece_moving(cell, pending) and not rule.is_destination_reserved(cell, pending)
+        return not self.rule_engine.is_piece_moving(cell, pending) and not self.rule_engine.board_rules.is_destination_reserved(cell, pending)

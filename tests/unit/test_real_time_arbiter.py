@@ -25,17 +25,17 @@ def test_real_time_arbiter_move_execution():
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
     
-    w_king = board.get_piece_at(0, 0)
+    w_king = board.get_piece_at(Cell(0, 0))
     state.pending_moves.append(PendingMove(Cell(0, 0), Cell(0, 1), w_king, 200))
     
     arbiter.tick(state, 100)
-    assert board.get_piece_at(0, 0) == w_king
-    assert board.get_piece_at(0, 1) is None
+    assert board.get_piece_at(Cell(0, 0)) == w_king
+    assert board.get_piece_at(Cell(0, 1)) is None
     assert len(state.pending_moves) == 1
     
     arbiter.tick(state, 100)
-    assert board.get_piece_at(0, 0) is None
-    assert board.get_piece_at(0, 1) == w_king
+    assert board.get_piece_at(Cell(0, 0)) is None
+    assert board.get_piece_at(Cell(0, 1)) == w_king
     assert len(state.pending_moves) == 0
 
 def test_real_time_arbiter_game_over_by_capture():
@@ -43,12 +43,12 @@ def test_real_time_arbiter_game_over_by_capture():
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
     
-    w_king = board.get_piece_at(0, 0)
+    w_king = board.get_piece_at(Cell(0, 0))
     state.pending_moves.append(PendingMove(Cell(0, 0), Cell(1, 1), w_king, 100))
     
     assert state.game_over is False
     arbiter.tick(state, 100)
-    assert board.get_piece_at(1, 1) == w_king
+    assert board.get_piece_at(Cell(1, 1)) == w_king
     assert state.game_over is True
 
 def test_real_time_arbiter_airborne_capture():
@@ -56,15 +56,15 @@ def test_real_time_arbiter_airborne_capture():
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
     
-    w_pawn = board.get_piece_at(0, 0)
+    w_pawn = board.get_piece_at(Cell(0, 0))
     state.pending_moves.append(PendingMove(Cell(0, 0), Cell(0, 1), w_pawn, 100))
     
-    b_king = board.get_piece_at(1, 1)
+    b_king = board.get_piece_at(Cell(1, 1))
     state.jumps.append(Jump((0, 1), 50, 150, b_king))
     
     arbiter.tick(state, 100)
-    assert board.get_piece_at(0, 0) is None
-    assert board.get_piece_at(0, 1) is None
+    assert board.get_piece_at(Cell(0, 0)) is None
+    assert board.get_piece_at(Cell(0, 1)) is None
     assert len(state.pending_moves) == 0
 
 def test_real_time_arbiter_source_changes():
@@ -72,7 +72,7 @@ def test_real_time_arbiter_source_changes():
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
     
-    w_king = board.get_piece_at(0, 0)
+    w_king = board.get_piece_at(Cell(0, 0))
     state.pending_moves.append(PendingMove(Cell(0, 0), Cell(0, 1), w_king, 100))
     
     w_king.cell = Cell(1, 0)
@@ -90,8 +90,8 @@ def test_real_time_arbiter_escaping_king():
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
     
-    w_rook = board.get_piece_at(0, 0)
-    b_king = board.get_piece_at(0, 2)
+    w_rook = board.get_piece_at(Cell(0, 0))
+    b_king = board.get_piece_at(Cell(0, 2))
     
     state.pending_moves.append(PendingMove(Cell(0, 0), Cell(0, 2), w_rook, 100))
     state.pending_moves.append(PendingMove(Cell(0, 2), Cell(1, 2), b_king, 150))
@@ -198,7 +198,7 @@ def test_real_time_arbiter_cooldown_set():
     state = GameState(board=board)
     arbiter = RealTimeArbiter()
     
-    w_rook = board.get_piece_at(0, 0)
+    w_rook = board.get_piece_at(Cell(0, 0))
     move = PendingMove(Cell(0, 0), Cell(0, 1), w_rook, 1000)
     
     assert w_rook.cooldown_until == 0

@@ -21,7 +21,7 @@ def test_game_engine_schedule_move():
     move = state.pending_moves[0]
     assert move.from_pos == Cell(1, 0)
     assert move.to_pos == Cell(0, 0)
-    assert move.piece == board.get_piece_at(1, 0)
+    assert move.piece == board.get_piece_at(Cell(1, 0))
     assert move.arrival == 1000
 
 def test_game_engine_request_move_validation():
@@ -92,7 +92,7 @@ def test_game_engine_cooldown_movement():
     state = GameState(board=board)
     engine = GameEngine()
     
-    piece = board.get_piece_at(0, 0)
+    piece = board.get_piece_at(Cell(0, 0))
     # Put piece on cooldown
     piece.cooldown_until = 1000
     state.clock = 500
@@ -111,7 +111,7 @@ def test_game_engine_cooldown_jump():
     state = GameState(board=board)
     engine = GameEngine()
     
-    piece = board.get_piece_at(0, 0)
+    piece = board.get_piece_at(Cell(0, 0))
     # Put piece on cooldown
     piece.cooldown_until = 1000
     state.clock = 500
@@ -121,4 +121,22 @@ def test_game_engine_cooldown_jump():
     # Advance clock past cooldown
     state.clock = 1000
     assert engine.can_jump(state, Cell(0, 0)) is True
+
+
+def test_game_engine_dependency_injection():
+    from rules.rule_engine import RuleEngine
+    
+    class MockRuleEngine(RuleEngine):
+        def is_move_valid(self, board, from_cell, to_cell, pending_moves=None):
+            return False
+
+    board = TextBoardParser().parse(["wR .", ". ."])
+    state = GameState(board=board)
+    mock_rules = MockRuleEngine()
+    engine = GameEngine(rule_engine=mock_rules)
+
+    # Move rook - normally valid, but mock says invalid
+    engine.request_move(state, Cell(0, 0), Cell(0, 1))
+    assert len(state.pending_moves) == 0
+
 

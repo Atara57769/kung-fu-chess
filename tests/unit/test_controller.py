@@ -33,15 +33,15 @@ def test_click_edge_cases():
 
     # Click non-empty cell -> selects it
     controller.click(50, 0)  # cell (0, 0) -> 'wP'
-    assert state.selected_piece == board.get_piece_at(0, 0)
+    assert state.selected_piece == board.get_piece_at(Cell(0, 0))
 
     # Click a friendly piece when another friendly is selected -> change selection
     board_friendly = TextBoardParser().parse(["wP wP", ". ."])
     controller_f, state_f = create_controller(board_friendly)
     controller_f.click(50, 0)   # selects (0, 0)
-    assert state_f.selected_piece == board_friendly.get_piece_at(0, 0)
+    assert state_f.selected_piece == board_friendly.get_piece_at(Cell(0, 0))
     controller_f.click(150, 0)  # clicks (0, 1) -> friendly wP
-    assert state_f.selected_piece == board_friendly.get_piece_at(0, 1)
+    assert state_f.selected_piece == board_friendly.get_piece_at(Cell(0, 1))
 
 def test_click_move_scheduling():
     board = TextBoardParser().parse([". .", "wP ."])
@@ -49,7 +49,7 @@ def test_click_move_scheduling():
 
     # Click and select (1, 0)
     controller.click(50, 100)
-    assert state.selected_piece == board.get_piece_at(1, 0)
+    assert state.selected_piece == board.get_piece_at(Cell(1, 0))
     # Click (0, 0) -> schedules move
     controller.click(50, 0)
     assert len(state.pending_moves) == 1
@@ -62,7 +62,7 @@ def test_click_move_scheduling_none_piece():
     controller, state = create_controller(board)
     # Click and select (1, 0)
     controller.click(50, 100)
-    assert state.selected_piece == board.get_piece_at(1, 0)
+    assert state.selected_piece == board.get_piece_at(Cell(1, 0))
     # Clear the board grid at that spot, so piece resolves to None
     board.grid[1][0] = None
     # Click (0, 0) -> should NOT schedule move since empty source is illegal
@@ -80,14 +80,14 @@ def test_click_while_moving_or_reserved():
     assert state.selected_piece is None
 
     # 2. Test selected piece is already in transit (third check: sel_y, sel_x is moving)
-    state.selected_piece = board.get_piece_at(0, 0)
+    state.selected_piece = board.get_piece_at(Cell(0, 0))
     controller.click(50, 100)  # Clicks (1, 0)
     assert len(state.pending_moves) == 1
     assert state.selected_piece is None
 
     # 3. Test destination is targeted by another pending move (fourth check: destination reserved)
     state.pending_moves = [PendingMove(Cell(0, 1), Cell(1, 0), p, 1000)]
-    state.selected_piece = board.get_piece_at(0, 0)  # (0, 0) is not moving
+    state.selected_piece = board.get_piece_at(Cell(0, 0))  # (0, 0) is not moving
     controller.click(50, 100)  # Click (1, 0) (destination is reserved)
     assert len(state.pending_moves) == 1
     assert state.selected_piece is None
@@ -109,7 +109,7 @@ def test_click_illegal_move_retains_selection():
     controller, state = create_controller(board)
     # Select (0, 0)
     controller.click(50, 0)
-    assert state.selected_piece == board.get_piece_at(0, 0)
+    assert state.selected_piece == board.get_piece_at(Cell(0, 0))
     # Move to illegal target coordinates (out of board)
     controller.click(950, 950)
     # Selection cancelled (out of board)

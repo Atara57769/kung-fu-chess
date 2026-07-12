@@ -46,12 +46,12 @@ def test_rule_engine_valid_move():
     
     # Destination (0, 1) has friendly pawn 'wP'
     cell_friendly = Cell(0, 1)
-    assert engine.friendly_destination(board_pieces, cell_k, cell_friendly) is True
+    assert engine.board_rules.friendly_destination(board_pieces, cell_k, cell_friendly) is True
     assert engine.is_move_valid(board_pieces, cell_k, cell_friendly) is False
     
     # Destination (0, 2) has enemy pawn 'bP'
     cell_enemy = Cell(0, 2)
-    assert engine.friendly_destination(board_pieces, cell_k, cell_enemy) is False
+    assert engine.board_rules.friendly_destination(board_pieces, cell_k, cell_enemy) is False
     # King cannot move two cells horizontally normally, so rule validation check will still be False
     assert engine.is_move_valid(board_pieces, cell_k, cell_enemy) is False
 
@@ -84,19 +84,19 @@ def test_rule_engine_edge_cases():
     assert engine.outside_board(board, None, Cell(0, 0)) is True
     assert engine.outside_board(board, Cell(0, 0), None) is True
     assert engine.empty_source(board, None) is True
-    assert engine.friendly_destination(board, None, Cell(0, 0)) is False
-    assert engine.friendly_destination(board, Cell(0, 0), None) is False
+    assert engine.board_rules.friendly_destination(board, None, Cell(0, 0)) is False
+    assert engine.board_rules.friendly_destination(board, Cell(0, 0), None) is False
     assert engine.illegal_to_move(board, None, Cell(0, 0)) is False
     assert engine.illegal_to_move(board, Cell(0, 0), None) is False
     
     cell_out = Cell(-1, 0)
     assert engine.empty_source(board, cell_out) is True
-    assert engine.friendly_destination(board, cell_out, Cell(0, 0)) is False
-    assert engine.friendly_destination(board, Cell(0, 0), cell_out) is False
+    assert engine.board_rules.friendly_destination(board, cell_out, Cell(0, 0)) is False
+    assert engine.board_rules.friendly_destination(board, Cell(0, 0), cell_out) is False
     assert engine.illegal_to_move(board, cell_out, Cell(0, 0)) is False
     
     cell_empty = Cell(0, 1)
-    assert engine.friendly_destination(board, cell_empty, Cell(0, 0)) is False
+    assert engine.board_rules.friendly_destination(board, cell_empty, Cell(0, 0)) is False
     assert engine.illegal_to_move(board, cell_empty, Cell(0, 0)) is False
     
     bad_piece = Piece("w", "X", Cell(0, 0))
@@ -116,13 +116,13 @@ def test_rule_engine_enemy_is_moving():
 
     assert engine.is_move_valid(board, cell_from, cell_to, []) is True
 
-    opp_piece = board.get_piece_at(2, 2)
+    opp_piece = board.get_piece_at(Cell(2, 2))
     pending_moves = [PendingMove(Cell(2, 2), Cell(2, 1), opp_piece, 1000)]
     assert engine.enemy_is_moving(board, cell_from, pending_moves) is True
     assert engine.is_move_valid(board, cell_from, cell_to, pending_moves) is False
 
     board.grid[0][1] = Piece("w", "P", Cell(0, 1))
-    friendly_piece = board.get_piece_at(0, 1)
+    friendly_piece = board.get_piece_at(Cell(0, 1))
     pending_moves_friendly = [PendingMove(Cell(0, 1), Cell(0, 2), friendly_piece, 1000)]
     assert engine.enemy_is_moving(board, cell_from, pending_moves_friendly) is False
     assert engine.is_move_valid(board, cell_from, cell_to, pending_moves_friendly) is True
@@ -143,7 +143,7 @@ def test_rule_engine_transit_validation():
     cell_from = Cell(0, 0)
     cell_to = Cell(1, 1)
     
-    moving_piece = board.get_piece_at(0, 0)
+    moving_piece = board.get_piece_at(Cell(0, 0))
     pending_moves = [PendingMove(cell_from, cell_to, moving_piece, 1000)]
     
     assert engine.is_piece_moving(cell_from, pending_moves) is True
@@ -151,12 +151,27 @@ def test_rule_engine_transit_validation():
     assert engine.is_piece_moving(None, pending_moves) is False
     assert engine.is_piece_moving(cell_from, None) is False
     
-    assert engine.is_destination_reserved(cell_to, pending_moves) is True
-    assert engine.is_destination_reserved(cell_from, pending_moves) is False
-    assert engine.is_destination_reserved(None, pending_moves) is False
-    assert engine.is_destination_reserved(cell_to, None) is False
+    assert engine.board_rules.is_destination_reserved(cell_to, pending_moves) is True
+    assert engine.board_rules.is_destination_reserved(cell_from, pending_moves) is False
+    assert engine.board_rules.is_destination_reserved(None, pending_moves) is False
+    assert engine.board_rules.is_destination_reserved(cell_to, None) is False
     
     assert engine.is_move_valid(board, cell_from, Cell(0, 1), pending_moves) is False
     
-    other_piece = board.get_piece_at(2, 2)
+    other_piece = board.get_piece_at(Cell(2, 2))
     assert engine.is_move_valid(board, Cell(2, 2), cell_to, pending_moves) is False
+
+
+def test_rule_engine_dependency_injection():
+    from rules.board_rules import BoardRules
+    
+    class MockBoardRules(BoardRules):
+        def is_move_valid(self, rule_engine, board, cell_from, cell_to, pending_moves=None):
+            return True
+
+    board = TextBoardParser().parse([". .", ". ."])
+    mock_rules = MockBoardRules()
+    engine = RuleEngine(board_rules=mock_rules)
+    
+    assert engine.is_move_valid(board, Cell(0, 0), Cell(0, 1)) is True
+

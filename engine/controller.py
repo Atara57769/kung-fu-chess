@@ -27,12 +27,11 @@ class Controller:
         # Out of board
         if cell is None:
             # Cancel any existing selection if the click was outside the board
-            if self.state.selected_piece is not None:
-                self.state.selected_piece = None
+            self.state.selected_piece = None
             return
 
         board = self.state.board
-        piece = board.get_piece_at(cell.y, cell.x)
+        piece = board.get_piece_at(cell)
 
         # --- No piece selected yet ---
         if self.state.selected_piece is None:
@@ -69,7 +68,7 @@ class Controller:
             return
 
         board = self.state.board
-        piece = board.get_piece_at(cell.y, cell.x)
+        piece = board.get_piece_at(cell)
         if piece is None:
             return
 

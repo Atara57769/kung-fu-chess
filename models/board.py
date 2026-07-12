@@ -9,9 +9,9 @@ class Board:
         self.width = width
         self.height = height
 
-    def get_piece_at(self, cell_y: int, cell_x: int) -> Piece:
-        """Returns the piece at the given cell coordinates."""
-        return self.grid[cell_y][cell_x]
+    def get_piece_at(self, cell: Cell) -> Optional[Piece]:
+        """Returns the piece at the given cell."""
+        return self.grid[cell.y][cell.x]
 
     def is_inside_bounds(self, cell_y: int, cell_x: int) -> bool:
         """Checks whether a cell is inside the board boundaries."""
