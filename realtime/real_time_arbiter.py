@@ -1,7 +1,7 @@
 from models.game_state import GameState
 from models.pending_move import PendingMove
 from models.cell import Cell
-from constants import COLOR_WHITE, COLOR_BLACK, PIECE_KING, PIECE_QUEEN, PIECE_PAWN
+from constants import COLOR_WHITE, COLOR_BLACK, PIECE_KING, PIECE_QUEEN, PIECE_PAWN,COOLDOWN_DURATION
 
 class RealTimeArbiter:
     def advance_clock(self, game_state: GameState, ms: int) -> None:
@@ -79,6 +79,10 @@ class RealTimeArbiter:
         is_game_over = self.check_game_over(game_state, move.to_pos)
         self.apply_pawn_promotion(game_state, move)
         self.execute_move_on_board(game_state, move)
+
+        if move.piece is not None:
+            move.piece.cooldown_until = move.arrival + COOLDOWN_DURATION
+
         return is_game_over
 
     def treat_pending_moves(self, game_state: GameState) -> None:

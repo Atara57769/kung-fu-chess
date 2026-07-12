@@ -1,6 +1,6 @@
 from typing import Tuple
 from models.pieces import Piece
-from constants import DURATION
+from constants import DURATION, COOLDOWN_DURATION
 from models.jump import Jump
 from models.game_state import GameState
 
@@ -12,3 +12,4 @@ class JumpService:
             end=start_time + DURATION,
             piece=piece
         ))
+        piece.cooldown_until = start_time + DURATION + COOLDOWN_DURATION

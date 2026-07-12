@@ -87,3 +87,38 @@ def test_jump_service():
     assert len(state.jumps) == 1
     assert state.jumps[0].cell == (2, 2)
 
+def test_game_engine_cooldown_movement():
+    board = TextBoardParser().parse(["wR .", ". ."])
+    state = GameState(board=board)
+    engine = GameEngine()
+    
+    piece = board.get_piece_at(0, 0)
+    # Put piece on cooldown
+    piece.cooldown_until = 1000
+    state.clock = 500
+    
+    # Try to move - should be ignored due to cooldown
+    engine.request_move(state, Cell(0, 0), Cell(0, 1))
+    assert len(state.pending_moves) == 0
+    
+    # Advance clock past cooldown
+    state.clock = 1000
+    engine.request_move(state, Cell(0, 0), Cell(0, 1))
+    assert len(state.pending_moves) == 1
+
+def test_game_engine_cooldown_jump():
+    board = TextBoardParser().parse(["wR .", ". ."])
+    state = GameState(board=board)
+    engine = GameEngine()
+    
+    piece = board.get_piece_at(0, 0)
+    # Put piece on cooldown
+    piece.cooldown_until = 1000
+    state.clock = 500
+    
+    assert engine.can_jump(state, Cell(0, 0)) is False
+    
+    # Advance clock past cooldown
+    state.clock = 1000
+    assert engine.can_jump(state, Cell(0, 0)) is True
+

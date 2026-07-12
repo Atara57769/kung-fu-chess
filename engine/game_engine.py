@@ -28,6 +28,9 @@ class GameEngine:
             return
 
         piece = state.board.get_piece_at(from_cell.y, from_cell.x)
+        if piece is not None and piece.cooldown_until > state.clock:
+            return
+
         duration = self.calculate_move_duration(from_cell, to_cell, piece)
         arrival = state.clock + duration
 
@@ -83,4 +86,7 @@ class GameEngine:
         from rules.rule_engine import RuleEngine
         rule = RuleEngine()
         pending = state.pending_moves
+        piece = state.board.get_piece_at(cell.y, cell.x)
+        if piece is not None and piece.cooldown_until > state.clock:
+            return False
         return not rule.is_piece_moving(cell, pending) and not rule.is_destination_reserved(cell, pending)

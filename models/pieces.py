@@ -6,6 +6,7 @@ class Piece:
     color: str  
     kind: str   
     cell: Cell = None
+    cooldown_until: int = 0
 
 
 

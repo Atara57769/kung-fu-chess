@@ -192,3 +192,15 @@ def test_real_time_arbiter_coverage_edge_cases():
     move_tricky = PendingMove(Cell(1, 0), Cell(0, 0), tricky, 1000)
     arb.apply_pawn_promotion(state, move_tricky)
     assert move_tricky.piece.kind == "Q"
+
+def test_real_time_arbiter_cooldown_set():
+    board = TextBoardParser().parse(["wR .", ". ."])
+    state = GameState(board=board)
+    arbiter = RealTimeArbiter()
+    
+    w_rook = board.get_piece_at(0, 0)
+    move = PendingMove(Cell(0, 0), Cell(0, 1), w_rook, 1000)
+    
+    assert w_rook.cooldown_until == 0
+    arbiter.process_move(state, move)
+    assert w_rook.cooldown_until == 2000
