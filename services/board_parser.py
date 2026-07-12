@@ -3,8 +3,8 @@ from typing import List, Optional, Any
 from models.board import Board
 from models.cell import Cell
 from models.pieces import Piece
-from factory import PieceFactory
 from exceptions import UnknownTokenError, RowWidthMismatchError
+
 from constants import EMPTY_TOKEN, VALID_COLORS, VALID_PIECES, TOKEN_LENGTH, COLOR_INDEX, KIND_INDEX
 
 class BoardParser(ABC):
@@ -37,7 +37,7 @@ class TextBoardParser(BoardParser):
                     row.append(None)
                 elif len(token) == TOKEN_LENGTH and token[COLOR_INDEX] in VALID_COLORS and token[KIND_INDEX] in VALID_PIECES:
                     # Create Piece object
-                    piece = PieceFactory.from_text(token, Cell(y, x))
+                    piece = Piece.from_text(token, Cell(y, x))
                     row.append(piece)
                 else:
                     raise UnknownTokenError("ERROR UNKNOWN_TOKEN")

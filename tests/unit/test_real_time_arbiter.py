@@ -4,7 +4,6 @@ from services.board_parser import TextBoardParser
 from models.game_state import GameState
 from models.cell import Cell
 from models.pieces import Piece
-from factory import PieceFactory
 from models.pending_move import PendingMove
 from models.jump import Jump
 from realtime.real_time_arbiter import RealTimeArbiter
@@ -174,7 +173,7 @@ def test_real_time_arbiter_coverage_edge_cases():
     state = GameState(board=board)
     arb = RealTimeArbiter()
 
-    p = PieceFactory.from_text("wP")
+    p = Piece.from_text("wP")
     move = PendingMove(Cell(0, 0), Cell(0, 1), p, 1000)
 
     class TrickyPiece:

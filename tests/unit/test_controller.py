@@ -6,7 +6,6 @@ from services.board_parser import TextBoardParser
 from models.game_state import GameState
 from models.cell import Cell
 from models.pieces import Piece
-from factory import PieceFactory
 from models.pending_move import PendingMove
 from engine.controller import Controller
 from engine.game_engine import GameEngine
@@ -74,7 +73,7 @@ def test_click_while_moving_or_reserved():
     controller, state = create_controller(board)
 
     # 1. Test clicking a cell that is currently moving (first check: cell_y, cell_x is moving)
-    p = PieceFactory.from_text("wP")
+    p = Piece.from_text("wP")
     state.pending_moves = [PendingMove(Cell(0, 0), Cell(1, 0), p, 1000)]
     controller.click(50, 0)  # Click (0, 0) which is moving
     assert state.selected_piece is None
@@ -100,7 +99,7 @@ def test_click_game_over_and_pending_moves_return():
     assert state.selected_piece is None
 
     state.game_over = False
-    state.pending_moves.append(PendingMove(Cell(0, 0), Cell(1, 1), PieceFactory.from_text("wP"), 1000))
+    state.pending_moves.append(PendingMove(Cell(0, 0), Cell(1, 1), Piece.from_text("wP"), 1000))
     controller.click(50, 0)
     assert state.selected_piece is None
 
@@ -129,7 +128,7 @@ def test_jump():
     assert len(state.jumps) == 0
 
     # Jump on moving piece (ignored)
-    p = PieceFactory.from_text("wP")
+    p = Piece.from_text("wP")
     state.pending_moves.append(PendingMove(Cell(0, 0), Cell(1, 0), p, 1000))
     controller.jump(50, 0)  # cell (0, 0)
     assert len(state.jumps) == 0
@@ -162,7 +161,7 @@ def test_print_board():
 def test_controller_game_over_triggers():
     board = TextBoardParser().parse(["wP bK", ". ."])
     controller, state = create_controller(board)
-    p_pawn = PieceFactory.from_text("wP")
+    p_pawn = Piece.from_text("wP")
     state.pending_moves.append(PendingMove(Cell(0, 0), Cell(0, 1), p_pawn, 1000))
 
     # wait() causes game over
@@ -192,7 +191,7 @@ def test_controller_game_over_triggers():
 def test_controller_click_game_over():
     board = TextBoardParser().parse(["wP bK", ". ."])
     controller, state = create_controller(board)
-    p_pawn = PieceFactory.from_text("wP")
+    p_pawn = Piece.from_text("wP")
     state.pending_moves.append(PendingMove(Cell(0, 0), Cell(0, 1), p_pawn, 1000))
     state.clock = 1000
 

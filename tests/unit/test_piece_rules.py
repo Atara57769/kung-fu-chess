@@ -1,23 +1,22 @@
 import pytest
 from models.pieces import Piece
-from factory import PieceFactory
 from rules.piece_rules import RULES
 from models.cell import Cell
 from models.board import Board
 from services.board_parser import TextBoardParser
 
 def test_from_text():
-    assert PieceFactory.from_text(".") is None
-    assert PieceFactory.from_text("w") is None
-    assert PieceFactory.from_text("wZ") is None
+    assert Piece.from_text(".") is None
+    assert Piece.from_text("w") is None
+    assert Piece.from_text("wZ") is None
     
-    piece = PieceFactory.from_text("wK", Cell(1, 1))
+    piece = Piece.from_text("wK", Cell(1, 1))
     assert isinstance(piece, Piece)
     assert piece.color == "w"
     assert piece.kind == "K"
     assert piece.cell == Cell(1, 1)
 
-    piece2 = PieceFactory.from_text("bQ")
+    piece2 = Piece.from_text("bQ")
     assert piece2.color == "b"
     assert piece2.kind == "Q"
     assert piece2.cell is None

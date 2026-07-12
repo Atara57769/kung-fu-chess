@@ -4,7 +4,6 @@ from services.board_parser import TextBoardParser
 from models.game_state import GameState
 from models.cell import Cell
 from models.pieces import Piece
-from factory import PieceFactory
 from models.pending_move import PendingMove
 from engine.game_engine import GameEngine
 from services.jump_service import JumpService
@@ -35,13 +34,13 @@ def test_game_engine_request_move_validation():
 
     # 2. game_engine.request_move edge cases
     state.game_over = False
-    p = PieceFactory.from_text("wP")
+    p = Piece.from_text("wP")
     # Outside bounds
     engine.request_move(state, Cell(0, 0), Cell(5, 5))
     assert len(state.pending_moves) == 0
 
     # Friendly destination
-    board.grid[0][1] = PieceFactory.from_text("wP")
+    board.grid[0][1] = Piece.from_text("wP")
     engine.request_move(state, Cell(0, 0), Cell(0, 1))
     assert len(state.pending_moves) == 0
     board.grid[0][1] = None
@@ -59,8 +58,8 @@ def test_game_engine_request_move_validation():
     state.pending_moves.clear()
 
     # Enemy is moving
-    board.grid[0][1] = PieceFactory.from_text("bP")
-    state.pending_moves.append(PendingMove(Cell(0, 1), Cell(1, 1), PieceFactory.from_text("bP"), 1000))
+    board.grid[0][1] = Piece.from_text("bP")
+    state.pending_moves.append(PendingMove(Cell(0, 1), Cell(1, 1), Piece.from_text("bP"), 1000))
     engine.request_move(state, Cell(0, 0), Cell(1, 0))
     assert len(state.pending_moves) == 1
     state.pending_moves.clear()
@@ -81,7 +80,7 @@ def test_jump_service():
     board = TextBoardParser().parse([". ."])
     state = GameState(board=board)
     service = JumpService()
-    p_white = PieceFactory.from_text("wP")
+    p_white = Piece.from_text("wP")
 
     service.schedule_jump(state, (2, 2), 100, p_white)
     assert len(state.jumps) == 1
