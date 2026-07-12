@@ -19,8 +19,6 @@ class RuleEngine:
             return False
         if self.is_piece_moving(cell_from, pending_moves):
             return False
-        if self.enemy_is_moving(board, cell_from, pending_moves):
-            return False
         if not self.board_rules.is_move_valid(self, board, cell_from, cell_to, pending_moves):
             return False
         if not self.illegal_to_move(board, cell_from, cell_to):
@@ -36,20 +34,6 @@ class RuleEngine:
         if cell is None or pending_moves is None:
             return False
         return any(move.from_pos == cell for move in pending_moves)
-
-
-    def enemy_is_moving(self, board: Board, cell_from: Cell, pending_moves: list) -> bool:
-        """
-        Checks if any enemy piece is currently moving.
-        Returns True if an enemy piece is moving, and False otherwise.
-        """
-        if cell_from is None or not board.is_inside_bounds(cell_from.y, cell_from.x) or pending_moves is None:
-            return False
-        piece = board.get_piece_at(cell_from)
-        if piece is None:
-            return False
-        opp_color = COLOR_BLACK if piece.color == COLOR_WHITE else COLOR_WHITE
-        return any(move.piece is not None and move.piece.color == opp_color for move in pending_moves)
 
     def outside_board(self, board: Board, cell_from: Cell, cell_to: Cell) -> bool:
         """

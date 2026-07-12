@@ -103,7 +103,7 @@ def test_rule_engine_edge_cases():
     board.grid[0][0] = bad_piece
     assert engine.illegal_to_move(board, Cell(0, 0), Cell(1, 1)) is False
 
-def test_rule_engine_enemy_is_moving():
+def test_rule_engine_enemy_is_moving_allowed():
     lines = [
         "wK . .",
         ". . .",
@@ -118,17 +118,7 @@ def test_rule_engine_enemy_is_moving():
 
     opp_piece = board.get_piece_at(Cell(2, 2))
     pending_moves = [PendingMove(Cell(2, 2), Cell(2, 1), opp_piece, 1000)]
-    assert engine.enemy_is_moving(board, cell_from, pending_moves) is True
-    assert engine.is_move_valid(board, cell_from, cell_to, pending_moves) is False
-
-    board.grid[0][1] = Piece("w", "P", Cell(0, 1))
-    friendly_piece = board.get_piece_at(Cell(0, 1))
-    pending_moves_friendly = [PendingMove(Cell(0, 1), Cell(0, 2), friendly_piece, 1000)]
-    assert engine.enemy_is_moving(board, cell_from, pending_moves_friendly) is False
-    assert engine.is_move_valid(board, cell_from, cell_to, pending_moves_friendly) is True
-
-    # Empty cell (piece is None)
-    assert engine.enemy_is_moving(board, Cell(0, 2), pending_moves_friendly) is False
+    assert engine.is_move_valid(board, cell_from, cell_to, pending_moves) is True
 
 
 def test_rule_engine_transit_validation():

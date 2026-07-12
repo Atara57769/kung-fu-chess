@@ -72,7 +72,7 @@ class RealTimeArbiter:
 
     def process_move(self, game_state: GameState, move: PendingMove) -> bool:
         """Processes a single pending move check for captures, promotion, and movement."""
-        if self.is_captured_by_airborne_enemy(game_state, move):
+        if move.is_captured or self.is_captured_by_airborne_enemy(game_state, move):
             self.execute_capture(game_state, move)
             return False
 

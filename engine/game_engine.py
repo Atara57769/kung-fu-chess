@@ -2,15 +2,17 @@ from typing import Optional
 from models.game_state import GameState
 from models.cell import Cell
 from models.pending_move import PendingMove
-from constants import DURATION
+from constants import DURATION, PIECE_KNIGHT
 from rules.rule_engine import RuleEngine
+from services.collision_service import CollisionService
 
 
 class GameEngine:
     """Stateless engine that operates exclusively on GameState."""
 
-    def __init__(self, rule_engine=None):
+    def __init__(self, rule_engine=None, collision_service=None):
         self.rule_engine = rule_engine or RuleEngine()
+        self.collision_service = collision_service or CollisionService()
 
     def request_move(self, state: GameState, from_cell: Cell, to_cell: Cell) -> None:
         """
@@ -41,19 +43,22 @@ class GameEngine:
     def calculate_move_duration(self, from_cell: Cell, to_cell: Cell, piece: Optional[object]) -> int:
         dy = to_cell.y - from_cell.y
         dx = to_cell.x - from_cell.x
-        if piece is not None and getattr(piece, 'kind', None) == 'N':
+        if piece is not None and piece.kind == PIECE_KNIGHT:
             distance = abs(dy) + abs(dx)
         else:
             distance = max(abs(dy), abs(dx))
         return distance * DURATION
 
     def schedule_move(self, state: GameState, from_cell: Cell, to_cell: Cell, piece: Optional[object], arrival: int) -> None:
-        state.pending_moves.append(PendingMove(
+        new_move = PendingMove(
             from_pos=from_cell,
             to_pos=to_cell,
             piece=piece,
             arrival=arrival,
-        ))
+        )
+        if self.collision_service.check_mid_move_collision(state, new_move):
+            new_move.is_captured = True
+        state.pending_moves.append(new_move)
 
     def wait(self, state: GameState, ms: int) -> None:
         """Advances the clock and processes any completed moves."""

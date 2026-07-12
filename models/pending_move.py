@@ -8,3 +8,5 @@ class PendingMove:
     to_pos: Cell
     piece: Piece
     arrival: int
+    is_captured: bool = False
+
