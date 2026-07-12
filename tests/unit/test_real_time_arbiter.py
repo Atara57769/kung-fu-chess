@@ -127,13 +127,13 @@ def test_promotion():
     assert board.grid[0][0] == Piece("w", "N", Cell(0, 0))
 
 def test_game_over_service():
+    from rules.win_condition import check_game_over
     board = TextBoardParser().parse(["wK bN", ". ."])
     state = GameState(board=board)
-    arbiter = RealTimeArbiter()
 
-    assert arbiter.check_game_over(state, Cell(0, 0)) is True
-    assert arbiter.check_game_over(state, Cell(0, 1)) is False
-    assert arbiter.check_game_over(state, Cell(1, 0)) is False
+    assert check_game_over(state, Cell(0, 0)) is True
+    assert check_game_over(state, Cell(0, 1)) is False
+    assert check_game_over(state, Cell(1, 0)) is False
 
 def test_execute_move_captured():
     board = TextBoardParser().parse(["wP .", ". ."])

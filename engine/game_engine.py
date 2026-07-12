@@ -5,14 +5,18 @@ from models.pending_move import PendingMove
 from constants import DURATION, PIECE_KNIGHT
 from rules.rule_engine import RuleEngine
 from services.collision_service import CollisionService
-
+from realtime.real_time_arbiter import RealTimeArbiter
+from services.jump_service import JumpService
+        
 
 class GameEngine:
     """Stateless engine that operates exclusively on GameState."""
 
-    def __init__(self, rule_engine=None, collision_service=None):
+    def __init__(self, rule_engine=None, collision_service=None, real_time_arbiter=None, jump_service=None):
         self.rule_engine = rule_engine or RuleEngine()
         self.collision_service = collision_service or CollisionService()
+        self.real_time_arbiter = real_time_arbiter or RealTimeArbiter()
+        self.jump_service = jump_service or JumpService()
 
     def request_move(self, state: GameState, from_cell: Cell, to_cell: Cell) -> None:
         """
@@ -53,16 +57,14 @@ class GameEngine:
 
     def wait(self, state: GameState, ms: int) -> None:
         """Advances the clock and processes any completed moves."""
-        from realtime.real_time_arbiter import RealTimeArbiter
-        RealTimeArbiter().tick(state, ms)
+        self.real_time_arbiter.tick(state, ms)
 
     def jump(self, state: GameState, cell: Cell) -> None:
         """Schedules a jump for the piece at the given cell."""
-        from services.jump_service import JumpService
         if not self.can_jump(state, cell):
             return
         piece = state.board.get_piece_at(cell)
-        JumpService().schedule_jump(
+        self.jump_service.schedule_jump(
             state=state,
             cell=(cell.y, cell.x),
             start_time=state.clock,
