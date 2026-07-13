@@ -4,8 +4,12 @@ from models.cell import Cell
 from constants import COLOR_WHITE, COLOR_BLACK, PIECE_KING, PIECE_QUEEN, PIECE_PAWN,COOLDOWN_DURATION
 
 from rules.win_condition import check_game_over
+from rules.promotion import PawnPromotion
 
 class RealTimeArbiter:
+    def __init__(self, promotion_service=None) -> None:
+        self.promotion_service = promotion_service or PawnPromotion()
+
     def advance_clock(self, game_state: GameState, ms: int) -> None:
         """Advances the clock of the game state by the given milliseconds."""
         game_state.clock += ms
@@ -31,30 +35,6 @@ class RealTimeArbiter:
             ):
                 board.grid[from_y][from_x] = None
 
-    def is_pawn(self, kind: str) -> bool:
-        """Checks if the piece kind represents a pawn."""
-        return kind == PIECE_PAWN
-
-    def is_promotion_row(self, color: str, to_y: int, board_height: int) -> bool:
-        """Checks if the color has reached its respective promotion row."""
-        return (color == COLOR_WHITE and to_y == 0) or (color == COLOR_BLACK and to_y == board_height - 1)
-
-    def promote_to_queen(self, piece) -> None:
-        """Promotes the piece to a Queen."""
-        if piece is not None:
-            piece.kind = PIECE_QUEEN
-
-    def apply_pawn_promotion(self, game_state: GameState, move: PendingMove) -> None:
-        """Promotes pawns to Queens if they reach the opposite end of the board."""
-        board = game_state.board
-        to_y = move.to_pos.y
-        if move.piece:
-            current_piece = move.piece
-            
-            if current_piece is not None :
-                if self.is_pawn(current_piece.kind) and self.is_promotion_row(current_piece.color, to_y, board.height):
-                    self.promote_to_queen(current_piece)
-
     def execute_move_on_board(self, game_state: GameState, move: PendingMove) -> None:
         """Moves the piece on the board from from_pos to to_pos."""
         board = game_state.board
@@ -67,7 +47,7 @@ class RealTimeArbiter:
             return False
 
         is_game_over = check_game_over(game_state, move.to_pos)
-        self.apply_pawn_promotion(game_state, move)
+        self.promotion_service.apply_pawn_promotion(game_state, move)
         self.execute_move_on_board(game_state, move)
 
         if move.piece is not None:

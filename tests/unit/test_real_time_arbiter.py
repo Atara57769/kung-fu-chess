@@ -106,7 +106,7 @@ def test_promotion():
     p1 = Piece("w", "P", Cell(1, 0))
     board.grid[1][0] = p1
     move1 = PendingMove(Cell(1, 0), Cell(0, 0), p1, 1000)
-    arbiter.apply_pawn_promotion(state, move1)
+    arbiter.promotion_service.apply_pawn_promotion(state, move1)
     arbiter.execute_move_on_board(state, move1)
     assert board.grid[0][0] == Piece("w", "Q", Cell(0, 0))
 
@@ -114,7 +114,7 @@ def test_promotion():
     p2 = Piece("w", "P", Cell(0, 0))
     board.grid[0][0] = p2
     move2 = PendingMove(Cell(0, 0), Cell(1, 0), p2, 1000)
-    arbiter.apply_pawn_promotion(state, move2)
+    arbiter.promotion_service.apply_pawn_promotion(state, move2)
     arbiter.execute_move_on_board(state, move2)
     assert board.grid[1][0] == Piece("w", "P", Cell(1, 0))
 
@@ -122,7 +122,7 @@ def test_promotion():
     p3 = Piece("w", "N", Cell(1, 0))
     board.grid[1][0] = p3
     move3 = PendingMove(Cell(1, 0), Cell(0, 0), p3, 1000)
-    arbiter.apply_pawn_promotion(state, move3)
+    arbiter.promotion_service.apply_pawn_promotion(state, move3)
     arbiter.execute_move_on_board(state, move3)
     assert board.grid[0][0] == Piece("w", "N", Cell(0, 0))
 
@@ -189,7 +189,7 @@ def test_real_time_arbiter_coverage_edge_cases():
 
     tricky = TrickyPiece()
     move_tricky = PendingMove(Cell(1, 0), Cell(0, 0), tricky, 1000)
-    arb.apply_pawn_promotion(state, move_tricky)
+    arb.promotion_service.apply_pawn_promotion(state, move_tricky)
     assert move_tricky.piece.kind == "Q"
 
 def test_real_time_arbiter_cooldown_set():
