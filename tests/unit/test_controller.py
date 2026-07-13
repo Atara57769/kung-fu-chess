@@ -202,3 +202,21 @@ def test_controller_click_game_over():
 
     controller.click(50, 0)
     assert state.game_over is True
+
+def test_controller_click_moving_friendly_piece():
+    board = TextBoardParser().parse(["wP wP", ". ."])
+    controller, state = create_controller(board)
+    
+    # Select first friendly piece (0, 0)
+    controller.click(50, 0)
+    assert state.selected_piece == board.get_piece_at(Cell(0, 0))
+    
+    # Mark second friendly piece (0, 1) as moving
+    p2 = board.get_piece_at(Cell(0, 1))
+    state.pending_moves.append(PendingMove(Cell(0, 1), Cell(1, 1), p2, 1000))
+    
+    # Click second friendly piece (0, 1), which is moving
+    controller.click(150, 0)
+    # The selection should remain the first piece (or at least NOT change to the second, moving piece)
+    assert state.selected_piece == board.get_piece_at(Cell(0, 0))
+
