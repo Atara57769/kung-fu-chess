@@ -5,12 +5,15 @@ class MoveState(AnimationState):
     def on_enter(self, piece_view, snapshot: GameSnapshot) -> None:
         super().on_enter(piece_view, snapshot)
         piece_view.target_cell = piece_view.cell  # fallback
+        self.arrival = snapshot.clock + 1000  # default fallback
         for move in snapshot.pending_moves:
             if (move.from_pos == piece_view.cell and 
                     move.piece.color == piece_view.color and 
                     move.piece.kind == piece_view.kind):
                 piece_view.target_cell = move.to_pos
+                self.arrival = move.arrival
                 break
+        self.start_clock = snapshot.clock
 
     def update(self, dt: float, piece_view, snapshot: GameSnapshot) -> None:
         self.advance_frames(dt)
@@ -33,26 +36,16 @@ class MoveState(AnimationState):
             piece_view.change_state(next_state, snapshot)
             return
 
-        # 2. Compute duration and start clock of the move
-        dy = active_move.to_pos.y - active_move.from_pos.y
-        dx = active_move.to_pos.x - active_move.from_pos.x
-        if active_move.piece.kind == 'N': # Knight
-            distance = abs(dy) + abs(dx)
-        else:
-            distance = max(abs(dy), abs(dx))
-        
-        duration = distance * 1000  # Duration in ms
-        if duration == 0:
+        # 2. Determine progress based strictly on time difference (no game logic duplication)
+        duration = self.arrival - self.start_clock
+        if duration <= 0:
             duration = 1000
 
-        start_clock = active_move.arrival - duration
         current_clock = snapshot.clock
-
-        # Calculate progress ratio
-        if current_clock >= active_move.arrival:
+        if current_clock >= self.arrival:
             progress = 1.0
         else:
-            progress = max(0.0, (current_clock - start_clock) / duration)
+            progress = max(0.0, (current_clock - self.start_clock) / duration)
 
         # 3. Interpolate coordinates along the path
         path = active_move.path
