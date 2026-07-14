@@ -4,6 +4,7 @@ from models.game_state import GameState
 from models.cell import Cell
 from engine.game_engine import GameEngine
 from input.board_mappr import BoardMapper
+from models.game_snapshot import GameSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,14 @@ class Controller:
         self.game_engine = game_engine
         self.stdout = stdout
         self.board_mapper = board_mapper or BoardMapper(state.board)
+
+    def update(self, dt: int) -> None:
+        """Advances the game clock and updates logic."""
+        self.wait(dt)
+
+    def get_snapshot(self) -> GameSnapshot:
+        """Returns a snapshot of the current game state."""
+        return self.game_engine.snapshot(self.state)
 
     def click(self, x: int, y: int) -> None:
         if self.state.game_over:
