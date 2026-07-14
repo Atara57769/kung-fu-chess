@@ -15,7 +15,6 @@ class CollisionService:
         return distance * DURATION
 
     def moves_meet_in_middle(self, m1: PendingMove, m2: PendingMove) -> bool:
-        # m1 is the existing move, m2 is the new move
         dur1 = self.get_move_duration(m1.from_pos, m1.to_pos, m1.piece)
         dur2 = self.get_move_duration(m2.from_pos, m2.to_pos, m2.piece)
         if dur1 == 0 or dur2 == 0:
@@ -36,9 +35,6 @@ class CollisionService:
         dx2 = m2.to_pos.x - m2.from_pos.x
         dy2 = m2.to_pos.y - m2.from_pos.y
 
-        # Equating trajectories:
-        # A_x * t = B_x
-        # A_y * t = B_y
         A_x = dx1 / dur1 - dx2 / dur2
         B_x = m2.from_pos.x - m1.from_pos.x - dx2 * t2_start / dur2 + dx1 * t1_start / dur1
 

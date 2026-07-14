@@ -30,9 +30,7 @@ class Controller:
         cell = self.board_mapper.pixel_to_cell(x, y)
         logger.debug(f"Click at ({x}, {y}) resolved to cell: {cell}")
 
-        # Out of board
         if cell is None:
-            # Cancel any existing selection if the click was outside the board
             logger.info("Click outside board. Cancelling selection.")
             self.state.selected_piece = None
             return
@@ -57,8 +55,7 @@ class Controller:
         piece = board.get_piece_at(cell)
         if piece is None:
             logger.debug(f"Click on empty cell {cell}; no piece selected.")
-            return  # empty cell, nothing to select
-        # Only select if not already in transit
+            return
         if not self.game_engine.is_piece_moving(self.state, cell):
             logger.info(f"Selecting piece: {piece} at {cell}")
             self.state.selected_piece = piece
@@ -72,7 +69,6 @@ class Controller:
         
         sel_cell = sel_piece.cell
 
-        # Clicking a friendly piece → re-select (if not moving)
         if piece is not None and piece.color == sel_piece.color:
             if not self.game_engine.is_piece_moving(self.state, cell):
                 logger.info(f"Re-selecting friendly piece: {piece} at {cell}")
@@ -81,7 +77,6 @@ class Controller:
                 logger.info(f"Cannot re-select moving friendly piece: {piece} at {cell}")
             return
 
-        # Second click → try to move
         logger.info(f"Requesting move from {sel_cell} to {cell}")
         self.game_engine.request_move(self.state, sel_cell, cell)
         self.state.selected_piece = None

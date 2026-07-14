@@ -24,7 +24,7 @@ class PieceSnapshot:
         return cls(
             color=piece.color,
             kind=piece.kind,
-            cell=piece.cell,  # Cell is already frozen/immutable
+            cell=piece.cell,
             cooldown_until=piece.cooldown_until,
         )
 

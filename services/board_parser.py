@@ -24,7 +24,6 @@ class TextBoardParser(BoardParser):
         for y, line in enumerate(board_lines):
             tokens = line.strip().split()
             
-            # Validate row width consistency
             if width is None:
                 width = len(tokens)
             elif len(tokens) != width:
@@ -32,11 +31,9 @@ class TextBoardParser(BoardParser):
 
             row = []
             for x, token in enumerate(tokens):
-                # Validate token format
                 if token == EMPTY_TOKEN:
                     row.append(None)
                 elif len(token) == TOKEN_LENGTH and token[COLOR_INDEX] in VALID_COLORS and token[KIND_INDEX] in VALID_PIECES:
-                    # Create Piece object
                     piece = Piece.from_text(token, Cell(y, x))
                     row.append(piece)
                 else:
@@ -49,5 +46,4 @@ class TextBoardParser(BoardParser):
 
         height = len(grid)
         
-        # Instantiate Board and return it
         return Board(grid, width, height)
