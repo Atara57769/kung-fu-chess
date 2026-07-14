@@ -2,7 +2,7 @@ import logging
 from models.game_state import GameState
 from models.pending_move import PendingMove
 from models.cell import Cell
-from constants import COLOR_WHITE, COLOR_BLACK, PIECE_KING, PIECE_QUEEN, PIECE_PAWN,COOLDOWN_DURATION
+from constants import COLOR_WHITE, COLOR_BLACK, PIECE_KING, PIECE_QUEEN, PIECE_PAWN, COOLDOWN_MOVE
 
 from rules.win_condition import check_game_over
 from rules.promotion import PawnPromotion
@@ -56,7 +56,7 @@ class RealTimeArbiter:
         self.execute_move_on_board(game_state, move)
 
         if move.piece is not None:
-            move.piece.cooldown_until = move.arrival + COOLDOWN_DURATION
+            move.piece.cooldown_until = move.arrival + COOLDOWN_MOVE
 
         return is_game_over
 

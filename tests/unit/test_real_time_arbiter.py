@@ -202,4 +202,4 @@ def test_real_time_arbiter_cooldown_set():
     
     assert w_rook.cooldown_until == 0
     arbiter.process_move(state, move)
-    assert w_rook.cooldown_until == 2000
+    assert w_rook.cooldown_until == 2500
