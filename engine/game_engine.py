@@ -90,5 +90,4 @@ class GameEngine:
         if piece is not None and piece.cooldown_until > state.clock:
             return False
         is_moving = self.rule_engine.is_piece_moving(cell, pending)
-        is_reserved = self.rule_engine.board_rules.is_destination_reserved(cell, pending)
-        return not is_moving and not is_reserved
+        return not is_moving
