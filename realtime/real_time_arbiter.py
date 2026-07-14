@@ -48,6 +48,8 @@ class RealTimeArbiter:
         """Processes a single pending move check for captures, promotion, and movement."""
         if move.is_captured or self.is_captured_by_airborne_enemy(game_state, move):
             self.execute_capture(game_state, move)
+            if move.piece is not None and move.piece.kind == PIECE_KING:
+                return True
             return False
 
         is_game_over = check_game_over(game_state, move.to_pos)

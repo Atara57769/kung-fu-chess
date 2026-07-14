@@ -66,6 +66,24 @@ def test_real_time_arbiter_airborne_capture():
     assert board.get_piece_at(Cell(0, 1)) is None
     assert len(state.pending_moves) == 0
 
+def test_real_time_arbiter_airborne_capture_king():
+    board = TextBoardParser().parse(["wK .", ". bN"])
+    state = GameState(board=board)
+    arbiter = RealTimeArbiter()
+    
+    w_king = board.get_piece_at(Cell(0, 0))
+    state.pending_moves.append(PendingMove(Cell(0, 0), Cell(0, 1), w_king, 100))
+    
+    b_knight = board.get_piece_at(Cell(1, 1))
+    state.jumps.append(Jump((0, 1), 50, 150, b_knight))
+    
+    assert state.game_over is False
+    arbiter.tick(state, 100)
+    assert board.get_piece_at(Cell(0, 0)) is None
+    assert board.get_piece_at(Cell(0, 1)) is None
+    assert len(state.pending_moves) == 0
+    assert state.game_over is True
+
 def test_real_time_arbiter_source_changes():
     board = TextBoardParser().parse(["wK .", ". bK"])
     state = GameState(board=board)
