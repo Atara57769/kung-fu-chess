@@ -20,18 +20,14 @@ class Controller:
         self.game_engine = game_engine
         self.stdout = stdout
         self.board_mapper = board_mapper or BoardMapper(state.board)
-        logger.debug("Controller initialized.")
 
     def click(self, x: int, y: int) -> None:
         if self.state.game_over:
-            logger.info("Ignoring click: game is over.")
             return
 
         cell = self.board_mapper.pixel_to_cell(x, y)
-        logger.debug(f"Click at ({x}, {y}) resolved to cell: {cell}")
 
         if cell is None:
-            logger.info("Click outside board. Cancelling selection.")
             self.state.selected_piece = None
             return
 
@@ -47,20 +43,15 @@ class Controller:
         if self.state.selected_piece is not None:
             sel_piece = self.state.selected_piece
             if sel_piece.cell is None or self.state.board.get_piece_at(sel_piece.cell) is not sel_piece:
-                logger.info(f"Selected piece {sel_piece} was killed before second click. Resetting selection.")
                 self.state.selected_piece = None
 
     def _handle_no_selection_state(self, cell: Cell) -> None:
         board = self.state.board
         piece = board.get_piece_at(cell)
         if piece is None:
-            logger.debug(f"Click on empty cell {cell}; no piece selected.")
             return
         if not self.game_engine.is_piece_moving(self.state, cell):
-            logger.info(f"Selecting piece: {piece} at {cell}")
             self.state.selected_piece = piece
-        else:
-            logger.info(f"Cannot select moving piece: {piece} at {cell}")
 
     def _handle_selected_state(self, cell: Cell) -> None:
         board = self.state.board
@@ -71,27 +62,20 @@ class Controller:
 
         if piece is not None and piece.color == sel_piece.color:
             if not self.game_engine.is_piece_moving(self.state, cell):
-                logger.info(f"Re-selecting friendly piece: {piece} at {cell}")
                 self.state.selected_piece = piece
-            else:
-                logger.info(f"Cannot re-select moving friendly piece: {piece} at {cell}")
             return
 
-        logger.info(f"Requesting move from {sel_cell} to {cell}")
         self.game_engine.request_move(self.state, sel_cell, cell)
         self.state.selected_piece = None
 
     def wait(self, ms: int) -> None:
-        logger.debug(f"Waiting for {ms} ms")
         self.game_engine.wait(self.state, ms)
 
     def jump(self, x: int, y: int) -> None:
         if self.state.game_over:
-            logger.info("Ignoring jump: game is over.")
             return
 
         cell = self.board_mapper.pixel_to_cell(x, y)
-        logger.debug(f"Jump click at ({x}, {y}) resolved to cell: {cell}")
         if cell is None:
             logger.warning(f"Jump click ({x}, {y}) was out of bounds.")
             return
@@ -102,9 +86,7 @@ class Controller:
             logger.warning(f"Jump click at {cell} has no piece to jump.")
             return
 
-        logger.info(f"Requesting jump for piece {piece} at {cell}")
         self.game_engine.jump(self.state, cell)
 
     def print_board(self) -> None:
-        logger.debug("Printing board layout.")
         self.game_engine.print_board(self.state, self.stdout)

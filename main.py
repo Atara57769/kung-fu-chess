@@ -52,7 +52,6 @@ def execute_commands(board, commands, controller_class=None, board_service_class
     """Executes parsed commands against the initialized board using Controller."""
     from models.game_state import GameState
 
-    logger.info("Initializing game state and controller.")
     state = GameState(board=board)
     game_engine = GameEngine()
 
@@ -63,7 +62,6 @@ def execute_commands(board, commands, controller_class=None, board_service_class
 
     def handle_print(parts):
         if parts == ["print", "board"]:
-            logger.info("Executing print board command.")
             controller.print_board()
 
     def handle_click(parts):
@@ -71,7 +69,6 @@ def execute_commands(board, commands, controller_class=None, board_service_class
             try:
                 x = int(parts[1])
                 y = int(parts[2])
-                logger.info(f"Executing click at ({x}, {y})")
                 controller.click(x, y)
             except ValueError:
                 logger.warning(f"Invalid click coordinates: {parts[1:]}")
@@ -80,7 +77,6 @@ def execute_commands(board, commands, controller_class=None, board_service_class
         if len(parts) == 2:
             try:
                 ms = int(parts[1])
-                logger.info(f"Executing wait for {ms} ms")
                 controller.wait(ms)
             except ValueError:
                 logger.warning(f"Invalid wait duration: {parts[1]}")
@@ -90,7 +86,6 @@ def execute_commands(board, commands, controller_class=None, board_service_class
             try:
                 x = int(parts[1])
                 y = int(parts[2])
-                logger.info(f"Executing jump to ({x}, {y})")
                 controller.jump(x, y)
             except ValueError:
                 logger.warning(f"Invalid jump coordinates: {parts[1:]}")
@@ -102,14 +97,12 @@ def execute_commands(board, commands, controller_class=None, board_service_class
         "jump": handle_jump,
     }
 
-    logger.info(f"Starting execution of {len(commands)} commands.")
     for cmd in commands:
         parts = cmd.split()
         if not parts:
             continue
         handler = command_handlers.get(parts[0])
         if handler:
-            logger.debug(f"Dispatching command: {cmd}")
             handler(parts)
         else:
             logger.warning(f"Unknown command: {parts[0]}")
@@ -119,7 +112,6 @@ def main(stdin=sys.stdin, stdout=sys.stdout, exit_fn=sys.exit, board_parser=None
          board_service_class=None):
     """Main orchestration flow of parsing, validating, and executing commands."""
     setup_logging()
-    logger.info("Kung-fu Chess engine starting...")
     lines = read_input_lines(stdin)
     board_start, commands_start = find_section_indices(lines)
 
@@ -135,7 +127,6 @@ def main(stdin=sys.stdin, stdout=sys.stdout, exit_fn=sys.exit, board_parser=None
         board_parser = TextBoardParser()
 
     try:
-        logger.info("Parsing board layout...")
         board = board_parser.parse(board_lines)
     except UnknownTokenError:
         logger.error("Failed to parse board: Unknown token encountered.")
@@ -149,7 +140,6 @@ def main(stdin=sys.stdin, stdout=sys.stdout, exit_fn=sys.exit, board_parser=None
         return
 
     execute_commands(board, commands, stdout=stdout)
-    logger.info("Execution finished successfully.")
 
 
 if __name__ == "__main__":
