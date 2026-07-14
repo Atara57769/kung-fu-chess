@@ -68,6 +68,47 @@ def test_click_move_scheduling_none_piece():
     controller.click(50, 0)
     assert len(state.pending_moves) == 0
 
+def test_click_selected_piece_killed_before_second_click():
+    board = TextBoardParser().parse(["wP .", ". bP"])
+    controller, state = create_controller(board)
+    
+    # Click and select (0, 0)
+    controller.click(50, 0)
+    wP = board.get_piece_at(Cell(0, 0))
+    assert state.selected_piece == wP
+    
+    # Simulate that the selected piece was killed before the second click
+    # (e.g. bP moved to (0, 0) and captured it)
+    bP = board.get_piece_at(Cell(1, 1))
+    board.grid[0][0] = bP
+    bP.cell = Cell(0, 0)
+    
+    # Click (0, 1) -> second click
+    controller.click(150, 0)
+    
+    # Assert selection is reset and no move is scheduled
+    assert state.selected_piece is None
+    assert len(state.pending_moves) == 0
+
+def test_click_selected_piece_killed_to_none_before_second_click():
+    board = TextBoardParser().parse(["wP .", ". bP"])
+    controller, state = create_controller(board)
+    
+    # Click and select (0, 0)
+    controller.click(50, 0)
+    wP = board.get_piece_at(Cell(0, 0))
+    assert state.selected_piece == wP
+    
+    # Simulate that the selected piece was killed and cell became None
+    board.grid[0][0] = None
+    
+    # Click (0, 1) -> second click
+    controller.click(150, 0)
+    
+    # Assert selection is reset and no move is scheduled
+    assert state.selected_piece is None
+    assert len(state.pending_moves) == 0
+
 def test_click_while_moving_or_reserved():
     board = TextBoardParser().parse(["wP wP", ". ."])
     controller, state = create_controller(board)

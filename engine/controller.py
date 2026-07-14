@@ -37,10 +37,20 @@ class Controller:
             self.state.selected_piece = None
             return
 
+        self._check_selected_piece_killed()
+
         if self.state.selected_piece is None:
             self._handle_no_selection_state(cell)
         else:
             self._handle_selected_state(cell)
+
+    def _check_selected_piece_killed(self) -> None:
+        """Resets the selection if the selected piece was killed/captured."""
+        if self.state.selected_piece is not None:
+            sel_piece = self.state.selected_piece
+            if sel_piece.cell is None or self.state.board.get_piece_at(sel_piece.cell) is not sel_piece:
+                logger.info(f"Selected piece {sel_piece} was killed before second click. Resetting selection.")
+                self.state.selected_piece = None
 
     def _handle_no_selection_state(self, cell: Cell) -> None:
         board = self.state.board
