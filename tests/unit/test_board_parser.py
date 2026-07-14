@@ -4,14 +4,9 @@ from services.board_parser import TextBoardParser
 from exceptions import UnknownTokenError, RowWidthMismatchError
 from models.pieces import Piece
 from models.cell import Cell
-from main import (
-    read_input_lines,
-    find_section_indices,
-    extract_board_lines,
-    extract_command_lines,
-    execute_commands,
-    main as main_func
-)
+from main import main as main_func
+from runners.script_runner import ScriptRunner
+
 
 def test_board_parser_valid():
     lines = [
@@ -27,11 +22,13 @@ def test_board_parser_valid():
     assert board.grid[1] == [None, Piece("w", "Q", Cell(1, 1)), None]
     assert board.grid[2] == [Piece("w", "N", Cell(2, 0)), Piece("b", "B", Cell(2, 1)), Piece("w", "P", Cell(2, 2))]
 
+
 def test_board_parser_empty():
     board = TextBoardParser().parse([])
     assert board.width == 0
     assert board.height == 0
     assert board.grid == []
+
 
 def test_board_parser_unknown_token():
     with pytest.raises(UnknownTokenError):
@@ -43,47 +40,59 @@ def test_board_parser_unknown_token():
     with pytest.raises(UnknownTokenError):
         TextBoardParser().parse(["wK . wZ"])
 
+
 def test_board_parser_row_width_mismatch():
     with pytest.raises(RowWidthMismatchError):
         TextBoardParser().parse(["wK .", "bP . bB ."])
 
+
 def test_read_input_lines_normal():
     stdin = io.StringIO("  line1  \n  line2\n")
-    assert read_input_lines(stdin) == ["line1", "line2"]
+    runner = ScriptRunner(stdin=stdin)
+    assert runner._read_input_lines() == ["line1", "line2"]
+
 
 def test_read_input_lines_interrupt():
     class InterruptingStdin:
         def read(self):
             raise KeyboardInterrupt()
-    assert read_input_lines(InterruptingStdin()) == []
+    runner = ScriptRunner(stdin=InterruptingStdin())
+    assert runner._read_input_lines() == []
+
 
 def test_find_section_indices():
+    runner = ScriptRunner()
     lines = ["Other", "Board:", "wK .", "Commands:", "print board"]
-    board_start, commands_start = find_section_indices(lines)
+    board_start, commands_start = runner._find_section_indices(lines)
     assert board_start == 1
     assert commands_start == 3
 
     lines_missing = ["Other"]
-    assert find_section_indices(lines_missing) == (-1, -1)
+    assert runner._find_section_indices(lines_missing) == (-1, -1)
+
 
 def test_extract_board_lines():
+    runner = ScriptRunner()
     lines = ["Board:", "wK .", "Commands:", "print board"]
     # Case with commands
-    assert extract_board_lines(lines, 0, 2) == ["wK ."]
+    assert runner._extract_board_lines(lines, 0, 2) == ["wK ."]
     # Case without commands
-    assert extract_board_lines(lines, 0, -1) == ["wK .", "Commands:", "print board"]
+    assert runner._extract_board_lines(lines, 0, -1) == ["wK .", "Commands:", "print board"]
     # Case with no board_start
-    assert extract_board_lines(lines, -1, 2) == []
+    assert runner._extract_board_lines(lines, -1, 2) == []
+
 
 def test_extract_command_lines():
+    runner = ScriptRunner()
     lines = ["Board:", "wK .", "Commands:", "print board", ""]
     # Case with commands_start
-    assert extract_command_lines(lines, 2) == ["print board"]
+    assert runner._extract_command_lines(lines, 2) == ["print board"]
     # Case without commands_start
-    assert extract_command_lines(lines, -1) == []
+    assert runner._extract_command_lines(lines, -1) == []
+
 
 def test_execute_commands_edge_cases():
-    from engine.controller import Controller
+    runner = ScriptRunner()
     board = TextBoardParser().parse(["wP .", ". ."])
     
     commands = [
@@ -98,12 +107,7 @@ def test_execute_commands_edge_cases():
         "",
         "   "
     ]
-    execute_commands(board, commands)  # Should execute without errors
-
-    # Trigger line 55
-    def dummy_controller_class(state, engine, stdout):
-         return Controller(state, engine, stdout)
-    execute_commands(board, ["print board"], controller_class=dummy_controller_class)
+    runner._execute_commands(board, commands)  # Should execute without errors
 
 
 def test_main_missing_board():
@@ -111,6 +115,7 @@ def test_main_missing_board():
     out = io.StringIO()
     main_func(stdin=stdin, stdout=out)
     assert out.getvalue() == ""
+
 
 def test_main_unknown_token_error():
     stdin = io.StringIO("Board:\nwK . xP\n")
@@ -122,6 +127,7 @@ def test_main_unknown_token_error():
     main_func(stdin=stdin, stdout=out, exit_fn=exit_fn)
     assert exited == [0]
     assert "ERROR UNKNOWN_TOKEN" in out.getvalue()
+
 
 def test_main_row_width_mismatch_error():
     stdin = io.StringIO("Board:\nwK .\nbP . .\n")
