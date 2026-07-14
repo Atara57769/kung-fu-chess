@@ -8,6 +8,7 @@ from rules.rule_engine import RuleEngine
 from services.collision_service import CollisionService
 from realtime.real_time_arbiter import RealTimeArbiter
 from services.jump_service import JumpService
+from models.game_snapshot import GameSnapshot
         
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,11 @@ class GameEngine:
         self.real_time_arbiter = real_time_arbiter or RealTimeArbiter()
         self.jump_service = jump_service or JumpService()
         logger.debug("GameEngine initialized.")
+
+    def snapshot(self, state: GameState) -> GameSnapshot:
+        """Creates and returns a read-only snapshot of the game state."""
+        logger.debug("Creating game state snapshot.")
+        return GameSnapshot.from_state(state)
 
     def request_move(self, state: GameState, from_cell: Cell, to_cell: Cell) -> None:
         """
