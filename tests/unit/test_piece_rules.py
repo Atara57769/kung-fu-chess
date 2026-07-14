@@ -161,7 +161,8 @@ def test_pawn_moves():
     board_w_small = TextBoardParser().parse([
         ". . .",
         ". . .",
-        ". wP ."
+        ". wP .",
+        ". . ."
     ])
     assert rule.is_move_valid(board_w_small, Cell(2, 1), Cell(0, 1)) is True
 
@@ -176,11 +177,12 @@ def test_pawn_moves():
     assert rule.is_move_valid(board_b, Cell(1, 1), Cell(3, 1)) is True
 
     board_b_small = TextBoardParser().parse([
+        ". . .",
         ". bP .",
         ". . .",
         ". . ."
     ])
-    assert rule.is_move_valid(board_b_small, Cell(0, 1), Cell(2, 1)) is True
+    assert rule.is_move_valid(board_b_small, Cell(1, 1), Cell(3, 1)) is True
 
     assert rule.is_move_valid(board_b, Cell(1, 1), Cell(1, 1)) is False
     assert rule.is_move_valid(board_b, Cell(1, 1), Cell(1, 2)) is False

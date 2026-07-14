@@ -88,9 +88,9 @@ class PawnRule(BaseRule):
         H = board.height
         expected_dy = PAWN_DIRECTIONS[piece.color]
         if piece.color == COLOR_WHITE:
-            start_row = H - 2 if H >= 5 else H - 1
+            start_row = H - 2
         else:
-            start_row = 1 if H >= 5 else 0
+            start_row = 1
 
         dy = to_pos.y - from_pos.y
         dx = to_pos.x - from_pos.x
