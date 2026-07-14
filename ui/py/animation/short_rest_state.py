@@ -16,23 +16,6 @@ class ShortRestState(AnimationState):
             p = board.grid[piece_view.cell.y][piece_view.cell.x]
             if p is not None and p.color == piece_view.color and p.kind == piece_view.kind:
                 piece_snap = p
-
-        # Fallback scan if not found directly
-        if piece_snap is None:
-            for row in board.grid:
-                for p in row:
-                    if (p is not None and 
-                            p.color == piece_view.color and 
-                            p.kind == piece_view.kind and 
-                            p.cell == piece_view.cell):
-                        piece_snap = p
-                        break
-
-        # 3. Check transition back to idle
-        if piece_snap is None:
-            # Piece was likely captured/removed, fallback to transition to idle
-            piece_view.change_state("idle", snapshot)
-            return
-
+                
         if snapshot.clock >= piece_snap.cooldown_until:
             piece_view.change_state("idle", snapshot)

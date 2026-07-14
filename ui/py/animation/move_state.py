@@ -4,8 +4,6 @@ from models.game_snapshot import GameSnapshot
 class MoveState(AnimationState):
     def on_enter(self, piece_view, snapshot: GameSnapshot) -> None:
         super().on_enter(piece_view, snapshot)
-        piece_view.target_cell = piece_view.cell  # fallback
-        self.arrival = snapshot.clock + 1000  # default fallback
         for move in snapshot.pending_moves:
             if (move.from_pos == piece_view.cell and 
                     move.piece.color == piece_view.color and 
