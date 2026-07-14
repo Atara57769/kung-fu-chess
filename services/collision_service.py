@@ -1,11 +1,12 @@
 from typing import Optional
 from models.cell import Cell
+from models.pieces import Piece
 from models.pending_move import PendingMove
 from models.game_state import GameState
 from constants import DURATION, PIECE_KNIGHT
 
 class CollisionService:
-    def get_move_duration(self, from_cell: Cell, to_cell: Cell, piece: Optional[object]) -> int:
+    def get_move_duration(self, from_cell: Cell, to_cell: Cell, piece: Optional[Piece]) -> int:
         dy = to_cell.y - from_cell.y
         dx = to_cell.x - from_cell.x
         if piece is not None and piece.kind == PIECE_KNIGHT:

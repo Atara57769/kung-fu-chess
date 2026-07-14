@@ -1,6 +1,8 @@
+from typing import Optional
 from models.board import Board
 from models.pieces import Piece
 from models.cell import Cell
+from models.pending_move import PendingMove
 from constants import COLOR_WHITE, COLOR_BLACK
 from rules.board_rules import BoardRules
 
@@ -8,7 +10,7 @@ class RuleEngine:
     def __init__(self, board_rules: BoardRules = None):
         self.board_rules = board_rules or BoardRules()
 
-    def is_move_valid(self, board: Board, cell_from: Cell, cell_to: Cell, pending_moves: list = None) -> bool:
+    def is_move_valid(self, board: Board, cell_from: Cell, cell_to: Cell, pending_moves: Optional[list[PendingMove]] = None) -> bool:
         """
         Validates a move on the board from cell_from to cell_to.
         Calls the check functions and returns True if all are True.
@@ -19,14 +21,14 @@ class RuleEngine:
             return False
         if self.is_piece_moving(cell_from, pending_moves):
             return False
-        if not self.board_rules.is_move_valid(self, board, cell_from, cell_to, pending_moves):
+        if not self.board_rules.is_move_valid(board, cell_from, cell_to, pending_moves):
             return False
-        if not self.illegal_to_move(board, cell_from, cell_to):
+        if not self.is_piece_move_valid(board, cell_from, cell_to):
             return False
 
         return True
 
-    def is_piece_moving(self, cell: Cell, pending_moves: list) -> bool:
+    def is_piece_moving(self, cell: Cell, pending_moves: Optional[list[PendingMove]]) -> bool:
         """
         Checks if a piece at the cell is currently in transit as a source of a pending move.
         Returns True if the piece is moving.
@@ -54,7 +56,7 @@ class RuleEngine:
         piece = board.get_piece_at(cell_from)
         return piece is None
 
-    def illegal_to_move(self, board: Board, cell_from: Cell, cell_to: Cell) -> bool:
+    def is_piece_move_valid(self, board: Board, cell_from: Cell, cell_to: Cell) -> bool:
         """
         Checks if the move is legal according to piece-specific rules.
         Returns True if the move is legal.

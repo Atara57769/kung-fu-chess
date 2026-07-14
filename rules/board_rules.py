@@ -1,10 +1,12 @@
+from typing import Optional
 from models.board import Board
 from models.cell import Cell
+from models.pending_move import PendingMove
 
 class BoardRules:
-    def is_move_valid(self, rule_engine, board: Board, cell_from: Cell, cell_to: Cell, pending_moves: list = None) -> bool:
+    def is_move_valid(self, board: Board, cell_from: Cell, cell_to: Cell, pending_moves: Optional[list[PendingMove]] = None) -> bool:
         """
-        Orchestrates checking all the move validation rules by calling them on rule_engine.
+        Orchestrates checking all the move validation rules.
         """
         
         if self.friendly_destination(board, cell_from, cell_to):
@@ -34,7 +36,7 @@ class BoardRules:
         
         return dest_piece.color == piece.color
 
-    def is_destination_reserved(self, cell: Cell, pending_moves: list) -> bool:
+    def is_destination_reserved(self, cell: Cell, pending_moves: Optional[list[PendingMove]]) -> bool:
         """
         Checks if a cell is the target destination of any pending move.
         Returns True if the destination cell is reserved.

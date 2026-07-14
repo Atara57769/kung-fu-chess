@@ -2,12 +2,14 @@ import logging
 from typing import Optional
 from models.game_state import GameState
 from models.cell import Cell
+from models.pieces import Piece
 from models.pending_move import PendingMove
 from constants import DURATION, PIECE_KNIGHT
 from rules.rule_engine import RuleEngine
 from services.collision_service import CollisionService
 from realtime.real_time_arbiter import RealTimeArbiter
 from services.jump_service import JumpService
+from services.move_scheduler import MoveScheduler
 from models.game_snapshot import GameSnapshot
         
 logger = logging.getLogger(__name__)
@@ -16,11 +18,12 @@ logger = logging.getLogger(__name__)
 class GameEngine:
     """Stateless engine that operates exclusively on GameState."""
 
-    def __init__(self, rule_engine=None, collision_service=None, real_time_arbiter=None, jump_service=None):
+    def __init__(self, rule_engine=None, collision_service=None, real_time_arbiter=None, jump_service=None, move_scheduler=None):
         self.rule_engine = rule_engine or RuleEngine()
         self.collision_service = collision_service or CollisionService()
         self.real_time_arbiter = real_time_arbiter or RealTimeArbiter()
         self.jump_service = jump_service or JumpService()
+        self.move_scheduler = move_scheduler or MoveScheduler()
 
     def snapshot(self, state: GameState) -> GameSnapshot:
         """Creates and returns a read-only snapshot of the game state."""
@@ -50,18 +53,10 @@ class GameEngine:
         duration = self.collision_service.get_move_duration(from_cell, to_cell, piece)
         arrival = state.clock + duration
 
-        self.schedule_move(state, from_cell, to_cell, piece, arrival)
-
-    def schedule_move(self, state: GameState, from_cell: Cell, to_cell: Cell, piece: Optional[object], arrival: int) -> None:
-        new_move = PendingMove(
-            from_pos=from_cell,
-            to_pos=to_cell,
-            piece=piece,
-            arrival=arrival,
-        )
+        new_move = self.move_scheduler.create_pending_move(from_cell, to_cell, piece, arrival)
         if self.collision_service.check_mid_move_collision(state, new_move):
             new_move.is_captured = True
-        state.pending_moves.append(new_move)
+        self.move_scheduler.add_to_pending(state, new_move)
 
     def wait(self, state: GameState, ms: int) -> None:
         """Advances the clock and processes any completed moves."""

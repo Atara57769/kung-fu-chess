@@ -64,12 +64,12 @@ def test_rule_engine_valid_move():
     board_empty = TextBoardParser().parse(lines_empty_dest)
     cell_k_empty = Cell(0, 0)
     cell_one_right = Cell(0, 1)
-    assert engine.illegal_to_move(board_empty, cell_k_empty, cell_one_right) is True
+    assert engine.is_piece_move_valid(board_empty, cell_k_empty, cell_one_right) is True
     assert engine.is_move_valid(board_empty, cell_k_empty, cell_one_right) is True
     
     # White King moving 2 cells right is illegal for King rule
     cell_two_right = Cell(0, 2)
-    assert engine.illegal_to_move(board_empty, cell_k_empty, cell_two_right) is False
+    assert engine.is_piece_move_valid(board_empty, cell_k_empty, cell_two_right) is False
     assert engine.is_move_valid(board_empty, cell_k_empty, cell_two_right) is False
 
 def test_rule_engine_edge_cases():
@@ -86,22 +86,22 @@ def test_rule_engine_edge_cases():
     assert engine.empty_source(board, None) is True
     assert engine.board_rules.friendly_destination(board, None, Cell(0, 0)) is False
     assert engine.board_rules.friendly_destination(board, Cell(0, 0), None) is False
-    assert engine.illegal_to_move(board, None, Cell(0, 0)) is False
-    assert engine.illegal_to_move(board, Cell(0, 0), None) is False
+    assert engine.is_piece_move_valid(board, None, Cell(0, 0)) is False
+    assert engine.is_piece_move_valid(board, Cell(0, 0), None) is False
     
     cell_out = Cell(-1, 0)
     assert engine.empty_source(board, cell_out) is True
     assert engine.board_rules.friendly_destination(board, cell_out, Cell(0, 0)) is False
     assert engine.board_rules.friendly_destination(board, Cell(0, 0), cell_out) is False
-    assert engine.illegal_to_move(board, cell_out, Cell(0, 0)) is False
+    assert engine.is_piece_move_valid(board, cell_out, Cell(0, 0)) is False
     
     cell_empty = Cell(0, 1)
     assert engine.board_rules.friendly_destination(board, cell_empty, Cell(0, 0)) is False
-    assert engine.illegal_to_move(board, cell_empty, Cell(0, 0)) is False
+    assert engine.is_piece_move_valid(board, cell_empty, Cell(0, 0)) is False
     
     bad_piece = Piece("w", "X", Cell(0, 0))
     board.grid[0][0] = bad_piece
-    assert engine.illegal_to_move(board, Cell(0, 0), Cell(1, 1)) is False
+    assert engine.is_piece_move_valid(board, Cell(0, 0), Cell(1, 1)) is False
 
 def test_rule_engine_enemy_is_moving_allowed():
     lines = [
@@ -156,7 +156,7 @@ def test_rule_engine_dependency_injection():
     from rules.board_rules import BoardRules
     
     class MockBoardRules(BoardRules):
-        def is_move_valid(self, rule_engine, board, cell_from, cell_to, pending_moves=None):
+        def is_move_valid(self, board, cell_from, cell_to, pending_moves=None):
             return True
 
     board = TextBoardParser().parse(["wK .", ". ."])

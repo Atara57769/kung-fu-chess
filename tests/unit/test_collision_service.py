@@ -170,11 +170,11 @@ def test_game_engine_schedule_move_sets_captured():
     # First move
     p1 = Piece("w", PIECE_ROOK, Cell(0, 0))
     board.grid[0][0] = p1
-    engine.schedule_move(state, Cell(0, 0), Cell(2, 0), p1, 2000)
+    engine.request_move(state, Cell(0, 0), Cell(2, 0))
     
-    # Second move (starts at 0, collides)
+    # Second move (starts at 2,0 and collides)
     p2 = Piece("b", PIECE_ROOK, Cell(2, 0))
     board.grid[2][0] = p2
-    engine.schedule_move(state, Cell(2, 0), Cell(0, 0), p2, 2000)
+    engine.request_move(state, Cell(2, 0), Cell(0, 0))
     
     assert state.pending_moves[1].is_captured is True
