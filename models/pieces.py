@@ -1,7 +1,12 @@
 from dataclasses import dataclass
 from typing import Optional
+from enum import Enum
 from models.cell import Cell
 from constants import EMPTY_TOKEN, VALID_COLORS, VALID_PIECES, TOKEN_LENGTH, COLOR_INDEX, KIND_INDEX
+
+class PieceStatus(Enum):
+    IDLE = "IDLE"
+    MOVING = "MOVING"
 
 @dataclass
 class Piece:
@@ -9,6 +14,8 @@ class Piece:
     kind: str   
     cell: Cell = None
     cooldown_until: int = 0
+    status: PieceStatus = PieceStatus.IDLE
+
 
     @classmethod
     def from_text(cls, token: str, cell: Cell = None) -> Optional['Piece']:

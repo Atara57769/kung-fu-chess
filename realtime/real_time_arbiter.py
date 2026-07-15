@@ -2,6 +2,7 @@ import logging
 from models.game_state import GameState
 from models.pending_move import PendingMove
 from models.cell import Cell
+from models.pieces import PieceStatus
 from constants import COLOR_WHITE, COLOR_BLACK, PIECE_KING, PIECE_QUEEN, PIECE_PAWN, COOLDOWN_MOVE
 
 from rules.win_condition import check_game_over
@@ -48,6 +49,8 @@ class RealTimeArbiter:
         """Processes a single pending move check for captures, promotion, and movement."""
         if move.is_captured or self.is_captured_by_airborne_enemy(game_state, move):
             self.execute_capture(game_state, move)
+            if move.piece is not None:
+                move.piece.status = PieceStatus.IDLE
             if move.piece is not None and move.piece.kind == PIECE_KING:
                 return True
             return False
@@ -59,6 +62,7 @@ class RealTimeArbiter:
 
         if move.piece is not None:
             move.piece.cooldown_until = move.arrival + COOLDOWN_MOVE
+            move.piece.status = PieceStatus.IDLE
 
         return is_game_over
 

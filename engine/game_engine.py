@@ -81,13 +81,12 @@ class GameEngine:
 
     def is_piece_moving(self, state: GameState, cell: Cell) -> bool:
         """Returns True if the piece at cell is the source of a pending move."""
-        return self.rule_engine.is_piece_moving(cell, state.pending_moves)
+        return self.rule_engine.is_piece_moving(cell, state.board)
 
     def can_jump(self, state: GameState, cell: Cell) -> bool:
         """Returns True if a jump on cell is currently allowed."""
-        pending = state.pending_moves
         piece = state.board.get_piece_at(cell)
         if piece is not None and piece.cooldown_until > state.clock:
             return False
-        is_moving = self.rule_engine.is_piece_moving(cell, pending)
+        is_moving = self.rule_engine.is_piece_moving(cell, state.board)
         return not is_moving

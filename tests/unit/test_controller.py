@@ -5,7 +5,7 @@ from models.board import Board
 from services.board_parser import TextBoardParser
 from models.game_state import GameState
 from models.cell import Cell
-from models.pieces import Piece
+from models.pieces import Piece, PieceStatus
 from models.pending_move import PendingMove
 from engine.controller import Controller
 from engine.game_engine import GameEngine
@@ -114,7 +114,8 @@ def test_click_while_moving_or_reserved():
     controller, state = create_controller(board)
 
     # 1. Test clicking a cell that is currently moving (first check: cell_y, cell_x is moving)
-    p = Piece.from_text("wP")
+    p = board.get_piece_at(Cell(0, 0))
+    p.status = PieceStatus.MOVING
     state.pending_moves = [PendingMove(Cell(0, 0), Cell(1, 0), p, 1000)]
     controller.click(50, 0)  # Click (0, 0) which is moving
     assert state.selected_piece is None
@@ -140,7 +141,9 @@ def test_click_game_over_and_pending_moves_return():
     assert state.selected_piece is None
 
     state.game_over = False
-    state.pending_moves.append(PendingMove(Cell(0, 0), Cell(1, 1), Piece.from_text("wP"), 1000))
+    p = board.get_piece_at(Cell(0, 0))
+    p.status = PieceStatus.MOVING
+    state.pending_moves.append(PendingMove(Cell(0, 0), Cell(1, 1), p, 1000))
     controller.click(50, 0)
     assert state.selected_piece is None
 
@@ -169,7 +172,8 @@ def test_jump():
     assert len(state.jumps) == 0
 
     # Jump on moving piece (ignored)
-    p = Piece.from_text("wP")
+    p = board.get_piece_at(Cell(0, 0))
+    p.status = PieceStatus.MOVING
     state.pending_moves.append(PendingMove(Cell(0, 0), Cell(1, 0), p, 1000))
     controller.jump(50, 0)  # cell (0, 0)
     assert len(state.jumps) == 0
@@ -180,6 +184,7 @@ def test_jump():
 
     # Valid jump
     state.pending_moves.clear()
+    p.status = PieceStatus.IDLE
     controller.jump(50, 0)
     assert len(state.jumps) == 1
     assert state.jumps[0].cell == (0, 0)
@@ -254,6 +259,7 @@ def test_controller_click_moving_friendly_piece():
     
     # Mark second friendly piece (0, 1) as moving
     p2 = board.get_piece_at(Cell(0, 1))
+    p2.status = PieceStatus.MOVING
     state.pending_moves.append(PendingMove(Cell(0, 1), Cell(1, 1), p2, 1000))
     
     # Click second friendly piece (0, 1), which is moving

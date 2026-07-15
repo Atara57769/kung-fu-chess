@@ -16,6 +16,7 @@ class PieceSnapshot:
     kind: str
     cell: Optional[Cell] = None
     cooldown_until: int = 0
+    status: str = "IDLE"
 
     @classmethod
     def from_piece(cls, piece: Optional['Piece']) -> Optional['PieceSnapshot']:
@@ -26,6 +27,7 @@ class PieceSnapshot:
             kind=piece.kind,
             cell=piece.cell,
             cooldown_until=piece.cooldown_until,
+            status=piece.status.value,
         )
 
 

@@ -1,6 +1,6 @@
 from typing import Optional
 from models.board import Board
-from models.pieces import Piece
+from models.pieces import Piece, PieceStatus
 from models.cell import Cell
 from models.pending_move import PendingMove
 from constants import COLOR_WHITE, COLOR_BLACK
@@ -19,7 +19,7 @@ class RuleEngine:
             return False
         if self.empty_source(board, cell_from):
             return False
-        if self.is_piece_moving(cell_from, pending_moves):
+        if self.is_piece_moving(cell_from, board):
             return False
         if not self.board_rules.is_move_valid(board, cell_from, cell_to, pending_moves):
             return False
@@ -28,14 +28,19 @@ class RuleEngine:
 
         return True
 
-    def is_piece_moving(self, cell: Cell, pending_moves: Optional[list[PendingMove]]) -> bool:
+    def is_piece_moving(self, cell: Cell, board: Optional[Board]) -> bool:
         """
         Checks if a piece at the cell is currently in transit as a source of a pending move.
         Returns True if the piece is moving.
         """
-        if cell is None or pending_moves is None:
+        if cell is None or board is None:
             return False
-        return any(move.from_pos == cell for move in pending_moves)
+        piece = board.get_piece_at(cell)
+        if piece is None:
+            return False
+        return piece.status == PieceStatus.MOVING
+
+
 
     def outside_board(self, board: Board, cell_from: Cell, cell_to: Cell) -> bool:
         """

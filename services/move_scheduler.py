@@ -1,7 +1,7 @@
 from typing import Optional
 from models.game_state import GameState
 from models.cell import Cell
-from models.pieces import Piece
+from models.pieces import Piece, PieceStatus
 from models.pending_move import PendingMove
 
 class MoveScheduler:
@@ -25,3 +25,7 @@ class MoveScheduler:
     def add_to_pending(self, state: GameState, pending_move: PendingMove) -> None:
         """Appends the PendingMove instance to state.pending_moves."""
         state.pending_moves.append(pending_move)
+        if pending_move.piece is not None:
+            pending_move.piece.status = PieceStatus.MOVING
+
+

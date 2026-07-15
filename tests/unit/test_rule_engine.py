@@ -134,11 +134,13 @@ def test_rule_engine_transit_validation():
     cell_to = Cell(1, 1)
     
     moving_piece = board.get_piece_at(Cell(0, 0))
+    from models.pieces import PieceStatus
+    moving_piece.status = PieceStatus.MOVING
     pending_moves = [PendingMove(cell_from, cell_to, moving_piece, 1000)]
     
-    assert engine.is_piece_moving(cell_from, pending_moves) is True
-    assert engine.is_piece_moving(cell_to, pending_moves) is False
-    assert engine.is_piece_moving(None, pending_moves) is False
+    assert engine.is_piece_moving(cell_from, board) is True
+    assert engine.is_piece_moving(cell_to, board) is False
+    assert engine.is_piece_moving(None, board) is False
     assert engine.is_piece_moving(cell_from, None) is False
     
     assert engine.board_rules.is_destination_reserved(cell_to, pending_moves) is True
