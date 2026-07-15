@@ -2,9 +2,10 @@ import cv2
 from ui.py.board_geometry import BoardGeometry
 
 class MouseHandler:
-    def __init__(self, controller, geometry: BoardGeometry):
+    def __init__(self, controller, geometry: BoardGeometry, left_padding: int = 0):
         self.controller = controller
         self.geometry = geometry
+        self.left_padding = left_padding
 
     def register_callbacks(self) -> None:
         """
@@ -16,9 +17,10 @@ class MouseHandler:
 
     def on_mouse_event(self, event: int, x: int, y: int, flags: int, param) -> None:
         """Callback to handle OpenCV mouse events."""
+        board_x = x - self.left_padding
         if event == cv2.EVENT_LBUTTONDOWN:
             # Left Click: Select / Move
-            self.controller.click(x, y)
+            self.controller.click(board_x, y)
         elif event == cv2.EVENT_RBUTTONDOWN:
             # Right Click: Jump
-            self.controller.jump(x, y)
+            self.controller.jump(board_x, y)

@@ -6,13 +6,15 @@ from ui.py.window import Window
 
 class UIRunner:
     def __init__(self, controller, mouse_handler: MouseHandler, renderer: Renderer, 
-                 animation_manager: AnimationManager, window: Window, time_step_ms: int = 50):
+                 animation_manager: AnimationManager, window: Window, time_step_ms: int = 50,
+                 history_tracker = None):
         self.controller = controller
         self.mouse_handler = mouse_handler
         self.renderer = renderer
         self.animation_manager = animation_manager
         self.window = window
         self.time_step_ms = time_step_ms
+        self.history_tracker = history_tracker
         self.running = False
 
     def start_loop(self) -> None:
@@ -23,6 +25,9 @@ class UIRunner:
             self.mouse_handler.register_callbacks()
 
             snapshot = self.controller.get_snapshot()
+
+            if self.history_tracker is not None:
+                self.history_tracker.update(snapshot)
 
             self.animation_manager.sync_pieces(snapshot)
 

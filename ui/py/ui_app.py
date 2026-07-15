@@ -16,6 +16,7 @@ from ui.py.window import Window
 from ui.py.mouse_handler import MouseHandler
 from ui.py.renderer import Renderer
 from ui.py.ui_runner import UIRunner
+from ui.py.history_tracker import UIHistoryTracker
 
 logger = logging.getLogger(__name__)
 
@@ -81,8 +82,19 @@ def main():
 
     animation_manager = AnimationManager(geometry, asset_loader)
     window = Window(title="Kung-Fu Chess")
-    mouse_handler = MouseHandler(controller, geometry)
-    renderer = Renderer(asset_loader, geometry)
+
+    left_padding = 250
+    right_padding = 250
+    history_tracker = UIHistoryTracker()
+
+    mouse_handler = MouseHandler(controller, geometry, left_padding=left_padding)
+    renderer = Renderer(
+        asset_loader, 
+        geometry, 
+        history_tracker=history_tracker, 
+        left_padding=left_padding, 
+        right_padding=right_padding
+    )
 
     # 4. Instantiate and execute the Runner loop
     time_step_ms = 50
@@ -92,7 +104,8 @@ def main():
         renderer=renderer,
         animation_manager=animation_manager,
         window=window,
-        time_step_ms=time_step_ms
+        time_step_ms=time_step_ms,
+        history_tracker=history_tracker
     )
 
     # Monkeypatch OpenCV to handle automatic ticking with Img.show()
