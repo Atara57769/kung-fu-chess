@@ -27,3 +27,15 @@ PAWN_DIRECTIONS = {
     COLOR_WHITE: PAWN_DIRECTION_WHITE,
     COLOR_BLACK: PAWN_DIRECTION_BLACK,
 }
+
+# Standard starting board layout for Kung-Fu Chess
+DEFAULT_BOARD_LAYOUT = [
+    "bR bN bB bQ bK bB bN bR",
+    "bP bP bP bP bP bP bP bP",
+    ".  .  .  .  .  .  .  .",
+    ".  .  .  .  .  .  .  .",
+    ".  .  .  .  .  .  .  .",
+    ".  .  .  .  .  .  .  .",
+    "wP wP wP wP wP wP wP wP",
+    "wR wN wB wQ wK wB wN wR"
+]

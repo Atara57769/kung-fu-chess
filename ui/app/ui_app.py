@@ -17,20 +17,9 @@ from ui.interaction.mouse_handler import MouseHandler
 from ui.rendering.renderer import Renderer
 from ui.app.ui_runner import UIRunner
 from ui.history.history_tracker import UIHistoryTracker
+from constants import DEFAULT_BOARD_LAYOUT
 
 logger = logging.getLogger(__name__)
-
-# Standard starting board layout for Kung-Fu Chess
-DEFAULT_BOARD_LAYOUT = [
-    "bR bN bB bQ bK bB bN bR",
-    "bP bP bP bP bP bP bP bP",
-    ".  .  .  .  .  .  .  .",
-    ".  .  .  .  .  .  .  .",
-    ".  .  .  .  .  .  .  .",
-    ".  .  .  .  .  .  .  .",
-    "wP wP wP wP wP wP wP wP",
-    "wR wN wB wQ wK wB wN wR"
-]
 
 def parse_board_file(filepath: str):
     """Utility to load a board structure from a text file."""
@@ -42,8 +31,6 @@ def parse_board_file(filepath: str):
     for line in lines:
         if line.startswith("Board:"):
             continue
-        if line.startswith("Commands:"):
-            break
         board_lines.append(line)
         
     return TextBoardParser().parse(board_lines)
