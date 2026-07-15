@@ -72,9 +72,10 @@ class Controller:
         if piece is not None and piece.color == sel_piece.color:
             if not self.game_engine.is_piece_moving(self.state, cell):
                 self.state.selected_piece = piece
-            return
+                return
 
-        self.game_engine.request_move(self.state, sel_cell, cell)
+        if not self.game_engine.is_piece_moving(self.state, sel_cell):
+            self.game_engine.request_move(self.state, sel_cell, cell)
         self.state.selected_piece = None
 
     def wait(self, ms: int) -> None:

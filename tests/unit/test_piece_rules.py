@@ -187,3 +187,33 @@ def test_pawn_moves():
     assert rule.is_move_valid(board_b, Cell(1, 1), Cell(1, 1)) is False
     assert rule.is_move_valid(board_b, Cell(1, 1), Cell(1, 2)) is False
     assert rule.is_move_valid(board_b, Cell(2, 1), Cell(4, 1)) is False
+
+
+def test_moving_pieces_do_not_block_paths():
+    board = TextBoardParser().parse([
+        "wR . wP .",
+    ])
+    rule = RULES["R"]
+    assert rule.is_move_valid(board, Cell(0, 0), Cell(0, 3)) is False
+    
+    blocker = board.get_piece_at(Cell(0, 2))
+    from models.pieces import PieceStatus
+    blocker.status = PieceStatus.MOVING
+    assert rule.is_move_valid(board, Cell(0, 0), Cell(0, 3)) is True
+
+
+def test_moving_pieces_do_not_block_pawn_double_step():
+    board = TextBoardParser().parse([
+        ". . .",
+        ". . .",
+        ". bP .",
+        ". wP .",
+        ". . ."
+    ])
+    rule = RULES["P"]
+    assert rule.is_move_valid(board, Cell(3, 1), Cell(1, 1)) is False
+    
+    blocker = board.get_piece_at(Cell(2, 1))
+    from models.pieces import PieceStatus
+    blocker.status = PieceStatus.MOVING
+    assert rule.is_move_valid(board, Cell(3, 1), Cell(1, 1)) is True

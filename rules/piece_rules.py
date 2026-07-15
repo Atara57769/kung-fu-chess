@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from constants import EMPTY_TOKEN, COLOR_WHITE, PIECE_ROOK, PIECE_BISHOP, PIECE_QUEEN, PIECE_KNIGHT, PIECE_KING, PIECE_PAWN, PAWN_DIRECTIONS
 from models.cell import Cell
+from models.pieces import PieceStatus
 
 class BaseRule(ABC):
     @abstractmethod
@@ -19,18 +20,21 @@ class SlidingRule(BaseRule):
         if dy == 0:
             step = 1 if dx > 0 else -1
             for x in range(from_pos.x + step, to_pos.x, step):
-                if board.get_piece_at(Cell(from_pos.y, x)) is not None:
+                piece = board.get_piece_at(Cell(from_pos.y, x))
+                if piece is not None and piece.status != PieceStatus.MOVING:
                     return False
         elif dx == 0:
             step = 1 if dy > 0 else -1
             for y in range(from_pos.y + step, to_pos.y, step):
-                if board.get_piece_at(Cell(y, from_pos.x)) is not None:
+                piece = board.get_piece_at(Cell(y, from_pos.x))
+                if piece is not None and piece.status != PieceStatus.MOVING:
                     return False
         elif abs_dx == abs_dy:
             step_x = 1 if dx > 0 else -1
             step_y = 1 if dy > 0 else -1
             for i in range(1, abs_dx):
-                if board.get_piece_at(Cell(from_pos.y + i * step_y, from_pos.x + i * step_x)) is not None:
+                piece = board.get_piece_at(Cell(from_pos.y + i * step_y, from_pos.x + i * step_x))
+                if piece is not None and piece.status != PieceStatus.MOVING:
                     return False
         return True
 
@@ -102,7 +106,8 @@ class PawnRule(BaseRule):
                 return target_piece is not None
         elif dy == 2 * expected_dy and from_pos.y == start_row and dx == 0:
             intermediate_piece = board.get_piece_at(Cell(from_pos.y + expected_dy, from_pos.x))
-            return target_piece is None and intermediate_piece is None
+            is_intermediate_blocked = intermediate_piece is not None and intermediate_piece.status != PieceStatus.MOVING
+            return target_piece is None and not is_intermediate_blocked
 
         return False
 

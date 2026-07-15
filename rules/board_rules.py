@@ -2,6 +2,7 @@ from typing import Optional
 from models.board import Board
 from models.cell import Cell
 from models.pending_move import PendingMove
+from models.pieces import PieceStatus
 
 class BoardRules:
     def is_move_valid(self, board: Board, cell_from: Cell, cell_to: Cell, pending_moves: Optional[list[PendingMove]] = None) -> bool:
@@ -34,7 +35,10 @@ class BoardRules:
         if dest_piece is None:
             return False
         
-        return dest_piece.color == piece.color
+        if dest_piece.color != piece.color:
+            return False
+            
+        return dest_piece.status != PieceStatus.MOVING
 
     def is_destination_reserved(self, cell: Cell, pending_moves: Optional[list[PendingMove]]) -> bool:
         """

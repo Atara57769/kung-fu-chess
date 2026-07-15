@@ -250,7 +250,7 @@ def test_controller_click_game_over():
     assert state.game_over is True
 
 def test_controller_click_moving_friendly_piece():
-    board = TextBoardParser().parse(["wP wP", ". ."])
+    board = TextBoardParser().parse(["wR wP", ". ."])
     controller, state = create_controller(board)
     
     # Select first friendly piece (0, 0)
@@ -264,6 +264,10 @@ def test_controller_click_moving_friendly_piece():
     
     # Click second friendly piece (0, 1), which is moving
     controller.click(150, 0)
-    # The selection should remain the first piece (or at least NOT change to the second, moving piece)
-    assert state.selected_piece == board.get_piece_at(Cell(0, 0))
+    # The selection should be cleared (None)
+    assert state.selected_piece is None
+    # A new pending move from (0, 0) to (0, 1) should be requested/scheduled
+    assert len(state.pending_moves) == 2
+    assert state.pending_moves[1].from_pos == Cell(0, 0)
+    assert state.pending_moves[1].to_pos == Cell(0, 1)
 

@@ -167,3 +167,19 @@ def test_rule_engine_dependency_injection():
     
     assert engine.is_move_valid(board, Cell(0, 0), Cell(0, 1)) is True
 
+
+def test_rule_engine_moving_friendly_destination_allowed():
+    board = TextBoardParser().parse([
+        "wK wP",
+        ". ."
+    ])
+    engine = RuleEngine()
+    
+    assert engine.is_move_valid(board, Cell(0, 0), Cell(0, 1), []) is False
+    
+    friendly_dest = board.get_piece_at(Cell(0, 1))
+    from models.pieces import PieceStatus
+    friendly_dest.status = PieceStatus.MOVING
+    
+    assert engine.is_move_valid(board, Cell(0, 0), Cell(0, 1), []) is True
+
