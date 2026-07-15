@@ -13,40 +13,54 @@ class AnimationManager:
         Synchronizes the list of visual PieceViews with the pieces on the board in the snapshot.
         Preserves existing views to maintain ongoing animation states (idle, move, rest).
         """
-        # 1. Gather all active piece snapshots from the board grid
+        remaining_snaps = self._gather_active_piece_snapshots(snapshot)
+        next_views = self._match_and_update_existing_views(remaining_snaps)
+        new_views = self._create_new_piece_views(remaining_snaps, snapshot)
+        self.active_views = next_views + new_views
+
+    def _gather_active_piece_snapshots(self, snapshot: GameSnapshot) -> list:
+        """Gathers all active piece snapshots from the board grid."""
         remaining_snaps = []
         board = snapshot.board
         for row in board.grid:
             for p in row:
                 if p is not None:
                     remaining_snaps.append(p)
+        return remaining_snaps
 
+    def _match_and_update_existing_views(self, remaining_snaps: list) -> list[PieceView]:
+        """
+        Matches existing piece views with snapshots to preserve their animation state,
+        updating cell coordinates and returning the matched views.
+        Mutates `remaining_snaps` by removing matched snapshots.
+        """
         next_views = []
-
-        # 2. Match existing piece views with snapshots to preserve their animation state
         for view in self.active_views:
-            matched_snap = None
-
-            # Look for exact match (same color, kind, and cell)
-            for snap in remaining_snaps:
-                if snap.color == view.color and snap.kind == view.kind and snap.cell == view.cell:
-                    matched_snap = snap
-                    break
-
-            # If not found by cell, check if the piece is in transit/arrived using cached target_cell
-            if matched_snap is None and hasattr(view, "target_cell"):
-                for snap in remaining_snaps:
-                    if snap.color == view.color and snap.kind == view.kind and snap.cell == view.target_cell:
-                        matched_snap = snap
-                        break
-
+            matched_snap = self._find_matching_snapshot(view, remaining_snaps)
             if matched_snap is not None:
-                # Update cell coordinates (handles move completion)
                 view.cell = matched_snap.cell
                 next_views.append(view)
                 remaining_snaps.remove(matched_snap)
+        return next_views
 
-        # 3. Create new views for any remaining (newly spawned) snapshots
+    def _find_matching_snapshot(self, view: PieceView, remaining_snaps: list):
+        """Finds a matching snapshot for a given PieceView from the remaining list."""
+        # Look for exact match (same color, kind, and cell)
+        for snap in remaining_snaps:
+            if snap.color == view.color and snap.kind == view.kind and snap.cell == view.cell:
+                return snap
+
+        # If not found by cell, check if the piece is in transit/arrived using cached target_cell
+        if hasattr(view, "target_cell"):
+            for snap in remaining_snaps:
+                if snap.color == view.color and snap.kind == view.kind and snap.cell == view.target_cell:
+                    return snap
+
+        return None
+
+    def _create_new_piece_views(self, remaining_snaps: list, snapshot: GameSnapshot) -> list[PieceView]:
+        """Creates new PieceView instances for any remaining (newly spawned) snapshots."""
+        new_views = []
         for snap in remaining_snaps:
             new_view = PieceView(
                 color=snap.color,
@@ -56,9 +70,8 @@ class AnimationManager:
                 asset_loader=self.asset_loader,
                 snapshot=snapshot
             )
-            next_views.append(new_view)
-
-        self.active_views = next_views
+            new_views.append(new_view)
+        return new_views
 
     def update(self, dt: float, snapshot: GameSnapshot) -> None:
         """Ticks active animations for all visible pieces."""
