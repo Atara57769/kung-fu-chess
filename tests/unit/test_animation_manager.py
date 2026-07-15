@@ -1,12 +1,12 @@
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "ui", "py")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 import pytest
 from unittest.mock import MagicMock, patch
 from models.cell import Cell
 from models.game_snapshot import GameSnapshot, BoardSnapshot, PieceSnapshot
-from ui.py.animation_manager import AnimationManager
+from ui.animation.animation_manager import AnimationManager
 
 def test_gather_active_piece_snapshots():
     # Setup mock snapshots on grid
@@ -60,7 +60,7 @@ def test_find_matching_snapshot():
     snap_mismatch = PieceSnapshot(color="w", kind="K", cell=Cell(1, 1))
     assert manager._find_matching_snapshot(view2, [snap_mismatch]) is None
 
-@patch("ui.py.animation_manager.PieceView")
+@patch("ui.animation.animation_manager.PieceView")
 def test_sync_pieces_lifecycle(mock_piece_view_cls):
     # Setup mocks
     mock_geometry = MagicMock()

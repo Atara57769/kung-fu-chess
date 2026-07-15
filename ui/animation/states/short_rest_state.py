@@ -1,7 +1,7 @@
-from ui.py.animation.animation_state import AnimationState
+from ui.animation.states.animation_state import AnimationState
 from models.game_snapshot import GameSnapshot
 
-class LongRestState(AnimationState):
+class ShortRestState(AnimationState):
     def update(self, dt: float, piece_view, snapshot: GameSnapshot) -> None:
         self.advance_frames(dt)
 
@@ -16,9 +16,6 @@ class LongRestState(AnimationState):
             p = board.grid[piece_view.cell.y][piece_view.cell.x]
             if p is not None and p.color == piece_view.color and p.kind == piece_view.kind:
                 piece_snap = p
-        
-        if piece_snap is None:
-            return
-
+                
         if snapshot.clock >= piece_snap.cooldown_until:
             piece_view.change_state("idle", snapshot)

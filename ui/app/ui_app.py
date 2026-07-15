@@ -9,14 +9,14 @@ from models.game_state import GameState
 from engine.game_engine import GameEngine
 from engine.controller import Controller
 from services.board_parser import TextBoardParser
-from ui.py.board_geometry import BoardGeometry
-from ui.py.asset_loader import AssetLoader
-from ui.py.animation_manager import AnimationManager
-from ui.py.window import Window
-from ui.py.mouse_handler import MouseHandler
-from ui.py.renderer import Renderer
-from ui.py.ui_runner import UIRunner
-from ui.py.history_tracker import UIHistoryTracker
+from ui.board.board_geometry import BoardGeometry
+from ui.assets.asset_loader import AssetLoader
+from ui.animation.animation_manager import AnimationManager
+from ui.rendering.window import Window
+from ui.interaction.mouse_handler import MouseHandler
+from ui.rendering.renderer import Renderer
+from ui.app.ui_runner import UIRunner
+from ui.history.history_tracker import UIHistoryTracker
 
 logger = logging.getLogger(__name__)
 

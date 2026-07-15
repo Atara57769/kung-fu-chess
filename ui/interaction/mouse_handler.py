@@ -1,5 +1,5 @@
 import cv2
-from ui.py.board_geometry import BoardGeometry
+from ui.board.board_geometry import BoardGeometry
 
 class MouseHandler:
     def __init__(self, controller, geometry: BoardGeometry, left_padding: int = 0):

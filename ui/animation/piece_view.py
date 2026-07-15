@@ -1,10 +1,10 @@
 from models.cell import Cell
-from ui.py.board_geometry import BoardGeometry
-from ui.py.animation.idle_state import IdleState
-from ui.py.animation.move_state import MoveState
-from ui.py.animation.jump_state import JumpState
-from ui.py.animation.short_rest_state import ShortRestState
-from ui.py.animation.long_rest_state import LongRestState
+from ui.board.board_geometry import BoardGeometry
+from ui.animation.states.idle_state import IdleState
+from ui.animation.states.move_state import MoveState
+from ui.animation.states.jump_state import JumpState
+from ui.animation.states.short_rest_state import ShortRestState
+from ui.animation.states.long_rest_state import LongRestState
 from models.game_snapshot import GameSnapshot
 
 # Registry to instantiate states dynamically without branching

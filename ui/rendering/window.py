@@ -1,4 +1,4 @@
-from img import Img
+from ui.rendering.img import Img
 
 class Window:
     def __init__(self, title: str = "Kung-Fu Chess"):

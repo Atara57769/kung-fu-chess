@@ -1,5 +1,5 @@
 import math
-from ui.py.animation.animation_state import AnimationState
+from ui.animation.states.animation_state import AnimationState
 from models.game_snapshot import GameSnapshot
 
 class JumpState(AnimationState):

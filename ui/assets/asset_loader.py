@@ -1,13 +1,13 @@
 import os
 import json
 import pathlib
-from img import Img
+from ui.rendering.img import Img
 from constants import CELL_SIZE
 
 class AssetLoader:
     def __init__(self, base_dir: str | pathlib.Path = None, piece_size: tuple[int, int] = (CELL_SIZE, CELL_SIZE)):
         if base_dir is None:
-            # Locate relative to c:\Users\m0258\OneDrive\Desktop\ctd\ui
+            # Locate relative to ui directory
             self.base_dir = pathlib.Path(__file__).parent.parent
         else:
             self.base_dir = pathlib.Path(base_dir)

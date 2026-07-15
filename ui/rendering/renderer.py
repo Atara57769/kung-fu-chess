@@ -1,7 +1,7 @@
 import numpy as np
-from img import Img
+from ui.rendering.img import Img
 from models.game_snapshot import GameSnapshot
-from ui.py.board_geometry import BoardGeometry
+from ui.board.board_geometry import BoardGeometry
 
 class Renderer:
     def __init__(self, asset_loader, geometry: BoardGeometry, history_tracker=None, left_padding: int = 0, right_padding: int = 0):

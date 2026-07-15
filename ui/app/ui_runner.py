@@ -1,8 +1,8 @@
 from models.game_snapshot import GameSnapshot
-from ui.py.mouse_handler import MouseHandler
-from ui.py.renderer import Renderer
-from ui.py.animation_manager import AnimationManager
-from ui.py.window import Window
+from ui.interaction.mouse_handler import MouseHandler
+from ui.rendering.renderer import Renderer
+from ui.animation.animation_manager import AnimationManager
+from ui.rendering.window import Window
 
 class UIRunner:
     def __init__(self, controller, mouse_handler: MouseHandler, renderer: Renderer, 

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from img import Img
+from ui.rendering.img import Img
 from models.game_snapshot import GameSnapshot
 
 class AnimationState(ABC):

@@ -1,6 +1,6 @@
 from models.game_snapshot import GameSnapshot
-from ui.py.board_geometry import BoardGeometry
-from ui.py.piece_view import PieceView
+from ui.board.board_geometry import BoardGeometry
+from ui.animation.piece_view import PieceView
 
 class AnimationManager:
     def __init__(self, geometry: BoardGeometry, asset_loader):

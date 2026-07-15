@@ -1,7 +1,7 @@
 import pytest
 from models.cell import Cell
 from models.game_snapshot import GameSnapshot, BoardSnapshot, PendingMoveSnapshot, PieceSnapshot
-from ui.py.history_tracker import UIHistoryTracker
+from ui.history.history_tracker import UIHistoryTracker
 
 def test_history_tracker_empty_init():
     tracker = UIHistoryTracker()
