@@ -1,6 +1,7 @@
 import math
 from ui.animation.states.animation_state import AnimationState
 from models.game_snapshot import GameSnapshot
+from ui.ui_config import JUMP_PEAK_HEIGHT, JUMP_DEFAULT_DURATION
 
 class JumpState(AnimationState):
     def update(self, dt: float, piece_view, snapshot: GameSnapshot) -> None:
@@ -28,14 +29,14 @@ class JumpState(AnimationState):
         # 2. Compute progress
         duration = active_jump.end - active_jump.start
         if duration <= 0:
-            duration = 500
+            duration = JUMP_DEFAULT_DURATION
 
         current_clock = snapshot.clock
         progress = max(0.0, min(1.0, (current_clock - active_jump.start) / duration))
 
         # 3. Calculate parabolic height offset
-        # Peak height of 80 pixels above the cell
-        peak_height = 80.0
+        # Peak height of pixels above the cell from config
+        peak_height = JUMP_PEAK_HEIGHT
         # Parabola formula: y = 4 * H * p * (1 - p)
         height_offset = int(4.0 * peak_height * progress * (1.0 - progress))
 

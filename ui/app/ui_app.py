@@ -18,6 +18,7 @@ from ui.rendering.renderer import Renderer
 from ui.app.ui_runner import UIRunner
 from ui.history.history_tracker import UIHistoryTracker
 from constants import DEFAULT_BOARD_LAYOUT
+from ui.ui_config import LEFT_PADDING, RIGHT_PADDING, TIME_STEP_MS
 
 logger = logging.getLogger(__name__)
 
@@ -70,8 +71,8 @@ def main():
     animation_manager = AnimationManager(geometry, asset_loader)
     window = Window(title="Kung-Fu Chess")
 
-    left_padding = 250
-    right_padding = 250
+    left_padding = LEFT_PADDING
+    right_padding = RIGHT_PADDING
     history_tracker = UIHistoryTracker()
 
     mouse_handler = MouseHandler(controller, geometry, left_padding=left_padding)
@@ -84,7 +85,7 @@ def main():
     )
 
     # 4. Instantiate and execute the Runner loop
-    time_step_ms = 50
+    time_step_ms = TIME_STEP_MS
     runner = UIRunner(
         controller=controller,
         mouse_handler=mouse_handler,

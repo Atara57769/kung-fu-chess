@@ -2,6 +2,19 @@ import numpy as np
 from ui.rendering.img import Img
 from models.game_snapshot import GameSnapshot
 from ui.board.board_geometry import BoardGeometry
+from ui.ui_config import (
+    BG_COLOR_BGR, BG_COLOR_BGRA,
+    SEL_TEXT, SEL_OFFSET_X, SEL_OFFSET_Y, SEL_FONT_SCALE, SEL_COLOR, SEL_THICKNESS,
+    COOLDOWN_OFFSET_X, COOLDOWN_OFFSET_Y, COOLDOWN_FONT_SCALE, COOLDOWN_COLOR, COOLDOWN_THICKNESS,
+    HIST_PANEL_BG_COLOR, HIST_PANEL_BORDER_COLOR, HIST_PANEL_BORDER_THICKNESS, HIST_PANEL_PADDING,
+    HIST_PANEL_Y_MARGIN,
+    HIST_TITLE_Y, HIST_TITLE_FONT_SCALE, HIST_TITLE_THICKNESS, HIST_TITLE_X_OFFSET,
+    HIST_TITLE_COLOR_WHITE, HIST_TITLE_COLOR_BLACK,
+    HIST_DIVIDER_Y, HIST_DIVIDER_COLOR, HIST_DIVIDER_THICKNESS,
+    HIST_MOVE_Y_START, HIST_MOVE_Y_STEP, HIST_MOVE_Y_PADDING,
+    HIST_MOVE_TEXT_X_OFFSET, HIST_MOVE_FONT_SCALE, HIST_MOVE_COLOR, HIST_MOVE_THICKNESS,
+    GAMEOVER_TEXT, GAMEOVER_X_OFFSET, GAMEOVER_FONT_SCALE, GAMEOVER_COLOR, GAMEOVER_THICKNESS
+)
 
 class Renderer:
     def __init__(self, asset_loader, geometry: BoardGeometry, history_tracker=None, left_padding: int = 0, right_padding: int = 0):
@@ -22,9 +35,9 @@ class Renderer:
         canvas = Img()
         canvas.img = np.zeros((board_h, total_w, board_c), dtype=np.uint8)
         if board_c == 4:
-            canvas.img[:] = (27, 26, 24, 255)  # Hex #181a1b charcoal BGRA
+            canvas.img[:] = BG_COLOR_BGRA
         else:
-            canvas.img[:] = (27, 26, 24)  # Hex #181a1b charcoal BGR
+            canvas.img[:] = BG_COLOR_BGR
 
         # 3. Draw the board background shifted by left_padding
         canvas.img[:, self.left_padding:self.left_padding + board_w] = bg_img.img
@@ -43,7 +56,14 @@ class Renderer:
 
             if is_selected:
                 # Overlay selection indicator
-                canvas.put_text("SEL", view.px + self.left_padding + 5, view.py + 25, 0.6, (0, 255, 255, 255), 2)
+                canvas.put_text(
+                    SEL_TEXT,
+                    view.px + self.left_padding + SEL_OFFSET_X,
+                    view.py + SEL_OFFSET_Y,
+                    SEL_FONT_SCALE,
+                    SEL_COLOR,
+                    SEL_THICKNESS
+                )
 
             # Find matching PieceSnapshot to check for active cooldown overlay
             piece_snap = None
@@ -56,42 +76,49 @@ class Renderer:
             if piece_snap and piece_snap.cooldown_until > snapshot.clock:
                 remaining_ms = piece_snap.cooldown_until - snapshot.clock
                 # Overlay remaining cooldown in milliseconds
-                canvas.put_text(f"{remaining_ms}ms", view.px + self.left_padding + 5, view.py + 85, 0.5, (0, 0, 255, 255), 2)
+                canvas.put_text(
+                    f"{remaining_ms}ms",
+                    view.px + self.left_padding + COOLDOWN_OFFSET_X,
+                    view.py + COOLDOWN_OFFSET_Y,
+                    COOLDOWN_FONT_SCALE,
+                    COOLDOWN_COLOR,
+                    COOLDOWN_THICKNESS
+                )
 
         # 5. Draw White and Black Move History Columns
         if self.left_padding > 0 and self.history_tracker:
-            self._draw_history_panel(canvas, "WHITE MOVES", 'w', 10, self.left_padding - 10, board_h, snapshot.board.height)
+            self._draw_history_panel(canvas, "WHITE MOVES", 'w', HIST_PANEL_PADDING, self.left_padding - HIST_PANEL_PADDING, board_h, snapshot.board.height)
         
         if self.right_padding > 0 and self.history_tracker:
-            self._draw_history_panel(canvas, "BLACK MOVES", 'b', self.left_padding + board_w + 10, total_w - 10, board_h, snapshot.board.height)
+            self._draw_history_panel(canvas, "BLACK MOVES", 'b', self.left_padding + board_w + HIST_PANEL_PADDING, total_w - HIST_PANEL_PADDING, board_h, snapshot.board.height)
 
         if snapshot.game_over:
-            text_x = self.left_padding + board_w // 2 - 200
-            canvas.put_text("GAME OVER", text_x, board_h // 2, 2.0, (0, 0, 255, 255), 4)
+            text_x = self.left_padding + board_w // 2 + GAMEOVER_X_OFFSET
+            canvas.put_text(GAMEOVER_TEXT, text_x, board_h // 2, GAMEOVER_FONT_SCALE, GAMEOVER_COLOR, GAMEOVER_THICKNESS)
 
         return canvas
 
     def _draw_history_panel(self, canvas, title: str, color: str, x_start: int, x_end: int, board_h: int, board_height: int) -> None:
         import cv2
         # Draw background card
-        cv2.rectangle(canvas.img, (x_start, 20), (x_end, board_h - 20), (36, 34, 31), -1) # filled
-        cv2.rectangle(canvas.img, (x_start, 20), (x_end, board_h - 20), (66, 63, 58), 2) # border
+        cv2.rectangle(canvas.img, (x_start, HIST_PANEL_Y_MARGIN), (x_end, board_h - HIST_PANEL_Y_MARGIN), HIST_PANEL_BG_COLOR, -1) # filled
+        cv2.rectangle(canvas.img, (x_start, HIST_PANEL_Y_MARGIN), (x_end, board_h - HIST_PANEL_Y_MARGIN), HIST_PANEL_BORDER_COLOR, HIST_PANEL_BORDER_THICKNESS) # border
 
         # Draw Title
-        title_x = x_start + (x_end - x_start) // 2 - 60
-        text_color = (220, 220, 220, 255) if color == 'w' else (255, 180, 100, 255)
-        canvas.put_text(title, title_x, 50, 0.6, text_color, 2)
+        title_x = x_start + (x_end - x_start) // 2 - HIST_TITLE_X_OFFSET
+        text_color = HIST_TITLE_COLOR_WHITE if color == 'w' else HIST_TITLE_COLOR_BLACK
+        canvas.put_text(title, title_x, HIST_TITLE_Y, HIST_TITLE_FONT_SCALE, text_color, HIST_TITLE_THICKNESS)
 
         # Draw divider line
-        cv2.line(canvas.img, (x_start + 10, 65), (x_end - 10, 65), (66, 63, 58), 1)
+        cv2.line(canvas.img, (x_start + HIST_PANEL_PADDING, HIST_DIVIDER_Y), (x_end - HIST_PANEL_PADDING, HIST_DIVIDER_Y), HIST_DIVIDER_COLOR, HIST_DIVIDER_THICKNESS)
 
         # Filter moves
         moves = [m for m in self.history_tracker.history if m['color'] == color]
         
         # Calculate how many moves can fit
-        y_start = 95
-        y_step = 28
-        y_end = board_h - 40
+        y_start = HIST_MOVE_Y_START
+        y_step = HIST_MOVE_Y_STEP
+        y_end = board_h - HIST_MOVE_Y_PADDING
         max_visible = (y_end - y_start) // y_step
 
         visible_moves = moves[-max_visible:] if len(moves) > max_visible else moves
@@ -116,4 +143,4 @@ class Renderer:
             p_name = piece_names.get(m['kind'], m['kind'])
             to_str = cell_to_algebraic(m['to_pos'])
             move_text = f"{m['time']}ms: {p_name} to {to_str}"
-            canvas.put_text(move_text, x_start + 15, y_pos, 0.55, (200, 200, 200, 255), 1)
+            canvas.put_text(move_text, x_start + HIST_MOVE_TEXT_X_OFFSET, y_pos, HIST_MOVE_FONT_SCALE, HIST_MOVE_COLOR, HIST_MOVE_THICKNESS)

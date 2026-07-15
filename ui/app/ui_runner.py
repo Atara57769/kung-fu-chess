@@ -3,10 +3,11 @@ from ui.interaction.mouse_handler import MouseHandler
 from ui.rendering.renderer import Renderer
 from ui.animation.animation_manager import AnimationManager
 from ui.rendering.window import Window
+from ui.ui_config import TIME_STEP_MS
 
 class UIRunner:
     def __init__(self, controller, mouse_handler: MouseHandler, renderer: Renderer, 
-                 animation_manager: AnimationManager, window: Window, time_step_ms: int = 50,
+                 animation_manager: AnimationManager, window: Window, time_step_ms: int = TIME_STEP_MS,
                  history_tracker = None):
         self.controller = controller
         self.mouse_handler = mouse_handler

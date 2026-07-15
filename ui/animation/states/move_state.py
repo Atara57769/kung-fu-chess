@@ -1,5 +1,6 @@
 from ui.animation.states.animation_state import AnimationState
 from models.game_snapshot import GameSnapshot
+from ui.ui_config import MOVE_DEFAULT_DURATION
 
 class MoveState(AnimationState):
     def on_enter(self, piece_view, snapshot: GameSnapshot) -> None:
@@ -37,7 +38,7 @@ class MoveState(AnimationState):
     def _calculate_progress(self, current_clock: int) -> float:
         duration = self.arrival - self.start_clock
         if duration <= 0:
-            duration = 1000
+            duration = MOVE_DEFAULT_DURATION
 
         if current_clock >= self.arrival:
             return 1.0
