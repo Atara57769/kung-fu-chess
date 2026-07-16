@@ -66,12 +66,14 @@ JUMP_DEFAULT_DURATION = 500
 MOVE_DEFAULT_DURATION = 1000
 
 # 8. Chess piece points for score calculations
+from models.piece_type import PieceType
 PIECE_POINTS = {
-    'P': 1,
-    'N': 3,
-    'B': 3,
-    'R': 5,
-    'Q': 9,
-    'K': 0
+    PieceType.PAWN: 1,
+    PieceType.KNIGHT: 3,
+    PieceType.BISHOP: 3,
+    PieceType.ROOK: 5,
+    PieceType.QUEEN: 9,
+    PieceType.KING: 0
 }
+
 

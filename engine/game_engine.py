@@ -4,7 +4,7 @@ from models.game_state import GameState
 from models.cell import Cell
 from models.pieces import Piece
 from models.pending_move import PendingMove
-from constants import DURATION, PIECE_KNIGHT
+from constants import DURATION
 from rules.rule_engine import RuleEngine
 from services.collision_service import CollisionService
 from realtime.real_time_arbiter import RealTimeArbiter

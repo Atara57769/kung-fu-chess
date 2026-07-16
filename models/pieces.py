@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from typing import Optional
 from enum import Enum
 from models.cell import Cell
-from constants import EMPTY_TOKEN, VALID_COLORS, VALID_PIECES, TOKEN_LENGTH, COLOR_INDEX, KIND_INDEX
+from models.piece_type import PieceType
+from constants import EMPTY_TOKEN, VALID_COLORS, TOKEN_LENGTH, COLOR_INDEX, KIND_INDEX
 
 class PieceStatus(Enum):
     IDLE = "IDLE"
@@ -11,7 +12,7 @@ class PieceStatus(Enum):
 @dataclass
 class Piece:
     color: str  
-    kind: str   
+    kind: PieceType
     cell: Cell = None
     cooldown_until: int = 0
     status: PieceStatus = PieceStatus.IDLE
@@ -26,8 +27,8 @@ class Piece:
         color = token[COLOR_INDEX]
         kind = token[KIND_INDEX]
         
-        if color in VALID_COLORS and kind in VALID_PIECES:
-            return cls(color, kind, cell)
+        if color in VALID_COLORS and kind in PieceType._value2member_map_:
+            return cls(color, PieceType(kind), cell)
         return None
 
     @classmethod

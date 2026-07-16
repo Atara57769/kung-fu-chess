@@ -3,13 +3,14 @@ from models.cell import Cell
 from models.pieces import Piece
 from models.pending_move import PendingMove
 from models.game_state import GameState
-from constants import DURATION, PIECE_KNIGHT
+from constants import DURATION
+from models.piece_type import PieceType
 
 class CollisionService:
     def get_move_duration(self, from_cell: Cell, to_cell: Cell, piece: Optional[Piece]) -> int:
         dy = to_cell.y - from_cell.y
         dx = to_cell.x - from_cell.x
-        if piece is not None and piece.kind == PIECE_KNIGHT:
+        if piece is not None and piece.kind == PieceType.KNIGHT:
             distance = abs(dy) + abs(dx)
         else:
             distance = max(abs(dy), abs(dx))
@@ -66,11 +67,11 @@ class CollisionService:
         return False
 
     def check_mid_move_collision(self, state: GameState, new_move: PendingMove) -> bool:
-        if new_move.piece is None or new_move.piece.kind == PIECE_KNIGHT:
+        if new_move.piece is None or new_move.piece.kind == PieceType.KNIGHT:
             return False
 
         for existing in state.pending_moves:
-            if existing.piece is None or existing.piece.kind == PIECE_KNIGHT:
+            if existing.piece is None or existing.piece.kind == PieceType.KNIGHT:
                 continue
             if existing.is_captured:
                 continue

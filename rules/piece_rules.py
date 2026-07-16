@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from constants import EMPTY_TOKEN, COLOR_WHITE, PIECE_ROOK, PIECE_BISHOP, PIECE_QUEEN, PIECE_KNIGHT, PIECE_KING, PIECE_PAWN, PAWN_DIRECTIONS
+from constants import EMPTY_TOKEN, COLOR_WHITE, PAWN_DIRECTIONS
+from models.piece_type import PieceType
 from models.cell import Cell
 from models.pieces import PieceStatus
 
@@ -113,10 +114,10 @@ class PawnRule(BaseRule):
 
 
 RULES = {
-    PIECE_ROOK: RookRule(),
-    PIECE_BISHOP: BishopRule(),
-    PIECE_QUEEN: QueenRule(),
-    PIECE_KNIGHT: KnightRule(),
-    PIECE_KING: KingRule(),
-    PIECE_PAWN: PawnRule(),
+    PieceType.ROOK: RookRule(),
+    PieceType.BISHOP: BishopRule(),
+    PieceType.QUEEN: QueenRule(),
+    PieceType.KNIGHT: KnightRule(),
+    PieceType.KING: KingRule(),
+    PieceType.PAWN: PawnRule(),
 }

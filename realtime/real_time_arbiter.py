@@ -3,7 +3,8 @@ from models.game_state import GameState
 from models.pending_move import PendingMove
 from models.cell import Cell
 from models.pieces import PieceStatus
-from constants import COLOR_WHITE, COLOR_BLACK, PIECE_KING, PIECE_QUEEN, PIECE_PAWN, COOLDOWN_MOVE
+from constants import COLOR_WHITE, COLOR_BLACK, COOLDOWN_MOVE
+from models.piece_type import PieceType
 
 from rules.win_condition import check_game_over
 from rules.promotion import PawnPromotion
@@ -36,7 +37,7 @@ class RealTimeArbiter:
         if current_piece is not None:
             grid_piece = board.grid[from_y][from_x]
             if grid_piece is not None and grid_piece.color == current_piece.color and (
-                grid_piece.kind == current_piece.kind or (grid_piece.kind == PIECE_PAWN and current_piece.kind == PIECE_QUEEN)
+                grid_piece.kind == current_piece.kind or (grid_piece.kind == PieceType.PAWN and current_piece.kind == PieceType.QUEEN)
             ):
                 board.grid[from_y][from_x] = None
 
@@ -51,7 +52,7 @@ class RealTimeArbiter:
             self.execute_capture(game_state, move)
             if move.piece is not None:
                 move.piece.status = PieceStatus.IDLE
-            if move.piece is not None and move.piece.kind == PIECE_KING:
+            if move.piece is not None and move.piece.kind == PieceType.KING:
                 return True
             return False
 

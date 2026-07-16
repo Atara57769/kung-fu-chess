@@ -1,4 +1,5 @@
 from models.game_snapshot import GameSnapshot
+from models.piece_type import PieceType
 
 class UIHistoryTracker:
     def __init__(self):
@@ -35,7 +36,7 @@ class UIHistoryTracker:
                 if target_piece is not None and target_piece.color == move.piece.color:
                     if target_piece.kind == move.piece.kind:
                         success = True
-                    elif move.piece.kind == 'P' and target_piece.kind == 'Q':
+                    elif move.piece.kind == PieceType.PAWN and target_piece.kind == PieceType.QUEEN:
                         # Pawn promotion to Queen
                         success = True
             

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import List
 from models.cell import Cell
 from models.pieces import Piece
-from constants import PIECE_KNIGHT
+from models.piece_type import PieceType
 
 @dataclass
 class PendingMove:
@@ -27,7 +27,7 @@ class PendingMove:
 
     def _is_knight_move(self) -> bool:
         try:
-            return self.piece.kind == PIECE_KNIGHT
+            return self.piece.kind == PieceType.KNIGHT
         except AttributeError:
             return False
 
