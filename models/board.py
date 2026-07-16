@@ -1,7 +1,7 @@
 from typing import List, Optional
 from models.cell import Cell
 from models.pieces import Piece
-from constants import EMPTY_TOKEN, PIECE_QUEEN, PIECE_PAWN
+from constants import EMPTY_TOKEN
 
 class Board:
     def __init__(self, grid: List[List[Optional[Piece]]], width: int, height: int):

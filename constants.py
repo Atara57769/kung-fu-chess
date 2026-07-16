@@ -1,21 +1,10 @@
 CELL_SIZE = 100
 EMPTY_TOKEN = '.'
+from models.color import Color
 
-COLOR_WHITE = 'w'
-COLOR_BLACK = 'b'
-
-PIECE_KING = 'K'
-PIECE_QUEEN = 'Q'
-PIECE_ROOK = 'R'
-PIECE_BISHOP = 'B'
-PIECE_KNIGHT = 'N'
-PIECE_PAWN = 'P'
-
-VALID_COLORS = {COLOR_WHITE, COLOR_BLACK}
-VALID_PIECES = {PIECE_KING, PIECE_QUEEN, PIECE_ROOK, PIECE_BISHOP, PIECE_KNIGHT, PIECE_PAWN}
 DURATION = 1000
 COOLDOWN_DURATION = 1000
-COOLDOWN_JUMP = 500
+COOLDOWN_JUMP = 700
 COOLDOWN_MOVE = 1500
 TOKEN_LENGTH = 2
 COLOR_INDEX = 0
@@ -24,6 +13,18 @@ KIND_INDEX = 1
 PAWN_DIRECTION_WHITE = -1
 PAWN_DIRECTION_BLACK = 1
 PAWN_DIRECTIONS = {
-    COLOR_WHITE: PAWN_DIRECTION_WHITE,
-    COLOR_BLACK: PAWN_DIRECTION_BLACK,
+    Color.WHITE: PAWN_DIRECTION_WHITE,
+    Color.BLACK: PAWN_DIRECTION_BLACK,
 }
+
+# Standard starting board layout for Kung-Fu Chess
+DEFAULT_BOARD_LAYOUT = [
+    "bR bN bB bQ bK bB bN bR",
+    "bP bP bP bP bP bP bP bP",
+    ".  .  .  .  .  .  .  .",
+    ".  .  .  .  .  .  .  .",
+    ".  .  .  .  .  .  .  .",
+    ".  .  .  .  .  .  .  .",
+    "wP wP wP wP wP wP wP wP",
+    "wR wN wB wQ wK wB wN wR"
+]

@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
-from constants import EMPTY_TOKEN, COLOR_WHITE, PIECE_ROOK, PIECE_BISHOP, PIECE_QUEEN, PIECE_KNIGHT, PIECE_KING, PIECE_PAWN, PAWN_DIRECTIONS
+from constants import EMPTY_TOKEN, PAWN_DIRECTIONS
+from models.piece_type import PieceType
+from models.color import Color
 from models.cell import Cell
 from models.pieces import PieceStatus
 
@@ -91,7 +93,7 @@ class PawnRule(BaseRule):
         target_piece = board.get_piece_at(to_pos)
         H = board.height
         expected_dy = PAWN_DIRECTIONS[piece.color]
-        if piece.color == COLOR_WHITE:
+        if piece.color == Color.WHITE:
             start_row = H - 2
         else:
             start_row = 1
@@ -113,10 +115,10 @@ class PawnRule(BaseRule):
 
 
 RULES = {
-    PIECE_ROOK: RookRule(),
-    PIECE_BISHOP: BishopRule(),
-    PIECE_QUEEN: QueenRule(),
-    PIECE_KNIGHT: KnightRule(),
-    PIECE_KING: KingRule(),
-    PIECE_PAWN: PawnRule(),
+    PieceType.ROOK: RookRule(),
+    PieceType.BISHOP: BishopRule(),
+    PieceType.QUEEN: QueenRule(),
+    PieceType.KNIGHT: KnightRule(),
+    PieceType.KING: KingRule(),
+    PieceType.PAWN: PawnRule(),
 }
