@@ -5,8 +5,9 @@ from models.cell import Cell
 from models.pieces import Piece
 from exceptions import UnknownTokenError, RowWidthMismatchError
 
-from constants import EMPTY_TOKEN, VALID_COLORS, TOKEN_LENGTH, COLOR_INDEX, KIND_INDEX
+from constants import EMPTY_TOKEN, TOKEN_LENGTH, COLOR_INDEX, KIND_INDEX
 from models.piece_type import PieceType
+from models.color import Color
 
 class BoardParser(ABC):
     @abstractmethod
@@ -34,7 +35,7 @@ class TextBoardParser(BoardParser):
             for x, token in enumerate(tokens):
                 if token == EMPTY_TOKEN:
                     row.append(None)
-                elif len(token) == TOKEN_LENGTH and token[COLOR_INDEX] in VALID_COLORS and token[KIND_INDEX] in PieceType._value2member_map_:
+                elif len(token) == TOKEN_LENGTH and token[COLOR_INDEX] in Color._value2member_map_ and token[KIND_INDEX] in PieceType._value2member_map_:
                     piece = Piece.from_text(token, Cell(y, x))
                     row.append(piece)
                 else:

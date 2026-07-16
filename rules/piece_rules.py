@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from constants import EMPTY_TOKEN, COLOR_WHITE, PAWN_DIRECTIONS
+from constants import EMPTY_TOKEN, PAWN_DIRECTIONS
 from models.piece_type import PieceType
+from models.color import Color
 from models.cell import Cell
 from models.pieces import PieceStatus
 
@@ -92,7 +93,7 @@ class PawnRule(BaseRule):
         target_piece = board.get_piece_at(to_pos)
         H = board.height
         expected_dy = PAWN_DIRECTIONS[piece.color]
-        if piece.color == COLOR_WHITE:
+        if piece.color == Color.WHITE:
             start_row = H - 2
         else:
             start_row = 1

@@ -3,7 +3,7 @@ from models.game_state import GameState
 from models.pending_move import PendingMove
 from models.cell import Cell
 from models.pieces import PieceStatus
-from constants import COLOR_WHITE, COLOR_BLACK, COOLDOWN_MOVE
+from constants import COOLDOWN_MOVE
 from models.piece_type import PieceType
 
 from rules.win_condition import check_game_over

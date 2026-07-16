@@ -3,7 +3,6 @@ from models.board import Board
 from models.pieces import Piece, PieceStatus
 from models.cell import Cell
 from models.pending_move import PendingMove
-from constants import COLOR_WHITE, COLOR_BLACK
 from rules.board_rules import BoardRules
 
 class RuleEngine:

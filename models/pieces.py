@@ -3,7 +3,8 @@ from typing import Optional
 from enum import Enum
 from models.cell import Cell
 from models.piece_type import PieceType
-from constants import EMPTY_TOKEN, VALID_COLORS, TOKEN_LENGTH, COLOR_INDEX, KIND_INDEX
+from models.color import Color
+from constants import EMPTY_TOKEN, TOKEN_LENGTH, COLOR_INDEX, KIND_INDEX
 
 class PieceStatus(Enum):
     IDLE = "IDLE"
@@ -11,7 +12,7 @@ class PieceStatus(Enum):
 
 @dataclass
 class Piece:
-    color: str  
+    color: Color
     kind: PieceType
     cell: Cell = None
     cooldown_until: int = 0
@@ -27,8 +28,8 @@ class Piece:
         color = token[COLOR_INDEX]
         kind = token[KIND_INDEX]
         
-        if color in VALID_COLORS and kind in PieceType._value2member_map_:
-            return cls(color, PieceType(kind), cell)
+        if color in Color._value2member_map_ and kind in PieceType._value2member_map_:
+            return cls(Color(color), PieceType(kind), cell)
         return None
 
     @classmethod

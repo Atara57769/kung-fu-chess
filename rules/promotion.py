@@ -1,4 +1,4 @@
-from constants import COLOR_WHITE, COLOR_BLACK
+from models.color import Color
 from models.piece_type import PieceType
 from models.game_state import GameState
 from models.pending_move import PendingMove
@@ -10,7 +10,7 @@ class PawnPromotion:
 
     def is_promotion_row(self, color: str, to_y: int, board_height: int) -> bool:
         """Checks if the color has reached its respective promotion row."""
-        return (color == COLOR_WHITE and to_y == 0) or (color == COLOR_BLACK and to_y == board_height - 1)
+        return (color == Color.WHITE and to_y == 0) or (color == Color.BLACK and to_y == board_height - 1)
 
     def promote_to_queen(self, piece) -> None:
         """Promotes the piece to a Queen."""

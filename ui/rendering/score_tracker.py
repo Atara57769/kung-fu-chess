@@ -1,6 +1,6 @@
 from models.game_snapshot import GameSnapshot
 import ui.ui_config as cfg
-from constants import COLOR_WHITE, COLOR_BLACK
+from models.color import Color
 
 class ScoreTracker:
     def __init__(self):
@@ -15,14 +15,14 @@ class ScoreTracker:
             for piece in row:
                 if piece is not None:
                     points = cfg.PIECE_POINTS.get(piece.kind, 0)
-                    if piece.color == COLOR_WHITE:
+                    if piece.color == Color.WHITE:
                         white += points
-                    elif piece.color == COLOR_BLACK:
+                    elif piece.color == Color.BLACK:
                         black += points
         self.white_score = white
         self.black_score = black
 
     def get_score(self, color: str) -> int:
-        """Exposes the current score for a given color (COLOR_WHITE or COLOR_BLACK)."""
-        return self.white_score if color == COLOR_WHITE else self.black_score
+        """Exposes the current score for a given color (Color.WHITE or Color.BLACK)."""
+        return self.white_score if color == Color.WHITE else self.black_score
 

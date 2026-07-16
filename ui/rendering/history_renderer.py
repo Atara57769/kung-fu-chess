@@ -3,7 +3,7 @@ import ui.ui_config as cfg
 from ui.rendering.img import Img
 from models.game_snapshot import GameSnapshot
 from ui.rendering.score_tracker import ScoreTracker
-from constants import COLOR_WHITE, COLOR_BLACK
+from models.color import Color
 
 class HistoryRenderer:
     def __init__(self, history_tracker=None, left_padding: int = 0, right_padding: int = 0, score_tracker=None):
@@ -17,10 +17,10 @@ class HistoryRenderer:
         self.score_tracker.update(snapshot)
 
         if self.left_padding > 0 and self.history_tracker:
-            self._draw_history_panel(canvas, "WHITE MOVES", COLOR_WHITE, cfg.HIST_PANEL_PADDING, self.left_padding - cfg.HIST_PANEL_PADDING, board_h, snapshot)
+            self._draw_history_panel(canvas, "WHITE MOVES", Color.WHITE, cfg.HIST_PANEL_PADDING, self.left_padding - cfg.HIST_PANEL_PADDING, board_h, snapshot)
         
         if self.right_padding > 0 and self.history_tracker:
-            self._draw_history_panel(canvas, "BLACK MOVES", COLOR_BLACK, self.left_padding + board_w + cfg.HIST_PANEL_PADDING, total_w - cfg.HIST_PANEL_PADDING, board_h, snapshot)
+            self._draw_history_panel(canvas, "BLACK MOVES", Color.BLACK, self.left_padding + board_w + cfg.HIST_PANEL_PADDING, total_w - cfg.HIST_PANEL_PADDING, board_h, snapshot)
 
     def _draw_history_panel(self, canvas: Img, title: str, color: str, x_start: int, x_end: int, board_h: int, snapshot: GameSnapshot) -> None:
         cv2.rectangle(canvas.img, (x_start, cfg.HIST_PANEL_Y_MARGIN), (x_end, board_h - cfg.HIST_PANEL_Y_MARGIN), cfg.HIST_PANEL_BG_COLOR, -1) # filled
@@ -32,7 +32,7 @@ class HistoryRenderer:
 
         (w, h), _ = cv2.getTextSize(display_title, cv2.FONT_HERSHEY_SIMPLEX, cfg.HIST_TITLE_FONT_SCALE, cfg.HIST_TITLE_THICKNESS)
         title_x = x_start + (x_end - x_start - w) // 2
-        text_color = cfg.HIST_TITLE_COLOR_WHITE if color == COLOR_WHITE else cfg.HIST_TITLE_COLOR_BLACK
+        text_color = cfg.HIST_TITLE_COLOR_WHITE if color == Color.WHITE else cfg.HIST_TITLE_COLOR_BLACK
         canvas.put_text(display_title, title_x, cfg.HIST_TITLE_Y, cfg.HIST_TITLE_FONT_SCALE, text_color, cfg.HIST_TITLE_THICKNESS)
 
         cv2.line(canvas.img, (x_start + cfg.HIST_PANEL_PADDING, cfg.HIST_DIVIDER_Y), (x_end - cfg.HIST_PANEL_PADDING, cfg.HIST_DIVIDER_Y), cfg.HIST_DIVIDER_COLOR, cfg.HIST_DIVIDER_THICKNESS)
