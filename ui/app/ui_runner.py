@@ -36,7 +36,7 @@ class UIRunner:
 
             canvas = self.renderer.render(snapshot, self.animation_manager.active_views)
 
-            self.window.display(canvas)
+            self.window.display(canvas, self.time_step_ms)
 
             self.controller.update(self.time_step_ms)
 

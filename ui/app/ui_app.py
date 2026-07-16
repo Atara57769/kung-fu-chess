@@ -37,14 +37,12 @@ def parse_board_file(filepath: str):
     return TextBoardParser().parse(board_lines)
 
 def main():
-    # Setup logging configuration
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     
     parser = argparse.ArgumentParser(description="Kung-Fu Chess GUI Launcher")
     parser.add_argument("--board", type=str, help="Path to board configuration text file", default=None)
     args = parser.parse_args()
 
-    # 1. Parse or initialize board
     if args.board:
         try:
             board = parse_board_file(args.board)
@@ -96,22 +94,11 @@ def main():
         history_tracker=history_tracker
     )
 
-    # Monkeypatch OpenCV to handle automatic ticking with Img.show()
-    import cv2
-    _original_waitKey = cv2.waitKey
-    _original_destroy = cv2.destroyAllWindows
-
-    cv2.waitKey = lambda delay: _original_waitKey(time_step_ms) if delay == 0 else _original_waitKey(delay)
-    cv2.destroyAllWindows = lambda: None
-
     logger.info("Starting Kung-Fu Chess UI Game Loop...")
     try:
         runner.start_loop()
     finally:
-        # Revert patches and clean up windows on exit
-        cv2.destroyAllWindows = _original_destroy
-        cv2.waitKey = _original_waitKey
-        _original_destroy()
+        window.close()
 
     logger.info("Application exited successfully.")
 

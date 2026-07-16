@@ -5,14 +5,14 @@ class Window:
         self.title = title
         self.is_open = True
 
-    def display(self, canvas: Img) -> None:
+    def display(self, canvas: Img, delay: int) -> None:
         """Presents the canvas to the screen. All presentation must go through Img."""
         if not self.is_open:
             return
         
-        # Display the canvas using the existing show method of Img
-        canvas.show()
+        canvas.refresh(delay)
 
     def close(self) -> None:
         """Closes the window representation."""
         self.is_open = False
+        Img.close_window()

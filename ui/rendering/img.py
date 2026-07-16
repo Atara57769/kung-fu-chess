@@ -86,9 +86,17 @@ class Img:
                     cv2.FONT_HERSHEY_SIMPLEX, font_size,
                     color, thickness, cv2.LINE_AA)
 
-    def show(self):
+    def show(self) -> None:
         if self.img is None:
             raise ValueError("Image not loaded.")
         cv2.imshow("Image", self.img)
-        cv2.waitKey(0)
+
+    def refresh(self, delay: int) -> None:
+        """Displays the image and refreshes the window using waitKey."""
+        self.show()
+        cv2.waitKey(delay)
+
+    @staticmethod
+    def close_window() -> None:
         cv2.destroyAllWindows()
+
