@@ -23,23 +23,23 @@ def test_click_edge_cases():
     controller, state = create_controller(board)
 
     # Click out of bounds
-    controller.click(-100, 0)
+    controller.click(None)
     assert state.selected_piece is None
 
     # Click empty cell when nothing selected
-    controller.click(150, 0)  # cell (0, 1) -> '.'
+    controller.click(Cell(0, 1))  # cell (0, 1) -> '.'
     assert state.selected_piece is None
 
     # Click non-empty cell -> selects it
-    controller.click(50, 0)  # cell (0, 0) -> 'wP'
+    controller.click(Cell(0, 0))  # cell (0, 0) -> 'wP'
     assert state.selected_piece == board.get_piece_at(Cell(0, 0))
 
     # Click a friendly piece when another friendly is selected -> change selection
     board_friendly = TextBoardParser().parse(["wP wP", ". ."])
     controller_f, state_f = create_controller(board_friendly)
-    controller_f.click(50, 0)   # selects (0, 0)
+    controller_f.click(Cell(0, 0))   # selects (0, 0)
     assert state_f.selected_piece == board_friendly.get_piece_at(Cell(0, 0))
-    controller_f.click(150, 0)  # clicks (0, 1) -> friendly wP
+    controller_f.click(Cell(0, 1))  # clicks (0, 1) -> friendly wP
     assert state_f.selected_piece == board_friendly.get_piece_at(Cell(0, 1))
 
 def test_click_move_scheduling():
@@ -47,10 +47,10 @@ def test_click_move_scheduling():
     controller, state = create_controller(board)
 
     # Click and select (1, 0)
-    controller.click(50, 100)
+    controller.click(Cell(1, 0))
     assert state.selected_piece == board.get_piece_at(Cell(1, 0))
     # Click (0, 0) -> schedules move
-    controller.click(50, 0)
+    controller.click(Cell(0, 0))
     assert len(state.pending_moves) == 1
     assert state.selected_piece is None
     assert state.pending_moves[0].from_pos == Cell(1, 0)
@@ -60,12 +60,12 @@ def test_click_move_scheduling_none_piece():
     board = TextBoardParser().parse([". .", "wP ."])
     controller, state = create_controller(board)
     # Click and select (1, 0)
-    controller.click(50, 100)
+    controller.click(Cell(1, 0))
     assert state.selected_piece == board.get_piece_at(Cell(1, 0))
     # Clear the board grid at that spot, so piece resolves to None
     board.grid[1][0] = None
     # Click (0, 0) -> should NOT schedule move since empty source is illegal
-    controller.click(50, 0)
+    controller.click(Cell(0, 0))
     assert len(state.pending_moves) == 0
 
 def test_click_selected_piece_killed_before_second_click():
@@ -73,7 +73,7 @@ def test_click_selected_piece_killed_before_second_click():
     controller, state = create_controller(board)
     
     # Click and select (0, 0)
-    controller.click(50, 0)
+    controller.click(Cell(0, 0))
     wP = board.get_piece_at(Cell(0, 0))
     assert state.selected_piece == wP
     
@@ -84,7 +84,7 @@ def test_click_selected_piece_killed_before_second_click():
     bP.cell = Cell(0, 0)
     
     # Click (0, 1) -> second click
-    controller.click(150, 0)
+    controller.click(Cell(0, 1))
     
     # Assert selection is reset and no move is scheduled
     assert state.selected_piece is None
@@ -95,7 +95,7 @@ def test_click_selected_piece_killed_to_none_before_second_click():
     controller, state = create_controller(board)
     
     # Click and select (0, 0)
-    controller.click(50, 0)
+    controller.click(Cell(0, 0))
     wP = board.get_piece_at(Cell(0, 0))
     assert state.selected_piece == wP
     
@@ -103,7 +103,7 @@ def test_click_selected_piece_killed_to_none_before_second_click():
     board.grid[0][0] = None
     
     # Click (0, 1) -> second click
-    controller.click(150, 0)
+    controller.click(Cell(0, 1))
     
     # Assert selection is reset and no move is scheduled
     assert state.selected_piece is None
@@ -117,19 +117,19 @@ def test_click_while_moving_or_reserved():
     p = board.get_piece_at(Cell(0, 0))
     p.status = PieceStatus.MOVING
     state.pending_moves = [PendingMove(Cell(0, 0), Cell(1, 0), p, 1000)]
-    controller.click(50, 0)  # Click (0, 0) which is moving
+    controller.click(Cell(0, 0))  # Click (0, 0) which is moving
     assert state.selected_piece is None
 
     # 2. Test selected piece is already in transit (third check: sel_y, sel_x is moving)
     state.selected_piece = board.get_piece_at(Cell(0, 0))
-    controller.click(50, 100)  # Clicks (1, 0)
+    controller.click(Cell(1, 0))  # Clicks (1, 0)
     assert len(state.pending_moves) == 1
     assert state.selected_piece is None
 
     # 3. Test destination is targeted by another pending move (fourth check: destination reserved)
     state.pending_moves = [PendingMove(Cell(0, 1), Cell(1, 0), p, 1000)]
     state.selected_piece = board.get_piece_at(Cell(0, 0))  # (0, 0) is not moving
-    controller.click(50, 100)  # Click (1, 0) (destination is reserved)
+    controller.click(Cell(1, 0))  # Click (1, 0) (destination is reserved)
     assert len(state.pending_moves) == 1
     assert state.selected_piece is None
 
@@ -137,24 +137,24 @@ def test_click_game_over_and_pending_moves_return():
     board = TextBoardParser().parse(["wP .", ". ."])
     controller, state = create_controller(board)
     state.game_over = True
-    controller.click(50, 0)
+    controller.click(Cell(0, 0))
     assert state.selected_piece is None
 
     state.game_over = False
     p = board.get_piece_at(Cell(0, 0))
     p.status = PieceStatus.MOVING
     state.pending_moves.append(PendingMove(Cell(0, 0), Cell(1, 1), p, 1000))
-    controller.click(50, 0)
+    controller.click(Cell(0, 0))
     assert state.selected_piece is None
 
 def test_click_illegal_move_retains_selection():
     board = TextBoardParser().parse(["wP .", ". ."])
     controller, state = create_controller(board)
     # Select (0, 0)
-    controller.click(50, 0)
+    controller.click(Cell(0, 0))
     assert state.selected_piece == board.get_piece_at(Cell(0, 0))
     # Move to illegal target coordinates (out of board)
-    controller.click(950, 950)
+    controller.click(None)
     # Selection cancelled (out of board)
     assert state.selected_piece is None
     assert len(state.pending_moves) == 0
@@ -164,28 +164,28 @@ def test_jump():
     controller, state = create_controller(board)
 
     # Jump out of bounds
-    controller.jump(-100, 0)
+    controller.jump(None)
     assert len(state.jumps) == 0
 
     # Jump on empty cell
-    controller.jump(150, 0)  # cell (0, 1) -> '.'
+    controller.jump(Cell(0, 1))  # cell (0, 1) -> '.'
     assert len(state.jumps) == 0
 
     # Jump on moving piece (ignored)
     p = board.get_piece_at(Cell(0, 0))
     p.status = PieceStatus.MOVING
     state.pending_moves.append(PendingMove(Cell(0, 0), Cell(1, 0), p, 1000))
-    controller.jump(50, 0)  # cell (0, 0)
+    controller.jump(Cell(0, 0))  # cell (0, 0)
     assert len(state.jumps) == 0
 
     # Jump on destination reserved cell (ignored)
-    controller.jump(50, 100)  # cell (1, 0) -> reserved destination
+    controller.jump(Cell(1, 0))  # cell (1, 0) -> reserved destination
     assert len(state.jumps) == 0
 
     # Valid jump
     state.pending_moves.clear()
     p.status = PieceStatus.IDLE
-    controller.jump(50, 0)
+    controller.jump(Cell(0, 0))
     assert len(state.jumps) == 1
     assert state.jumps[0].cell == (0, 0)
     assert state.jumps[0].start == 0
@@ -194,7 +194,7 @@ def test_jump():
     # Jump after game over (ignored)
     state.game_over = True
     state.jumps.clear()
-    controller.jump(50, 0)
+    controller.jump(Cell(0, 0))
     assert len(state.jumps) == 0
 
 def test_print_board():
@@ -229,7 +229,7 @@ def test_controller_game_over_triggers():
     controller3, state3 = create_controller(board3)
     state3.pending_moves.append(PendingMove(Cell(0, 0), Cell(0, 1), p_pawn, 1000))
     state3.clock = 1000
-    controller3.jump(0, 0)
+    controller3.jump(Cell(0, 0))
     assert state3.game_over is False
     controller3.wait(0)
     assert state3.game_over is True
@@ -241,12 +241,12 @@ def test_controller_click_game_over():
     state.pending_moves.append(PendingMove(Cell(0, 0), Cell(0, 1), p_pawn, 1000))
     state.clock = 1000
 
-    controller.click(50, 0)
+    controller.click(Cell(0, 0))
     assert state.game_over is False
     controller.wait(0)
     assert state.game_over is True
 
-    controller.click(50, 0)
+    controller.click(Cell(0, 0))
     assert state.game_over is True
 
 def test_controller_click_moving_friendly_piece():
@@ -254,7 +254,7 @@ def test_controller_click_moving_friendly_piece():
     controller, state = create_controller(board)
     
     # Select first friendly piece (0, 0)
-    controller.click(50, 0)
+    controller.click(Cell(0, 0))
     assert state.selected_piece == board.get_piece_at(Cell(0, 0))
     
     # Mark second friendly piece (0, 1) as moving
@@ -263,7 +263,7 @@ def test_controller_click_moving_friendly_piece():
     state.pending_moves.append(PendingMove(Cell(0, 1), Cell(1, 1), p2, 1000))
     
     # Click second friendly piece (0, 1), which is moving
-    controller.click(150, 0)
+    controller.click(Cell(0, 1))
     # The selection should be cleared (None)
     assert state.selected_piece is None
     # A new pending move from (0, 0) to (0, 1) should be requested/scheduled

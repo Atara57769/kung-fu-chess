@@ -5,6 +5,8 @@ from services.board_parser import TextBoardParser
 from models.game_state import GameState
 from engine.game_engine import GameEngine
 from engine.controller import Controller
+from models.cell import Cell
+from constants import CELL_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,15 @@ class ScriptRunner:
             return []
         return [cmd for cmd in lines[commands_start + 1 :] if cmd]
 
+    def _pixel_to_cell(self, board, x: int, y: int) -> Cell | None:
+        if x < 0 or y < 0:
+            return None
+        cell_y = y // CELL_SIZE
+        cell_x = x // CELL_SIZE
+        if 0 <= cell_x < board.width and 0 <= cell_y < board.height:
+            return Cell(cell_y, cell_x)
+        return None
+
     def _execute_commands(self, board, commands):
         """Executes parsed commands against the initialized board using Controller."""
         state = GameState(board=board)
@@ -65,7 +76,8 @@ class ScriptRunner:
                 try:
                     x = int(parts[1])
                     y = int(parts[2])
-                    controller.click(x, y)
+                    cell = self._pixel_to_cell(board, x, y)
+                    controller.click(cell)
                 except ValueError:
                     logger.warning(f"Invalid click coordinates: {parts[1:]}")
 
@@ -82,7 +94,8 @@ class ScriptRunner:
                 try:
                     x = int(parts[1])
                     y = int(parts[2])
-                    controller.jump(x, y)
+                    cell = self._pixel_to_cell(board, x, y)
+                    controller.jump(cell)
                 except ValueError:
                     logger.warning(f"Invalid jump coordinates: {parts[1:]}")
 

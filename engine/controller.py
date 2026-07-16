@@ -3,7 +3,6 @@ from typing import Optional
 from models.game_state import GameState
 from models.cell import Cell
 from engine.game_engine import GameEngine
-from input.board_mappr import BoardMapper
 from models.game_snapshot import GameSnapshot
 
 logger = logging.getLogger(__name__)
@@ -15,12 +14,10 @@ class Controller:
     GameEngine calls. Manages piece selection in game_state.
     """
 
-    def __init__(self, state: GameState, game_engine: GameEngine, stdout,
-                 board_mapper: Optional[BoardMapper] = None):
+    def __init__(self, state: GameState, game_engine: GameEngine, stdout):
         self.state = state
         self.game_engine = game_engine
         self.stdout = stdout
-        self.board_mapper = board_mapper or BoardMapper(state.board)
 
     def update(self, dt: int) -> None:
         """Advances the game clock and updates logic."""
@@ -30,11 +27,12 @@ class Controller:
         """Returns a snapshot of the current game state."""
         return self.game_engine.snapshot(self.state)
 
-    def click(self, x: int, y: int) -> None:
+    def click(self, cell: Optional[Cell]) -> None:
         if self.state.game_over:
             return
 
-        cell = self.board_mapper.pixel_to_cell(x, y)
+        if cell is not None and not self.state.board.is_inside_bounds(cell.y, cell.x):
+            cell = None
 
         if cell is None:
             self.state.selected_piece = None
@@ -81,13 +79,15 @@ class Controller:
     def wait(self, ms: int) -> None:
         self.game_engine.wait(self.state, ms)
 
-    def jump(self, x: int, y: int) -> None:
+    def jump(self, cell: Optional[Cell]) -> None:
         if self.state.game_over:
             return
 
-        cell = self.board_mapper.pixel_to_cell(x, y)
+        if cell is not None and not self.state.board.is_inside_bounds(cell.y, cell.x):
+            cell = None
+
         if cell is None:
-            logger.warning(f"Jump click ({x}, {y}) was out of bounds.")
+            logger.warning("Jump click was out of bounds.")
             return
 
         board = self.state.board

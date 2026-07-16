@@ -18,9 +18,11 @@ class MouseHandler:
     def on_mouse_event(self, event: int, x: int, y: int, flags: int, param) -> None:
         """Callback to handle OpenCV mouse events."""
         board_x = x - self.left_padding
+        cell = self.geometry.pixel_to_cell(board_x, y)
+
         if event == cv2.EVENT_LBUTTONDOWN:
             # Left Click: Select / Move
-            self.controller.click(board_x, y)
+            self.controller.click(cell)
         elif event == cv2.EVENT_RBUTTONDOWN:
             # Right Click: Jump
-            self.controller.jump(board_x, y)
+            self.controller.jump(cell)
