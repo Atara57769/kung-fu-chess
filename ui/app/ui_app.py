@@ -17,7 +17,7 @@ from ui.interaction.mouse_handler import MouseHandler
 from ui.rendering.renderer import Renderer
 from ui.app.ui_runner import UIRunner
 from ui.history.history_tracker import UIHistoryTracker
-from constants import DEFAULT_BOARD_LAYOUT
+from constants import DEFAULT_BOARD_LAYOUT, CELL_SIZE
 from ui.ui_config import LEFT_PADDING, RIGHT_PADDING, TIME_STEP_MS
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,8 @@ def main():
     
     parser = argparse.ArgumentParser(description="Kung-Fu Chess GUI Launcher")
     parser.add_argument("--board", type=str, help="Path to board configuration text file", default=None)
+    parser.add_argument("--scale", type=float, help="Scale factor for the board UI (e.g., 0.5, 1.5)", default=1.0)
+    parser.add_argument("--cell-size", type=int, help="Override cell size in pixels directly", default=None)
     args = parser.parse_args()
 
     if args.board:
@@ -59,9 +61,17 @@ def main():
     controller = Controller(state, game_engine, sys.stdout)
 
     # 3. Initialize UI elements
-    geometry = BoardGeometry()
+    if args.cell_size is not None:
+        cell_size = args.cell_size
+    else:
+        cell_size = int(CELL_SIZE * args.scale)
+
+    geometry = BoardGeometry(cell_size)
     
-    asset_loader = AssetLoader()
+    asset_loader = AssetLoader(
+        piece_size=(cell_size, cell_size),
+        board_size=(board.width * cell_size, board.height * cell_size)
+    )
     logger.info("Preloading visual sprites and config assets...")
     asset_loader.load_all()
     logger.info("Assets loaded successfully.")

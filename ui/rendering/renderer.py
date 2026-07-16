@@ -3,6 +3,7 @@ from ui.rendering.img import Img
 from models.game_snapshot import GameSnapshot
 from ui.board.board_geometry import BoardGeometry
 from ui.rendering.history_renderer import HistoryRenderer
+from constants import CELL_SIZE
 from ui.ui_config import (
     BG_COLOR_BGR, BG_COLOR_BGRA,
     SEL_TEXT, SEL_OFFSET_X, SEL_OFFSET_Y, SEL_FONT_SCALE, SEL_COLOR, SEL_THICKNESS,
@@ -18,6 +19,9 @@ class Renderer:
         self.left_padding = left_padding
         self.right_padding = right_padding
         self.history_renderer = HistoryRenderer(history_tracker, left_padding, right_padding)
+
+    def _get_scale_ratio(self) -> float:
+        return self.geometry.cell_size / CELL_SIZE
 
     def render(self, snapshot: GameSnapshot, active_views: list) -> Img:
         """Assembles the current visual frame onto a canvas Img."""
@@ -77,13 +81,14 @@ class Renderer:
                        snapshot.selected_piece.kind == view.kind)
 
         if is_selected:
+            scale_ratio = self._get_scale_ratio()
             canvas.put_text(
                 SEL_TEXT,
-                view.px + self.left_padding + SEL_OFFSET_X,
-                view.py + SEL_OFFSET_Y,
-                SEL_FONT_SCALE,
+                int(view.px + self.left_padding + SEL_OFFSET_X * scale_ratio),
+                int(view.py + SEL_OFFSET_Y * scale_ratio),
+                SEL_FONT_SCALE * scale_ratio,
                 SEL_COLOR,
-                SEL_THICKNESS
+                max(1, int(SEL_THICKNESS * scale_ratio))
             )
 
     def _draw_piece_cooldown_overlay(self, canvas: Img, snapshot: GameSnapshot, view) -> None:
@@ -98,13 +103,14 @@ class Renderer:
 
         if piece_snap and piece_snap.cooldown_until > snapshot.clock:
             remaining_ms = piece_snap.cooldown_until - snapshot.clock
+            scale_ratio = self._get_scale_ratio()
             canvas.put_text(
                 f"{remaining_ms}ms",
-                view.px + self.left_padding + COOLDOWN_OFFSET_X,
-                view.py + COOLDOWN_OFFSET_Y,
-                COOLDOWN_FONT_SCALE,
+                int(view.px + self.left_padding + COOLDOWN_OFFSET_X * scale_ratio),
+                int(view.py + COOLDOWN_OFFSET_Y * scale_ratio),
+                COOLDOWN_FONT_SCALE * scale_ratio,
                 COOLDOWN_COLOR,
-                COOLDOWN_THICKNESS
+                max(1, int(COOLDOWN_THICKNESS * scale_ratio))
             )
 
     def _draw_history_panels(self, canvas: Img, snapshot: GameSnapshot, board_w: int, board_h: int, total_w: int) -> None:
@@ -113,5 +119,6 @@ class Renderer:
 
     def _draw_game_over(self, canvas: Img, board_w: int, board_h: int) -> None:
         """Draw Game Over banner on the canvas."""
-        text_x = self.left_padding + board_w // 2 + GAMEOVER_X_OFFSET
-        canvas.put_text(GAMEOVER_TEXT, text_x, board_h // 2, GAMEOVER_FONT_SCALE, GAMEOVER_COLOR, GAMEOVER_THICKNESS)
+        scale_ratio = self._get_scale_ratio()
+        text_x = int(self.left_padding + board_w // 2 + GAMEOVER_X_OFFSET * scale_ratio)
+        canvas.put_text(GAMEOVER_TEXT, text_x, board_h // 2, GAMEOVER_FONT_SCALE * scale_ratio, GAMEOVER_COLOR, max(1, int(GAMEOVER_THICKNESS * scale_ratio)))

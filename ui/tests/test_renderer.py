@@ -9,6 +9,7 @@ from ui.rendering.img import Img
 def test_renderer_initialization():
     asset_loader = MagicMock()
     geometry = MagicMock()
+    geometry.cell_size = 100
     renderer = Renderer(asset_loader, geometry, left_padding=10, right_padding=20)
     assert renderer.left_padding == 10
     assert renderer.right_padding == 20
@@ -21,6 +22,7 @@ def test_render_basic_board():
     asset_loader.get_board_background.return_value = bg_img
 
     geometry = MagicMock()
+    geometry.cell_size = 100
     renderer = Renderer(asset_loader, geometry, left_padding=10, right_padding=20)
 
     # Mock snapshot
@@ -48,6 +50,7 @@ def test_render_with_active_views_and_overlays():
     asset_loader.get_board_background.return_value = bg_img
 
     geometry = MagicMock()
+    geometry.cell_size = 100
     renderer = Renderer(asset_loader, geometry, left_padding=10, right_padding=20)
 
     # Mock piece snap
@@ -95,6 +98,7 @@ def test_render_with_cooldown():
     asset_loader.get_board_background.return_value = bg_img
 
     geometry = MagicMock()
+    geometry.cell_size = 100
     renderer = Renderer(asset_loader, geometry, left_padding=10, right_padding=20)
 
     # Piece on cooldown (cooldown_until=500, clock=200)
@@ -136,6 +140,7 @@ def test_render_game_over():
     asset_loader.get_board_background.return_value = bg_img
 
     geometry = MagicMock()
+    geometry.cell_size = 100
     renderer = Renderer(asset_loader, geometry, left_padding=10, right_padding=20)
 
     grid = tuple(tuple(None for _ in range(8)) for _ in range(8))

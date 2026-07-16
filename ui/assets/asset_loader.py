@@ -14,7 +14,9 @@ class PieceAsset:
 
 
 class AssetLoader:
-    def __init__(self, base_dir: str | pathlib.Path = None, piece_size: tuple[int, int] = (CELL_SIZE, CELL_SIZE)):
+    def __init__(self, base_dir: str | pathlib.Path = None, 
+                 piece_size: tuple[int, int] = (CELL_SIZE, CELL_SIZE),
+                 board_size: tuple[int, int] | None = None):
         if base_dir is None:
             # Locate relative to ui directory
             self.base_dir = pathlib.Path(__file__).parent.parent
@@ -22,6 +24,7 @@ class AssetLoader:
             self.base_dir = pathlib.Path(base_dir)
             
         self.piece_size = piece_size
+        self.board_size = board_size
         self.board_bg: Img | None = None
         # Cache containing PieceAsset objects
         self.pieces: list[PieceAsset] = []
@@ -33,7 +36,7 @@ class AssetLoader:
 
     def _load_board_background(self) -> None:
         board_path = self.base_dir / "board.png"
-        self.board_bg = Img().read(board_path)
+        self.board_bg = Img().read(board_path, size=self.board_size)
 
     def _load_piece_assets(self) -> None:
         pieces_dir = self.base_dir / "pieces2"
