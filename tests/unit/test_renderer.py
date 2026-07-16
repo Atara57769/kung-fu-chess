@@ -151,3 +151,31 @@ def test_render_game_over():
 
     canvas = renderer.render(snapshot, active_views=[])
     assert canvas.img.shape == (100, 130, 3)
+
+def test_history_renderer():
+    from ui.rendering.history_renderer import HistoryRenderer
+    history_tracker = MagicMock()
+    history_tracker.history = [
+        {'color': 'w', 'kind': 'N', 'time': 1000, 'to_pos': Cell(0, 0)}
+    ]
+    
+    hist_renderer = HistoryRenderer(history_tracker, left_padding=50, right_padding=50)
+    canvas = Img()
+    canvas.img = np.zeros((200, 300, 3), dtype=np.uint8)
+    
+    grid = tuple(tuple(None for _ in range(8)) for _ in range(8))
+    board_snap = BoardSnapshot(grid=grid, width=8, height=8)
+    snapshot = GameSnapshot(
+        board=board_snap,
+        selected_piece=None,
+        game_over=False,
+        clock=0,
+        pending_moves=(),
+        jumps=()
+    )
+    
+    # Render history panels
+    hist_renderer.draw_history_panels(canvas, snapshot, board_w=200, board_h=200, total_w=300)
+    
+    # Verify that the canvas image was not corrupted and retains dimensions
+    assert canvas.img.shape == (200, 300, 3)

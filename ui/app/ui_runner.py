@@ -21,10 +21,9 @@ class UIRunner:
     def start_loop(self) -> None:
         """Main visual frame loop coordination."""
         self.running = True
+        self.mouse_handler.register_callbacks()
 
         while self.running:
-            self.mouse_handler.register_callbacks()
-
             snapshot = self.controller.get_snapshot()
 
             if self.history_tracker is not None:
