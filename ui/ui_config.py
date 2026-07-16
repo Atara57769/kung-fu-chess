@@ -64,3 +64,14 @@ GAMEOVER_THICKNESS = 4
 JUMP_PEAK_HEIGHT = 80.0
 JUMP_DEFAULT_DURATION = 500
 MOVE_DEFAULT_DURATION = 1000
+
+# 8. Chess piece points for score calculations
+PIECE_POINTS = {
+    'P': 1,
+    'N': 3,
+    'B': 3,
+    'R': 5,
+    'Q': 9,
+    'K': 0
+}
+

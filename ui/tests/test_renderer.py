@@ -184,3 +184,50 @@ def test_history_renderer():
     
     # Verify that the canvas image was not corrupted and retains dimensions
     assert canvas.img.shape == (200, 300, 3)
+
+
+def test_history_renderer_score_calculation():
+    from ui.rendering.history_renderer import HistoryRenderer
+    from ui.ui_config import PIECE_POINTS
+    history_tracker = MagicMock()
+    history_tracker.history = []
+    
+    hist_renderer = HistoryRenderer(history_tracker, left_padding=50, right_padding=50)
+    canvas = Img()
+    canvas.img = np.zeros((200, 300, 3), dtype=np.uint8)
+    
+    # Grid with 1 White Queen, 2 Black Rooks, 1 White Pawn
+    grid = [[None for _ in range(8)] for _ in range(8)]
+    grid[0][0] = PieceSnapshot(color='w', kind='Q', cell=Cell(0, 0))
+    grid[0][1] = PieceSnapshot(color='w', kind='P', cell=Cell(1, 0))
+    grid[1][0] = PieceSnapshot(color='b', kind='R', cell=Cell(0, 1))
+    grid[1][1] = PieceSnapshot(color='b', kind='R', cell=Cell(1, 1))
+    
+    board_snap = BoardSnapshot(grid=tuple(tuple(r) for r in grid), width=8, height=8)
+    snapshot = GameSnapshot(
+        board=board_snap,
+        selected_piece=None,
+        game_over=False,
+        clock=0,
+        pending_moves=(),
+        jumps=()
+    )
+    
+    # Track call args to canvas.put_text
+    canvas.put_text = MagicMock()
+    
+    hist_renderer.draw_history_panels(canvas, snapshot, board_w=200, board_h=200, total_w=300)
+    
+    # White score should be: Q (9) + P (1) = 10
+    # Black score should be: R (5) + R (5) = 10
+    
+    calls = canvas.put_text.call_args_list
+    white_title_call = [c for c in calls if "WHITE MOVES" in c[0][0]]
+    black_title_call = [c for c in calls if "BLACK MOVES" in c[0][0]]
+    
+    assert len(white_title_call) == 1
+    assert white_title_call[0][0][0] == "WHITE MOVES (10)"
+    
+    assert len(black_title_call) == 1
+    assert black_title_call[0][0][0] == "BLACK MOVES (10)"
+
