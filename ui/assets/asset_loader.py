@@ -4,6 +4,15 @@ import pathlib
 from ui.rendering.img import Img
 from constants import CELL_SIZE
 
+class PieceAsset:
+    def __init__(self, color: str, kind: str, state_name: str, config: dict, sprites: list[Img]):
+        self.color: str = color.lower()
+        self.kind: str = kind.upper()
+        self.state_name: str = state_name
+        self.config: dict = config
+        self.sprites: list[Img] = sprites
+
+
 class AssetLoader:
     def __init__(self, base_dir: str | pathlib.Path = None, piece_size: tuple[int, int] = (CELL_SIZE, CELL_SIZE)):
         if base_dir is None:
@@ -14,8 +23,8 @@ class AssetLoader:
             
         self.piece_size = piece_size
         self.board_bg: Img | None = None
-        # Cache structured as: self.pieces[(color, kind)][state_name] = { "config": config_dict, "sprites": list[Img] }
-        self.pieces: dict[tuple[str, str], dict[str, dict]] = {}
+        # Cache containing PieceAsset objects
+        self.pieces: list[PieceAsset] = []
 
     def load_all(self) -> None:
         """Loads and caches all GUI assets (board background, piece animation configs, and sprites)."""
@@ -43,8 +52,6 @@ class AssetLoader:
         if piece_key is None:
             return
 
-        self.pieces[piece_key] = {}
-
         states_dir = folder_path / "states"
         if not states_dir.exists():
             return
@@ -67,10 +74,15 @@ class AssetLoader:
         config = self._load_config(state_path)
         sprites = self._load_sprites(state_path)
 
-        self.pieces[piece_key][state_name] = {
-            "config": config,
-            "sprites": sprites
-        }
+        color, kind = piece_key
+        asset = PieceAsset(
+            color=color,
+            kind=kind,
+            state_name=state_name,
+            config=config,
+            sprites=sprites
+        )
+        self.pieces.append(asset)
 
     def _load_config(self, state_path: pathlib.Path) -> dict:
         config_file = state_path / "config.json"
@@ -101,14 +113,12 @@ class AssetLoader:
             raise ValueError("Assets not loaded. Call load_all() first.")
         return self.board_bg
 
-    def get_piece_assets(self, color: str, kind: str, state_name: str) -> dict:
-        """Returns the config and preloaded Img frames for the given piece and state."""
-        piece_key = (color.lower(), kind.upper())
-        if piece_key not in self.pieces:
-            raise KeyError(f"No assets found for piece key: {piece_key}")
+    def get_piece_assets(self, color: str, kind: str, state_name: str) -> PieceAsset:
+        """Returns the PieceAsset model for the given piece and state."""
+        color_lower = color.lower()
+        kind_upper = kind.upper()
+        for asset in self.pieces:
+            if asset.color == color_lower and asset.kind == kind_upper and asset.state_name == state_name:
+                return asset
         
-        state_dict = self.pieces[piece_key].get(state_name)
-        if not state_dict:
-            raise KeyError(f"No assets found for piece {piece_key} in state '{state_name}'")
-        
-        return state_dict
+        raise KeyError(f"No assets found for piece {color_lower}{kind_upper} in state '{state_name}'")

@@ -48,8 +48,8 @@ class PieceView:
 
         self.state = state_class(
             name=state_name,
-            config=assets["config"],
-            sprites=assets["sprites"]
+            config=assets.config,
+            sprites=assets.sprites
         )
         self.state.on_enter(self, snapshot)
 
