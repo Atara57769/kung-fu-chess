@@ -1,4 +1,5 @@
 from ui.animation.states.animation_state import AnimationState
+from ui.animation.state_types import AnimationStateId
 from models.game_snapshot import GameSnapshot
 from ui.ui_config import MOVE_DEFAULT_DURATION
 
@@ -67,7 +68,7 @@ class MoveState(AnimationState):
             piece_view.py = int(ya + (yb - ya) * seg_prog)
 
     def _transition_to_next_state(self, piece_view, snapshot: GameSnapshot) -> None:
-        next_state = self.config.get("physics", {}).get("next_state_when_finished", "long_rest")
+        next_state = self.config.get("physics", {}).get("next_state_when_finished", AnimationStateId.LONG_REST)
         piece_view.change_state(next_state, snapshot)
 
     def _handle_finished(self, piece_view, active_move, snapshot: GameSnapshot) -> None:

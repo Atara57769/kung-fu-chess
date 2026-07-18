@@ -1,4 +1,5 @@
 from ui.animation.states.animation_state import AnimationState
+from ui.animation.state_types import AnimationStateId
 from models.game_snapshot import GameSnapshot
 
 class LongRestState(AnimationState):
@@ -19,4 +20,6 @@ class LongRestState(AnimationState):
             return
 
         if snapshot.clock >= piece_snap.cooldown_until:
-            piece_view.change_state("idle", snapshot)
+            next_state = self.config.get("physics", {}).get("next_state_when_finished", AnimationStateId.IDLE)
+            piece_view.change_state(next_state, snapshot)
+

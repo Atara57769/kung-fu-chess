@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from ui.rendering.img import Img
 from models.game_snapshot import GameSnapshot
+from ui.animation.state_types import AnimationStateId
 
 class AnimationState(ABC):
     def __init__(self, name: str, config: dict, sprites: list[Img]):

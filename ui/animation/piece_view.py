@@ -1,5 +1,6 @@
 from models.cell import Cell
 from ui.board.board_geometry import BoardGeometry
+from ui.animation.state_types import AnimationStateId
 from ui.animation.states.idle_state import IdleState
 from ui.animation.states.move_state import MoveState
 from ui.animation.states.jump_state import JumpState
@@ -8,11 +9,11 @@ from ui.animation.states.long_rest_state import LongRestState
 from models.game_snapshot import GameSnapshot
 
 STATE_REGISTRY = {
-    "idle": IdleState,
-    "move": MoveState,
-    "jump": JumpState,
-    "short_rest": ShortRestState,
-    "long_rest": LongRestState,
+    AnimationStateId.IDLE: IdleState,
+    AnimationStateId.MOVE: MoveState,
+    AnimationStateId.JUMP: JumpState,
+    AnimationStateId.SHORT_REST: ShortRestState,
+    AnimationStateId.LONG_REST: LongRestState,
 }
 
 class PieceView:
@@ -28,7 +29,7 @@ class PieceView:
         self.py = top_left[1]
 
         self.state = None
-        self.change_state("idle", snapshot)
+        self.change_state(AnimationStateId.IDLE, snapshot)
 
     def change_state(self, state_name: str, snapshot: GameSnapshot) -> None:
         """Transitions this PieceView to a new animation state."""
