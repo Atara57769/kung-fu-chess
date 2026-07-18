@@ -27,8 +27,6 @@ class MoveState(AnimationState):
 
     def _find_active_move(self, piece_view, snapshot: GameSnapshot):
         for move in snapshot.pending_moves:
-            # We match the move that has either start or end at our cell,
-            # or belongs to the piece. Matching by piece color/kind and from_pos is most precise.
             if (move.from_pos == piece_view.cell and 
                     move.piece.color == piece_view.color and 
                     move.piece.kind == piece_view.kind):
@@ -48,7 +46,6 @@ class MoveState(AnimationState):
         path = active_move.path
         n_cells = len(path)
         if n_cells <= 1:
-            # Fail-safe: draw at destination
             top_left = piece_view.geometry.cell_to_top_left_pixel(active_move.to_pos)
             piece_view.px, piece_view.py = top_left
         else:
@@ -70,11 +67,9 @@ class MoveState(AnimationState):
             piece_view.py = int(ya + (yb - ya) * seg_prog)
 
     def _transition_to_next_state(self, piece_view, snapshot: GameSnapshot) -> None:
-        # Reached destination, transition to next state (cooldown/long_rest)
         next_state = self.config.get("physics", {}).get("next_state_when_finished", "long_rest")
         piece_view.change_state(next_state, snapshot)
 
     def _handle_finished(self, piece_view, active_move, snapshot: GameSnapshot) -> None:
-        # Update logical cell coordinates on the view
         piece_view.cell = active_move.to_pos
         self._transition_to_next_state(piece_view, snapshot)

@@ -1,4 +1,3 @@
-# UI Configuration settings for Kung-Fu Chess
 
 # 1. Screen & Layout configuration
 LEFT_PADDING = 250
@@ -6,9 +5,8 @@ RIGHT_PADDING = 250
 TIME_STEP_MS = 50
 
 # 2. Colors (BGR & BGRA)
-BG_COLOR_BGRA = (27, 26, 24, 255)  # Hex #181a1b charcoal BGRA
-BG_COLOR_BGR = (27, 26, 24)        # Hex #181a1b charcoal BGR
-
+BG_COLOR_BGRA = (27, 26, 24, 255)  
+BG_COLOR_BGR = (27, 26, 24)        
 # 3. Piece Selection Overlay Settings
 SEL_TEXT = "SEL"
 SEL_OFFSET_X = 5

@@ -17,7 +17,6 @@ PAWN_DIRECTIONS = {
     Color.BLACK: PAWN_DIRECTION_BLACK,
 }
 
-# Standard starting board layout for Kung-Fu Chess
 DEFAULT_BOARD_LAYOUT = [
     "bR bN bB bQ bK bB bN bR",
     "bP bP bP bP bP bP bP bP",

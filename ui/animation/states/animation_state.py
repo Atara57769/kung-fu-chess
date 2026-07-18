@@ -46,7 +46,6 @@ class AnimationState(ABC):
         self.elapsed_time += dt
         frame_duration = 1.0 / fps if fps > 0 else 0.1
         
-        # Calculate frame index based on total elapsed time
         total_frames = len(self.sprites)
         raw_frame_index = int(self.elapsed_time / frame_duration)
 

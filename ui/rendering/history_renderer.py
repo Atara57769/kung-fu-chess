@@ -23,10 +23,9 @@ class HistoryRenderer:
             self._draw_history_panel(canvas, "BLACK MOVES", Color.BLACK, self.left_padding + board_w + cfg.HIST_PANEL_PADDING, total_w - cfg.HIST_PANEL_PADDING, board_h, snapshot)
 
     def _draw_history_panel(self, canvas: Img, title: str, color: str, x_start: int, x_end: int, board_h: int, snapshot: GameSnapshot) -> None:
-        cv2.rectangle(canvas.img, (x_start, cfg.HIST_PANEL_Y_MARGIN), (x_end, board_h - cfg.HIST_PANEL_Y_MARGIN), cfg.HIST_PANEL_BG_COLOR, -1) # filled
-        cv2.rectangle(canvas.img, (x_start, cfg.HIST_PANEL_Y_MARGIN), (x_end, board_h - cfg.HIST_PANEL_Y_MARGIN), cfg.HIST_PANEL_BORDER_COLOR, cfg.HIST_PANEL_BORDER_THICKNESS) # border
+        cv2.rectangle(canvas.img, (x_start, cfg.HIST_PANEL_Y_MARGIN), (x_end, board_h - cfg.HIST_PANEL_Y_MARGIN), cfg.HIST_PANEL_BG_COLOR, -1)
+        cv2.rectangle(canvas.img, (x_start, cfg.HIST_PANEL_Y_MARGIN), (x_end, board_h - cfg.HIST_PANEL_Y_MARGIN), cfg.HIST_PANEL_BORDER_COLOR, cfg.HIST_PANEL_BORDER_THICKNESS)
 
-        # Retrieve player score from ScoreTracker
         score = self.score_tracker.get_score(color)
         display_title = f"{title} ({score})"
 

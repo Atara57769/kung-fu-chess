@@ -45,12 +45,10 @@ class AnimationManager:
 
     def _find_matching_snapshot(self, view: PieceView, remaining_snaps: list):
         """Finds a matching snapshot for a given PieceView from the remaining list."""
-        # Look for exact match (same color, kind, and cell)
         for snap in remaining_snaps:
             if snap.color == view.color and snap.kind == view.kind and snap.cell == view.cell:
                 return snap
 
-        # If not found by cell, check if the piece is in transit/arrived using cached target_cell
         if hasattr(view, "target_cell"):
             for snap in remaining_snaps:
                 if snap.color == view.color and snap.kind == view.kind and snap.cell == view.target_cell:

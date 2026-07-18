@@ -18,7 +18,6 @@ class AssetLoader:
                  piece_size: tuple[int, int] = (CELL_SIZE, CELL_SIZE),
                  board_size: tuple[int, int] | None = None):
         if base_dir is None:
-            # Locate relative to ui directory
             self.base_dir = pathlib.Path(__file__).parent.parent
         else:
             self.base_dir = pathlib.Path(base_dir)
@@ -26,7 +25,6 @@ class AssetLoader:
         self.piece_size = piece_size
         self.board_size = board_size
         self.board_bg: Img | None = None
-        # Cache containing PieceAsset objects
         self.pieces: list[PieceAsset] = []
 
     def load_all(self) -> None:

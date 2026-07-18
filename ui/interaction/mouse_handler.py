@@ -21,8 +21,6 @@ class MouseHandler:
         cell = self.geometry.pixel_to_cell(board_x, y)
 
         if event == cv2.EVENT_LBUTTONDOWN:
-            # Left Click: Select / Move
             self.controller.click(cell)
         elif event == cv2.EVENT_RBUTTONDOWN:
-            # Right Click: Jump
             self.controller.jump(cell)

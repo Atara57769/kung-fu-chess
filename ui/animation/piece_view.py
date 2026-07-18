@@ -7,7 +7,6 @@ from ui.animation.states.short_rest_state import ShortRestState
 from ui.animation.states.long_rest_state import LongRestState
 from models.game_snapshot import GameSnapshot
 
-# Registry to instantiate states dynamically without branching
 STATE_REGISTRY = {
     "idle": IdleState,
     "move": MoveState,
@@ -24,12 +23,10 @@ class PieceView:
         self.geometry = geometry
         self.asset_loader = asset_loader
         
-        # Current screen pixel coordinates (px, py)
         top_left = self.geometry.cell_to_top_left_pixel(self.cell)
         self.px = top_left[0]
         self.py = top_left[1]
 
-        # Initial State is Idle
         self.state = None
         self.change_state("idle", snapshot)
 
@@ -39,7 +36,6 @@ class PieceView:
         if not state_class:
             raise ValueError(f"Unknown animation state: {state_name}")
 
-        # Fetch cached assets (config dict and preloaded frames list) from AssetLoader
         assets = self.asset_loader.get_piece_assets(self.color, self.kind, state_name)
         
         old_state = self.state

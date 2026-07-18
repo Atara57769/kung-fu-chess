@@ -1,6 +1,5 @@
 import sys
 import pathlib
-# Add workspace root to path to resolve top-level imports
 sys.path.append(str(pathlib.Path(__file__).parent.parent.parent))
 
 import logging
@@ -27,7 +26,6 @@ def parse_board_file(filepath: str):
     with open(filepath, "r") as f:
         lines = [line.strip() for line in f if line.strip()]
     
-    # Filter out commands section if any
     board_lines = []
     for line in lines:
         if line.startswith("Board:"):
@@ -55,12 +53,10 @@ def main():
     else:
         board = TextBoardParser().parse(DEFAULT_BOARD_LAYOUT)
 
-    # 2. Initialize Game Engine models
     state = GameState(board=board)
     game_engine = GameEngine()
     controller = Controller(state, game_engine, sys.stdout)
 
-    # 3. Initialize UI elements
     if args.cell_size is not None:
         cell_size = args.cell_size
     else:
@@ -92,7 +88,6 @@ def main():
         right_padding=right_padding
     )
 
-    # 4. Instantiate and execute the Runner loop
     time_step_ms = TIME_STEP_MS
     runner = UIRunner(
         controller=controller,
