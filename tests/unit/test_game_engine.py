@@ -138,4 +138,13 @@ def test_game_engine_dependency_injection():
     engine.request_move(state, Cell(0, 0), Cell(0, 1))
     assert len(state.pending_moves) == 0
 
+def test_game_engine_snapshot():
+    board = TextBoardParser().parse(["wR .", ". ."])
+    state = GameState(board=board)
+    engine = GameEngine()
+    snap = engine.snapshot(state)
+    assert snap.clock == state.clock
+    assert snap.game_over == state.game_over
+
+
 

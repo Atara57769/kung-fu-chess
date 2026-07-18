@@ -107,3 +107,13 @@ def test_sync_pieces_lifecycle(mock_piece_view_cls):
         snapshot=mock_snapshot
     )
     assert len(manager.active_views) == 2
+
+def test_animation_manager_update():
+    manager = AnimationManager(geometry=MagicMock(), asset_loader=MagicMock())
+    mock_view = MagicMock()
+    manager.active_views = [mock_view]
+    
+    mock_snapshot = MagicMock(spec=GameSnapshot)
+    manager.update(0.1, mock_snapshot)
+    mock_view.update.assert_called_once_with(0.1, mock_snapshot)
+

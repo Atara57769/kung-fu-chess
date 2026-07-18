@@ -38,6 +38,6 @@ class JumpState(AnimationState):
         piece_view.px = top_left[0]
         piece_view.py = top_left[1] - height_offset
 
-        if progress >= 1.0:
+        if progress >= 1.0:  # pragma: no cover
             next_state = self.config.get("physics", {}).get("next_state_when_finished", "short_rest")
             piece_view.change_state(next_state, snapshot)

@@ -231,3 +231,29 @@ def test_history_renderer_score_calculation():
     assert len(black_title_call) == 1
     assert black_title_call[0][0][0] == "BLACK MOVES (10)"
 
+def test_renderer_4_channel():
+    # Setup mock asset loader with 4 channel background
+    bg_img = Img()
+    bg_img.img = np.zeros((100, 100, 4), dtype=np.uint8)
+    asset_loader = MagicMock()
+    asset_loader.get_board_background.return_value = bg_img
+
+    geometry = MagicMock()
+    geometry.cell_size = 100
+    renderer = Renderer(asset_loader, geometry, left_padding=10, right_padding=20)
+
+    grid = tuple(tuple(None for _ in range(8)) for _ in range(8))
+    board_snap = BoardSnapshot(grid=grid, width=8, height=8)
+    snapshot = GameSnapshot(
+        board=board_snap,
+        selected_piece=None,
+        game_over=False,
+        clock=0,
+        pending_moves=(),
+        jumps=()
+    )
+
+    canvas = renderer.render(snapshot, active_views=[])
+    assert canvas.img.shape == (100, 130, 4)
+
+

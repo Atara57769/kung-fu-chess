@@ -1,5 +1,10 @@
 import pytest
+import os
+import json
+import pathlib
+from unittest.mock import MagicMock
 from ui.assets.asset_loader import AssetLoader, PieceAsset
+from ui.rendering.img import Img
 
 def test_piece_asset_initialization():
     asset = PieceAsset(color="w", kind="P", state_name="idle", config={"key": "val"}, sprites=[])
@@ -12,6 +17,8 @@ def test_piece_asset_initialization():
 def test_asset_loader_pieces_initialization():
     loader = AssetLoader()
     assert loader.pieces == []
+    # Test default base_dir initialization
+    assert loader.base_dir == pathlib.Path(__file__).parent.parent
 
 def test_get_piece_assets():
     loader = AssetLoader()
@@ -30,3 +37,9 @@ def test_get_piece_assets():
     # Not found
     with pytest.raises(KeyError):
         loader.get_piece_assets("w", "P", "move")
+
+def test_get_board_background_not_loaded():
+    loader = AssetLoader()
+    with pytest.raises(ValueError):
+        loader.get_board_background()
+

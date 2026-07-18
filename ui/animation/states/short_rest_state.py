@@ -15,5 +15,8 @@ class ShortRestState(AnimationState):
             if p is not None and p.color == piece_view.color and p.kind == piece_view.kind:
                 piece_snap = p
                 
+        if piece_snap is None:
+            return
+
         if snapshot.clock >= piece_snap.cooldown_until:
             piece_view.change_state("idle", snapshot)
