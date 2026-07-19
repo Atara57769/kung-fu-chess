@@ -5,3 +5,4 @@ __pycache__/
 .coverage
 test_runner.py
 .idea
+*.db

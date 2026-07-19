@@ -20,6 +20,9 @@ from constants import DEFAULT_BOARD_LAYOUT, CELL_SIZE
 from ui.ui_config import LEFT_PADDING, RIGHT_PADDING, TIME_STEP_MS
 from core.events import EventBus
 from services.score_tracker import ScoreTracker
+from services.move_logger import MoveLogger
+from services.sound_manager import SoundManager
+
 
 
 logger = logging.getLogger(__name__)
@@ -58,6 +61,8 @@ def main():
 
     event_bus = EventBus()
     score_tracker = ScoreTracker(event_bus)
+    move_logger = MoveLogger(event_bus)
+    sound_manager = SoundManager(event_bus)
 
     state = GameState(board=board)
     game_engine = GameEngine(event_bus=event_bus)

@@ -36,4 +36,12 @@ PIECE_POINTS = {
     PieceType.ROOK: 5,
     PieceType.QUEEN: 9,
     PieceType.KING: 0
-}
+}
+
+# Network Server Configuration
+DEFAULT_HOST = "localhost"
+DEFAULT_PORT = 8765
+HEARTBEAT_INTERVAL = 5.0
+HEARTBEAT_TIMEOUT = 10.0
+DISCONNECT_COUNTDOWN = 20
+

@@ -66,5 +66,26 @@ MOVE_DEFAULT_DURATION = 1000
 # 8. Chess piece points for score calculations
 from constants import PIECE_POINTS
 
+# 9. UI Components Constants (BGR/BGRA)
+BTN_BG_COLOR = (55, 52, 48)
+BTN_HOVER_BG_COLOR = (120, 75, 20)  # Sleek indigo/blue
+BTN_BORDER_COLOR = (110, 105, 95)
+BTN_TEXT_COLOR = (240, 240, 240)
+BTN_FONT_SCALE = 0.5
+BTN_THICKNESS = 1
+
+LBL_TEXT_COLOR = (240, 240, 240)
+LBL_FONT_SCALE = 0.6
+LBL_THICKNESS = 1
+
+POPUP_OVERLAY_COLOR = (15, 14, 13, 180)  # Semi-transparent dark overlay (BGRA)
+POPUP_BG_COLOR = (36, 34, 31)
+POPUP_BORDER_COLOR = (110, 105, 95)
+POPUP_TITLE_COLOR = (240, 240, 240)
+POPUP_MSG_COLOR = (200, 200, 200)
+POPUP_FONT_SCALE = 0.6
+POPUP_THICKNESS = 2
+
+
 
 
