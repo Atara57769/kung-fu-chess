@@ -26,11 +26,8 @@ class Board:
         grid_piece = self.grid[source_y][source_x]
         match = (grid_piece is piece)
 
-        if not match:
-            piece.cell = to_pos
-            self.grid[to_pos.y][to_pos.x] = piece
-        else:
-            piece.cell = to_pos
-            self.grid[to_pos.y][to_pos.x] = piece
+        piece.cell = to_pos
+        self.grid[to_pos.y][to_pos.x] = piece
+        if match:
             if (source_y, source_x) != (to_pos.y, to_pos.x):
                 self.grid[source_y][source_x] = None

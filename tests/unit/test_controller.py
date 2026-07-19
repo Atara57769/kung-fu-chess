@@ -271,11 +271,11 @@ def test_controller_click_moving_friendly_piece():
     assert state.pending_moves[1].from_pos == Cell(0, 0)
     assert state.pending_moves[1].to_pos == Cell(0, 1)
 
-def test_controller_update_and_snapshot():
+def test_controller_wait_and_snapshot():
     board = TextBoardParser().parse(["wP .", ". ."])
     controller, state = create_controller(board)
     assert state.clock == 0
-    controller.update(100)
+    controller.wait(100)
     assert state.clock == 100
     
     snap = controller.get_snapshot()

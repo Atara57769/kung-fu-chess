@@ -19,10 +19,6 @@ class Controller:
         self.game_engine = game_engine
         self.stdout = stdout
 
-    def update(self, dt: int) -> None:
-        """Advances the game clock and updates logic."""
-        self.wait(dt)
-
     def get_snapshot(self) -> GameSnapshot:
         """Returns a snapshot of the current game state."""
         return self.game_engine.snapshot(self.state)

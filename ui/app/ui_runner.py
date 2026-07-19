@@ -37,7 +37,7 @@ class UIRunner:
 
             self.window.display(canvas, self.time_step_ms)
 
-            self.controller.update(self.time_step_ms)
+            self.controller.wait(self.time_step_ms)
 
             import cv2
             try:
