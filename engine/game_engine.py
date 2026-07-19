@@ -18,12 +18,16 @@ logger = logging.getLogger(__name__)
 class GameEngine:
     """Stateless engine that operates exclusively on GameState."""
 
-    def __init__(self, rule_engine=None, collision_service=None, real_time_arbiter=None, jump_service=None, move_scheduler=None):
+    def __init__(self, rule_engine=None, collision_service=None, real_time_arbiter=None, jump_service=None, move_scheduler=None, event_bus=None):
         self.rule_engine = rule_engine or RuleEngine()
         self.collision_service = collision_service or CollisionService()
-        self.real_time_arbiter = real_time_arbiter or RealTimeArbiter()
+        self.real_time_arbiter = real_time_arbiter or RealTimeArbiter(event_bus=event_bus)
         self.jump_service = jump_service or JumpService()
         self.move_scheduler = move_scheduler or MoveScheduler()
+        self.event_bus = event_bus
+        if real_time_arbiter is not None and event_bus is not None:
+            self.real_time_arbiter.event_bus = event_bus
+
 
     def snapshot(self, state: GameState) -> GameSnapshot:
         """Creates and returns a read-only snapshot of the game state."""

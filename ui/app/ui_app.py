@@ -18,6 +18,9 @@ from ui.app.ui_runner import UIRunner
 from ui.history.history_tracker import UIHistoryTracker
 from constants import DEFAULT_BOARD_LAYOUT, CELL_SIZE
 from ui.ui_config import LEFT_PADDING, RIGHT_PADDING, TIME_STEP_MS
+from core.events import EventBus
+from services.score_tracker import ScoreTracker
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +56,12 @@ def main():
     else:
         board = TextBoardParser().parse(DEFAULT_BOARD_LAYOUT)
 
+    event_bus = EventBus()
+    score_tracker = ScoreTracker(event_bus)
+
     state = GameState(board=board)
-    game_engine = GameEngine()
-    controller = Controller(state, game_engine, sys.stdout)
+    game_engine = GameEngine(event_bus=event_bus)
+    controller = Controller(state, game_engine, sys.stdout, event_bus=event_bus)
 
     if args.cell_size is not None:
         cell_size = args.cell_size
@@ -85,7 +91,8 @@ def main():
         geometry, 
         history_tracker=history_tracker, 
         left_padding=left_padding, 
-        right_padding=right_padding
+        right_padding=right_padding,
+        score_tracker=score_tracker
     )
 
     time_step_ms = TIME_STEP_MS

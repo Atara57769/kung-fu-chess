@@ -27,3 +27,13 @@ DEFAULT_BOARD_LAYOUT = [
     "wP wP wP wP wP wP wP wP",
     "wR wN wB wQ wK wB wN wR"
 ]
+
+from models.piece_type import PieceType
+PIECE_POINTS = {
+    PieceType.PAWN: 1,
+    PieceType.KNIGHT: 3,
+    PieceType.BISHOP: 3,
+    PieceType.ROOK: 5,
+    PieceType.QUEEN: 9,
+    PieceType.KING: 0
+}

@@ -12,13 +12,13 @@ from ui.ui_config import (
 )
 
 class Renderer:
-    def __init__(self, asset_loader, geometry: BoardGeometry, history_tracker=None, left_padding: int = 0, right_padding: int = 0):
+    def __init__(self, asset_loader, geometry: BoardGeometry, history_tracker=None, left_padding: int = 0, right_padding: int = 0, score_tracker=None):
         self.asset_loader = asset_loader
         self.geometry = geometry
         self.history_tracker = history_tracker
         self.left_padding = left_padding
         self.right_padding = right_padding
-        self.history_renderer = HistoryRenderer(history_tracker, left_padding, right_padding)
+        self.history_renderer = HistoryRenderer(history_tracker, left_padding, right_padding, score_tracker)
 
     def _get_scale_ratio(self) -> float:
         return self.geometry.cell_size / CELL_SIZE

@@ -149,9 +149,10 @@ def test_game_over_service():
     board = TextBoardParser().parse(["wK bN", ". ."])
     state = GameState(board=board)
 
-    assert check_game_over(state, Cell(0, 0)) is True
-    assert check_game_over(state, Cell(0, 1)) is False
-    assert check_game_over(state, Cell(1, 0)) is False
+    from models.color import Color
+    assert check_game_over(state, Cell(0, 0)) == Color.BLACK
+    assert check_game_over(state, Cell(0, 1)) is None
+    assert check_game_over(state, Cell(1, 0)) is None
 
 def test_execute_move_captured():
     board = TextBoardParser().parse(["wP .", ". ."])

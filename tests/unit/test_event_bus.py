@@ -1,4 +1,5 @@
 import pytest
+from models.cell import Cell
 from core.events import (
     EventBus,
     PieceMoved,
@@ -13,12 +14,12 @@ def test_event_bus_subscribe_and_publish():
     calls = []
 
     def on_piece_moved(event: PieceMoved):
-        calls.append(event.move)
+        calls.append((event.from_pos, event.to_pos))
 
     bus.subscribe(PieceMoved, on_piece_moved)
-    bus.publish(PieceMoved(move="e2e4"))
+    bus.publish(PieceMoved(from_pos=Cell(1, 1), to_pos=Cell(3, 3)))
 
-    assert calls == ["e2e4"]
+    assert calls == [(Cell(1, 1), Cell(3, 3))]
 
 
 def test_event_bus_multiple_subscribers():
@@ -29,7 +30,7 @@ def test_event_bus_multiple_subscribers():
     bus.subscribe(GameStarted, lambda e: calls_a.append(True))
     bus.subscribe(GameStarted, lambda e: calls_b.append(True))
 
-    bus.publish(GameStarted())
+    bus.publish(GameStarted(initial_pieces=[]))
 
     assert len(calls_a) == 1
     assert len(calls_b) == 1
@@ -81,7 +82,7 @@ def test_event_bus_event_isolation():
     bus.subscribe(PieceCaptured, lambda e: captured_calls.append(e))
     bus.subscribe(PieceMoved, lambda e: moved_calls.append(e))
 
-    bus.publish(PieceMoved(move="d2d4"))
+    bus.publish(PieceMoved(from_pos=Cell(1, 1), to_pos=Cell(3, 3)))
 
     assert len(moved_calls) == 1
     assert len(captured_calls) == 0
@@ -92,11 +93,11 @@ def test_event_bus_unsubscribe_during_publish():
     calls = []
 
     def callback(event: PieceMoved):
-        calls.append(event.move)
+        calls.append((event.from_pos, event.to_pos))
         bus.unsubscribe(PieceMoved, callback)
 
     bus.subscribe(PieceMoved, callback)
-    bus.publish(PieceMoved(move="e2e4"))
-    bus.publish(PieceMoved(move="e7e5"))
+    bus.publish(PieceMoved(from_pos=Cell(1, 1), to_pos=Cell(3, 3)))
+    bus.publish(PieceMoved(from_pos=Cell(2, 2), to_pos=Cell(4, 4)))
 
-    assert calls == ["e2e4"]
+    assert calls == [(Cell(1, 1), Cell(3, 3))]
