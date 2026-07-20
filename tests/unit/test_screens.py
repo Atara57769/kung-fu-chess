@@ -3,7 +3,6 @@ from ui.screens.screen_manager import ScreenManager
 from ui.screens.base_screen import Screen
 from ui.components.button import Button
 from ui.components.label import Label
-from ui.components.popup import Popup
 
 class DummyScreen(Screen):
     def __init__(self) -> None:
@@ -64,36 +63,3 @@ def test_button_hover_updates():
     
     btn.update_hover(150, 30)
     assert btn.is_hovered is False
-
-def test_popup_interception():
-    """Verify Popup overlays block background interaction and execute button callbacks."""
-    btn_clicked = False
-    def on_btn():
-        nonlocal btn_clicked
-        btn_clicked = True
-
-    popup = Popup("Test Title", "Test Msg", [("Btn", on_btn)])
-    popup._initialize_layout(800, 600)
-    popup.show()
-    
-    assert popup.visible is True
-    
-    # Clicks on popup area should be intercepted
-    # Central popup dimensions: w=400, h=220. Center is (400, 300)
-    # The box is from x=200, y=190 to x=600, y=410
-    # Button is positioned at the bottom of the box
-    # Let's find button coords:
-    btn = popup.buttons[0]
-    
-    # Clicking outside buttons but inside blocking overlay
-    res = popup.handle_click(10, 10)
-    assert res is True  # Intercepted
-    assert btn_clicked is False
-    
-    # Clicking on the popup button itself
-    res = popup.handle_click(btn.x + 5, btn.y + 5)
-    assert res is True  # Intercepted and handled
-    assert btn_clicked is True
-    
-    popup.hide()
-    assert popup.visible is False

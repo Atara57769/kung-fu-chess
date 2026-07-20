@@ -64,7 +64,6 @@ async def run_resign_countdown(
             await asyncio.sleep(1.0)
             room.countdown_seconds -= 1
 
-        # Timer expired -> Auto-resign disconnected player
         winner_color = "black" if room.white_player == disconnected else "white"
         logger.info(f"Countdown expired in Room {room.room_id}. Disconnected player {disconnected.username} resigned.")
         await end_game_fn(room, winner_color)

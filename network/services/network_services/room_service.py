@@ -12,12 +12,18 @@ async def create_custom_room(
     rooms: Dict[str, GameRoom],
     pubsub,
     send_json_fn,
-    broadcast_room_state_fn
+    broadcast_room_state_fn,
+    room_id: Optional[str] = None
 ) -> None:
     """Creates custom lobby and seats creator as White."""
-    room_id = str(random.randint(1000, 9999))
-    while room_id in rooms:
+    if not room_id:
         room_id = str(random.randint(1000, 9999))
+        while room_id in rooms:
+            room_id = str(random.randint(1000, 9999))
+    else:
+        if room_id in rooms:
+            await send_json_fn(player.ws, {"type": "error", "message": "Room already exists."})
+            return
 
     room = GameRoom(room_id)
     room.white_player = player

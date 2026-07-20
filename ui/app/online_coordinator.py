@@ -21,8 +21,8 @@ class OnlineCoordinator:
         self.animation_manager = animation_manager
         self.logger = logging.getLogger(__name__)
 
-    def setup_screens(self) -> None:
-        """Sets up screen objects and maps local UI buttons to client network calls."""
+    def _create_online_home_screen(self) -> HomeScreen:
+        """Helper to construct HomeScreen with online match and custom room callbacks."""
         cell_size = self.geometry.cell_size
         total_w = cell_size * 8 + LEFT_PADDING + RIGHT_PADDING
         total_h = cell_size * 8
@@ -37,26 +37,22 @@ class OnlineCoordinator:
             self.client.leave_matchmaking()
             self.screen_manager.switch_to(home)
             
-        def trigger_create_room():
-            home.popup.hide()
-            self.client.create_room()
+        def trigger_create_room(room_id: str):
+            self.client.create_room(room_id if room_id else None)
             
-        def trigger_join_room():
-            home.popup.hide()
-            print("\n=== JOIN ROOM ===")
-            room_id = input("Enter Room ID: ").strip()
+        def trigger_join_room(room_id: str):
             if room_id:
                 self.client.join_room(room_id)
-                
+
         home = HomeScreen(self.screen_manager, total_w, total_h, self.client.username, self.client.rating)
         home.buttons[0].callback = trigger_quick_match
-        home.popup.buttons_info = [
-            ("Create Room", trigger_create_room),
-            ("Join Room", trigger_join_room),
-            ("Cancel", home._on_close_popup)
-        ]
-        home.popup.initialized_position = False
-        
+        home.custom_room_create_callback = trigger_create_room
+        home.custom_room_join_callback = trigger_join_room
+        return home
+
+    def setup_screens(self) -> None:
+        """Sets up screen objects and maps local UI buttons to client network calls."""
+        home = self._create_online_home_screen()
         self.screen_manager.switch_to(home)
 
     def check_network_transitions(self) -> None:
@@ -67,6 +63,7 @@ class OnlineCoordinator:
             
         state = self.client.room_state
         curr_screen = self.screen_manager.active_screen
+        
         cell_size = self.geometry.cell_size
         total_w = cell_size * 8 + LEFT_PADDING + RIGHT_PADDING
         total_h = cell_size * 8
@@ -74,7 +71,7 @@ class OnlineCoordinator:
         if state is None:
             # Check if we were in lobby and need to return home
             if not isinstance(curr_screen, HomeScreen) and not isinstance(curr_screen, WaitingScreen) and not isinstance(curr_screen, OnlineGameScreen):
-                home = HomeScreen(self.screen_manager, total_w, total_h, self.client.username, self.client.rating)
+                home = self._create_online_home_screen()
                 self.screen_manager.switch_to(home)
             return
             
@@ -83,7 +80,7 @@ class OnlineCoordinator:
         
         if room_id is None:
             if not isinstance(curr_screen, HomeScreen) and not isinstance(curr_screen, WaitingScreen):
-                home = HomeScreen(self.screen_manager, total_w, total_h, self.client.username, self.client.rating)
+                home = self._create_online_home_screen()
                 self.screen_manager.switch_to(home)
         elif status == "waiting":
             if not isinstance(curr_screen, RoomScreen):

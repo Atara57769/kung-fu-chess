@@ -62,7 +62,8 @@ class GameServer:
         elif msg_type == "leave_matchmaking":
             await matchmaking_service.remove_from_matchmaking(player, self.matchmaking_queue, self._send_json)
         elif msg_type == "create_room":
-            await room_service.create_custom_room(player, self.rooms, self.pubsub, self._send_json, self.broadcast_room_state)
+            custom_id = data.get("room_id")
+            await room_service.create_custom_room(player, self.rooms, self.pubsub, self._send_json, self.broadcast_room_state, custom_id)
         elif msg_type == "join_room":
             await room_service.join_custom_room(
                 player, data.get("room_id", ""), self.rooms, self.pubsub, self._send_json,

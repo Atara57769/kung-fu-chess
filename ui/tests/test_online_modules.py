@@ -27,8 +27,8 @@ class DummyClient:
     def leave_matchmaking(self):
         self.calls.append('leave_matchmaking')
 
-    def create_room(self):
-        self.calls.append('create_room')
+    def create_room(self, room_id=None):
+        self.calls.append(('create_room', room_id) if room_id else 'create_room')
 
     def join_room(self, room_id):
         self.calls.append(('join_room', room_id))
@@ -100,16 +100,23 @@ def test_online_coordinator_setup():
     cancel_btn_callback()
     assert 'leave_matchmaking' in client.calls
     
-    # Test create room trigger
-    create_room_callback = initial_screen.popup.buttons_info[0][1]
-    create_room_callback()
-    assert 'create_room' in client.calls
-
-    # Test join room trigger
-    join_room_callback = initial_screen.popup.buttons_info[1][1]
-    with patch('builtins.input', return_value="room123"):
-        join_room_callback()
-    assert ('join_room', 'room123') in client.calls
+    # Test custom room flow by patching RoomDialog
+    with patch('ui.components.room_dialog.RoomDialog') as MockRoomDialog:
+        # Mock Create Room flow
+        mock_dialog = MagicMock()
+        mock_dialog.result_action = "create"
+        mock_dialog.room_name = "room123"
+        MockRoomDialog.return_value = mock_dialog
+        
+        initial_screen.buttons[1].callback()  # _on_custom_room_click
+        assert ('create_room', 'room123') in client.calls
+        
+        # Mock Join Room flow
+        mock_dialog.result_action = "join"
+        mock_dialog.room_name = "room123"
+        
+        initial_screen.buttons[1].callback()  # _on_custom_room_click
+        assert ('join_room', 'room123') in client.calls
 
 def test_online_coordinator_transitions():
     client = DummyClient()

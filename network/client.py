@@ -126,7 +126,6 @@ class GameClient:
             self.countdown_message = data.get("message")
         elif msg_type == "game_over":
             self.game_over_result = data
-            # Sync ELO rating updates if provided in payload
             if self.your_color == Color.WHITE and data.get("white_rating_change"):
                 self._update_elo_from_change(data["white_rating_change"])
             elif self.your_color == Color.BLACK and data.get("black_rating_change"):
@@ -170,8 +169,11 @@ class GameClient:
     def leave_matchmaking(self) -> None:
         self._send_json({"type": "leave_matchmaking"})
 
-    def create_room(self) -> None:
-        self._send_json({"type": "create_room"})
+    def create_room(self, room_id: Optional[str] = None) -> None:
+        payload = {"type": "create_room"}
+        if room_id:
+            payload["room_id"] = room_id
+        self._send_json(payload)
 
     def join_room(self, room_id: str) -> None:
         self._send_json({"type": "join_room", "room_id": room_id})

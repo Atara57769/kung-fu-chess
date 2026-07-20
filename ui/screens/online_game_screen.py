@@ -26,7 +26,6 @@ class OnlineGameScreen(Screen):
     def handle_click(self, x: int, y: int, is_right: bool = False) -> None:
         """Translates mouse coordinates to cells and requests click/jump from the server."""
         if self.client.game_over_result is not None:
-            # After game resolution, click anywhere to exit lobby back to Home Screen
             self._exit_to_home()
             return
             
@@ -40,10 +39,8 @@ class OnlineGameScreen(Screen):
 
         cell_str = cell_to_algebraic(cell, snapshot.board.height)
         if is_right:
-            # Request jump
             self.client.send_jump(cell_str)
         else:
-            # Request click
             self.client.send_click(cell_str)
 
     def _exit_to_home(self) -> None:
@@ -70,7 +67,6 @@ class OnlineGameScreen(Screen):
         """Draws disconnect countdown text if the opponent dropped connection."""
         if self.client.countdown_seconds > 0:
             msg = self.client.countdown_message or f"Opponent disconnected. Autoresign in {self.client.countdown_seconds}s"
-            # Draw semi-transparent background block at the top
             cv2.rectangle(canvas.img, (0, 0), (width, 50), (0, 0, 100), thickness=-1)
             canvas.put_text(msg, 20, 32, font_size=0.55, color=(0, 255, 255), thickness=2)
 
@@ -78,7 +74,6 @@ class OnlineGameScreen(Screen):
         """Draws ELO result banner on game completion."""
         result = self.client.game_over_result
         if result is not None:
-            # Centered modal banner
             banner_h = 160
             by = (height - banner_h) // 2
             cv2.rectangle(canvas.img, (0, by), (width, by + banner_h), (25, 22, 20), thickness=-1)
@@ -101,18 +96,15 @@ class OnlineGameScreen(Screen):
         """Overrides selection and renders server-snapshot on screen canvas."""
         snapshot = self.client.current_snapshot
         if snapshot is None:
-            # Draw empty/waiting background
             if canvas.img is None:
                 canvas.img = np.zeros((self.geometry.cell_size * 8, self.geometry.cell_size * 8 + 500, 3), dtype=np.uint8)
             canvas.img[:] = BG_COLOR_BGR
             canvas.put_text("Waiting for server state...", 100, 100, 0.6, (200, 200, 200), 2)
             return
 
-        # Draw board & pieces
         rendered_canvas = self.renderer.render(snapshot, self.animation_manager.active_views)
         canvas.img = rendered_canvas.img
         
-        # Draw online specific overlays
         h, w = canvas.img.shape[:2]
         self._draw_disconnect_countdown(canvas, w, h)
         self._draw_game_over_banner(canvas, w, h)

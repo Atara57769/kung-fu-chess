@@ -4,7 +4,6 @@ from ui.rendering.img import Img
 from ui.screens.base_screen import Screen
 from ui.components.button import Button
 from ui.components.label import Label
-from ui.components.popup import Popup
 from ui.ui_config import BG_COLOR_BGR
 
 class HomeScreen(Screen):
@@ -17,14 +16,13 @@ class HomeScreen(Screen):
         self.username = username
         self.rating = rating
         
-        self.popup = None
         self.buttons: list[Button] = []
         self.labels: list[Label] = []
         
         self._setup_components()
 
     def _setup_components(self) -> None:
-        """Initializes the labels, buttons and popup dialogs on the home screen."""
+        """Initializes the labels and buttons on the home screen."""
         cx = self.width // 2
         
         # Labels
@@ -34,14 +32,6 @@ class HomeScreen(Screen):
         # Buttons
         self.buttons.append(Button(cx - 130, 200, 260, 45, "Quick Match", self._on_quick_match))
         self.buttons.append(Button(cx - 130, 260, 260, 45, "Custom Room", self._on_custom_room_click))
-        
-        # Popup for room actions
-        popup_buttons = [
-            ("Create Room", self._on_create_room),
-            ("Join Room", self._on_join_room),
-            ("Cancel", self._on_close_popup)
-        ]
-        self.popup = Popup("Custom Rooms", "Select an option below to proceed:", popup_buttons)
 
     def _on_quick_match(self) -> None:
         """Triggers matchmaking and transitions to the waiting screen."""
@@ -50,35 +40,37 @@ class HomeScreen(Screen):
         self.screen_manager.switch_to(waiting_screen)
 
     def _on_custom_room_click(self) -> None:
-        """Opens the room option popup modal."""
-        self.popup.show()
+        """Opens the native Tkinter room option popup modal."""
+        from ui.components.room_dialog import RoomDialog
+        dialog = RoomDialog()
+        
+        if dialog.result_action == "create":
+            if hasattr(self, "custom_room_create_callback"):
+                self.custom_room_create_callback(dialog.room_name)
+            else:
+                self._offline_create_room(dialog.room_name)
+        elif dialog.result_action == "join":
+            if hasattr(self, "custom_room_join_callback"):
+                self.custom_room_join_callback(dialog.room_name)
+            else:
+                self._offline_join_room(dialog.room_name)
 
-    def _on_create_room(self) -> None:
-        """Simulates room creation and transitions to RoomScreen."""
-        self.popup.hide()
+    def _offline_create_room(self, room_id: str) -> None:
+        room_id = room_id or "9999"
         from ui.screens.room_screen import RoomScreen
         room_screen = RoomScreen(
             self.screen_manager, 
             self.width, 
             self.height, 
-            room_id="9999", 
+            room_id=room_id, 
             is_creator=True,
             white_player=self.username
         )
         self.screen_manager.switch_to(room_screen)
 
-    def _on_join_room(self) -> None:
-        """Prompts for room ID in terminal and transitions to RoomScreen."""
-        self.popup.hide()
-        # Non-blocking simple console prompt for room joining in Phase 2
-        print("\n=== JOIN ROOM ===")
-        try:
-            room_id = input("Enter Room ID: ").strip()
-            if not room_id:
-                room_id = "0000"
-        except Exception:
+    def _offline_join_room(self, room_id: str) -> None:
+        if not room_id:
             room_id = "0000"
-            
         from ui.screens.room_screen import RoomScreen
         room_screen = RoomScreen(
             self.screen_manager, 
@@ -91,31 +83,18 @@ class HomeScreen(Screen):
         )
         self.screen_manager.switch_to(room_screen)
 
-    def _on_close_popup(self) -> None:
-        """Closes the active popup modal."""
-        self.popup.hide()
-
     def handle_click(self, x: int, y: int, is_right: bool = False) -> None:
-        """Directs mouse clicks to buttons or the open popup."""
-        if self.popup.visible:
-            self.popup.handle_click(x, y)
-            return
-            
+        """Directs mouse clicks to buttons."""
         for btn in self.buttons:
             btn.handle_click(x, y)
 
     def handle_mouse_move(self, x: int, y: int) -> None:
         """Directs cursor coordinates to components for hover effects."""
-        if self.popup.visible:
-            self.popup.update_hover(x, y)
-            return
-            
         for btn in self.buttons:
             btn.update_hover(x, y)
 
     def _draw_gradient_background(self, canvas: Img) -> None:
         """Fills canvas with a sleek dark radial-like vertical gradient."""
-        # Base colors (dark grey/blue to dark grey/purple)
         c1 = np.array([25, 23, 21], dtype=np.float32)
         c2 = np.array([12, 10, 8], dtype=np.float32)
         
@@ -125,7 +104,7 @@ class HomeScreen(Screen):
             canvas.img[y, :] = color.astype(np.uint8)
 
     def render(self, canvas: Img) -> None:
-        """Renders the premium background, labels, buttons and popups."""
+        """Renders the premium background, labels, and buttons."""
         if canvas.img is None:
             canvas.img = np.zeros((self.height, self.width, 3), dtype=np.uint8)
             
@@ -136,5 +115,3 @@ class HomeScreen(Screen):
             
         for btn in self.buttons:
             btn.render(canvas)
-            
-        self.popup.render(canvas)
