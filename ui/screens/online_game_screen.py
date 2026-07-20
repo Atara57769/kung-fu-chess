@@ -11,12 +11,13 @@ from network.protocol import cell_to_algebraic, move_to_algebraic
 class OnlineGameScreen(Screen):
     """Presents the active online game board, handles local selections, and replicates server snapshots."""
     
-    def __init__(self, screen_manager, client, geometry, renderer, animation_manager) -> None:
+    def __init__(self, screen_manager, client, geometry, renderer, animation_manager, history_tracker=None) -> None:
         self.screen_manager = screen_manager
         self.client = client
         self.geometry = geometry
         self.renderer = renderer
         self.animation_manager = animation_manager
+        self.history_tracker = history_tracker or getattr(renderer, "history_tracker", None)
 
     def _get_cell_from_coordinates(self, x: int, y: int) -> any:
         """Translates pixel coordinates to board cell taking left padding into account."""
@@ -59,6 +60,9 @@ class OnlineGameScreen(Screen):
         snapshot = self.client.current_snapshot
         if snapshot is None:
             return
+            
+        if self.history_tracker is not None:
+            self.history_tracker.update(snapshot)
             
         self.animation_manager.sync_pieces(snapshot)
         self.animation_manager.update(dt, snapshot)

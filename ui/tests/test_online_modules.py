@@ -199,3 +199,31 @@ def test_online_runner_loop(mock_get_window, mock_set_mouse, mock_named_win):
     # Verify mouse callback registration
     mock_named_win.assert_called_once_with("Image")
     mock_set_mouse.assert_called_once_with("Image", runner._on_mouse_event)
+
+def test_online_game_screen_history_tracker_update():
+    from ui.screens.online_game_screen import OnlineGameScreen
+    screen_manager = MagicMock()
+    client = MagicMock()
+    # Mock snapshot
+    snapshot = MagicMock()
+    client.current_snapshot = snapshot
+    
+    geometry = MagicMock()
+    renderer = MagicMock()
+    # Setup history tracker on mock renderer
+    mock_history_tracker = MagicMock()
+    renderer.history_tracker = mock_history_tracker
+    animation_manager = MagicMock()
+    
+    # Initialize game screen
+    game_screen = OnlineGameScreen(
+        screen_manager, client, geometry, renderer, animation_manager
+    )
+    
+    assert game_screen.history_tracker == mock_history_tracker
+    
+    # Update game screen
+    game_screen.update(0.016)
+    
+    # Verify history tracker is updated with current snapshot
+    mock_history_tracker.update.assert_called_once_with(snapshot)

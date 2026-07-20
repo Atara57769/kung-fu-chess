@@ -190,3 +190,53 @@ def test_history_tracker_promotion():
     assert record['color'] == 'w'
     assert record['kind'] == 'P'
     assert record['to_pos'] == Cell(0, 4)
+
+def test_history_tracker_capture_detection():
+    tracker = UIHistoryTracker()
+    
+    # 1. Previous board has black pawn at (5, 2)
+    grid = [[None for _ in range(8)] for _ in range(8)]
+    grid[5][2] = PieceSnapshot(color='b', kind='P', cell=Cell(5, 2))
+    board_snap = BoardSnapshot(grid=tuple(tuple(r) for r in grid), width=8, height=8)
+    
+    piece_snap = PieceSnapshot(color='w', kind='N', cell=Cell(7, 1))
+    move_snap = PendingMoveSnapshot(
+        from_pos=Cell(7, 1),
+        to_pos=Cell(5, 2),
+        piece=piece_snap,
+        arrival=1000,
+        is_captured=False,
+        path=(Cell(7, 1), Cell(5, 2))
+    )
+    
+    snapshot = GameSnapshot(
+        board=board_snap,
+        selected_piece=None,
+        game_over=False,
+        clock=500,
+        pending_moves=(move_snap,),
+        jumps=()
+    )
+    
+    tracker.update(snapshot)
+    
+    # 2. Complete the move - white knight is at target, replacing the black pawn
+    grid_after = [[None for _ in range(8)] for _ in range(8)]
+    grid_after[5][2] = PieceSnapshot(color='w', kind='N', cell=Cell(5, 2))
+    board_snap_after = BoardSnapshot(grid=tuple(tuple(r) for r in grid_after), width=8, height=8)
+    
+    snapshot_after = GameSnapshot(
+        board=board_snap_after,
+        selected_piece=None,
+        game_over=False,
+        clock=1000,
+        pending_moves=(),
+        jumps=()
+    )
+    
+    tracker.update(snapshot_after)
+    
+    # Verify capture is detected
+    assert len(tracker.history) == 1
+    record = tracker.history[0]
+    assert record['is_capture'] is True

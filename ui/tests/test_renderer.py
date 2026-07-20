@@ -222,14 +222,14 @@ def test_history_renderer_score_calculation():
     # Black score should be: R (5) + R (5) = 10
     
     calls = canvas.put_text.call_args_list
-    white_title_call = [c for c in calls if "WHITE MOVES" in c[0][0]]
-    black_title_call = [c for c in calls if "BLACK MOVES" in c[0][0]]
+    white_title_call = [c for c in calls if "White (" in c[0][0]]
+    black_title_call = [c for c in calls if "Black (" in c[0][0]]
     
     assert len(white_title_call) == 1
-    assert white_title_call[0][0][0] == "WHITE MOVES (10)"
+    assert white_title_call[0][0][0] == "White (10)"
     
     assert len(black_title_call) == 1
-    assert black_title_call[0][0][0] == "BLACK MOVES (10)"
+    assert black_title_call[0][0][0] == "Black (10)"
 
 def test_renderer_4_channel():
     # Setup mock asset loader with 4 channel background

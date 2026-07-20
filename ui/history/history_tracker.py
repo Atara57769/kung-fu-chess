@@ -5,6 +5,7 @@ class UIHistoryTracker:
     def __init__(self):
         self.history = []
         self.tracked_moves = {}
+        self.prev_grid = None
 
     def update(self, snapshot: GameSnapshot) -> None:
         current_keys = set()
@@ -36,11 +37,21 @@ class UIHistoryTracker:
                         success = True
             
             if success:
+                is_capture = False
+                if self.prev_grid is not None and 0 <= to_y < len(self.prev_grid) and 0 <= to_x < len(self.prev_grid[0]):
+                    prev_piece = self.prev_grid[to_y][to_x]
+                    if prev_piece is not None and prev_piece.color != move.piece.color:
+                        is_capture = True
+                
                 self.history.append({
                     "time": move.arrival,
                     "color": move.piece.color,
                     "kind": move.piece.kind,
-                    "to_pos": move.to_pos
+                    "from_pos": move.from_pos,
+                    "to_pos": move.to_pos,
+                    "is_capture": is_capture
                 })
             
             del self.tracked_moves[key]
+
+        self.prev_grid = snapshot.board.grid

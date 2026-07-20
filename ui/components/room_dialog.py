@@ -7,13 +7,11 @@ class RoomDialog:
         self.result_action = None  # 'create', 'join', or None
         self.room_name = ""
         
-        # Initialize root window directly
         self.root = tk.Tk()
         self.root.title(parent_title)
         self.root.geometry("300x125")
         self.root.resizable(False, False)
         
-        # Center the window on the screen
         self.root.update_idletasks()
         w = self.root.winfo_width()
         h = self.root.winfo_height()
@@ -21,23 +19,18 @@ class RoomDialog:
         y = (self.root.winfo_screenheight() - h) // 2
         self.root.geometry(f"+{x}+{y}")
         
-        # Ensure dialog sits on top of other windows
         self.root.attributes("-topmost", True)
         
-        # Room Name label
         self.label = tk.Label(self.root, text="room name")
         self.label.pack(anchor="w", padx=15, pady=(10, 2))
         
-        # Room Name entry field
         self.entry = tk.Entry(self.root, width=35)
         self.entry.pack(fill="x", padx=15, pady=(0, 10))
         self.entry.focus_set()
         
-        # Button frame container
         self.btn_frame = tk.Frame(self.root)
         self.btn_frame.pack(fill="x", padx=15, pady=5)
         
-        # Actions: Create, Join, Cancel
         self.btn_create = tk.Button(self.btn_frame, text="Create", width=8, command=self._on_create)
         self.btn_create.pack(side="left", padx=(0, 5))
         
@@ -47,12 +40,10 @@ class RoomDialog:
         self.btn_cancel = tk.Button(self.btn_frame, text="Cancel", width=8, command=self._on_cancel)
         self.btn_cancel.pack(side="right", padx=(5, 0))
         
-        # Event bindings
         self.root.bind("<Return>", lambda event: self._on_join())
         self.root.bind("<Escape>", lambda event: self._on_cancel())
         self.root.protocol("WM_DELETE_WINDOW", self._on_cancel)
         
-        # Run main loop until destroyed
         self.root.mainloop()
         
     def _on_create(self) -> None:
