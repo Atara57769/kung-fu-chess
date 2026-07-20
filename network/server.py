@@ -28,6 +28,17 @@ class GameServer:
         self.rooms: Dict[str, GameRoom] = {}
         self.matchmaking_queue: List[ConnectedPlayer] = []
         self.pubsub = PubSub()
+        self.message_handlers = {
+            "matchmaking": self._handle_matchmaking,
+            "leave_matchmaking": self._handle_leave_matchmaking,
+            "create_room": self._handle_create_room,
+            "join_room": self._handle_join_room,
+            "click": self._handle_click,
+            "jump": self._handle_jump,
+            "leave_room": self._handle_leave_room,
+            "get_snapshot": self._handle_get_snapshot,
+            "heartbeat": self._handle_heartbeat,
+        }
 
     async def start(self) -> None:
         """Starts the WebSocket server listening loop."""
@@ -56,31 +67,45 @@ class GameServer:
             await self._handle_authenticated_message(player, msg_type, data)
 
     async def _handle_authenticated_message(self, player: ConnectedPlayer, msg_type: str, data: dict) -> None:
-        """Dispatches authenticated client message command to its matching service."""
-        if msg_type == "matchmaking":
-            await matchmaking_service.add_to_matchmaking(player, self.matchmaking_queue, self._send_json, self._start_matched_game)
-        elif msg_type == "leave_matchmaking":
-            await matchmaking_service.remove_from_matchmaking(player, self.matchmaking_queue, self._send_json)
-        elif msg_type == "create_room":
-            custom_id = data.get("room_id")
-            await room_service.create_custom_room(player, self.rooms, self.pubsub, self._send_json, self.broadcast_room_state, custom_id)
-        elif msg_type == "join_room":
-            await room_service.join_custom_room(
-                player, data.get("room_id", ""), self.rooms, self.pubsub, self._send_json,
-                self.broadcast_room_state, self._start_game_session, self.send_snapshot_to
-            )
-        elif msg_type == "click":
-            await game_session_service.process_game_click(player, data.get("data", ""), self.rooms, self.broadcast_snapshot)
-        elif msg_type == "jump":
-            await game_session_service.process_game_jump(player, data.get("data", ""), self.rooms, self.broadcast_snapshot)
-        elif msg_type == "leave_room":
-            await room_service.handle_leave_room(player, self.rooms, self.pubsub, self._send_json, self.broadcast_room_state)
-        elif msg_type == "get_snapshot":
-            room = self.rooms.get(player.room_id) if player.room_id else None
-            if room:
-                await self.send_snapshot_to(player, room)
-        elif msg_type == "heartbeat":
-            await self._send_json(player.ws, {"type": "heartbeat_ack"})
+        """Dispatches authenticated client message command to its matching service using a dispatch map."""
+        handler = self.message_handlers.get(msg_type)
+        if handler:
+            await handler(player, data)
+        else:
+            logger.warning(f"Received unhandled message type: {msg_type}")
+
+    async def _handle_matchmaking(self, player: ConnectedPlayer, data: dict) -> None:
+        await matchmaking_service.add_to_matchmaking(player, self.matchmaking_queue, self._send_json, self._start_matched_game)
+
+    async def _handle_leave_matchmaking(self, player: ConnectedPlayer, data: dict) -> None:
+        await matchmaking_service.remove_from_matchmaking(player, self.matchmaking_queue, self._send_json)
+
+    async def _handle_create_room(self, player: ConnectedPlayer, data: dict) -> None:
+        custom_id = data.get("room_id")
+        await room_service.create_custom_room(player, self.rooms, self.pubsub, self._send_json, self.broadcast_room_state, custom_id)
+
+    async def _handle_join_room(self, player: ConnectedPlayer, data: dict) -> None:
+        await room_service.join_custom_room(
+            player, data.get("room_id", ""), self.rooms, self.pubsub, self._send_json,
+            self.broadcast_room_state, self._start_game_session, self.send_snapshot_to
+        )
+
+    async def _handle_click(self, player: ConnectedPlayer, data: dict) -> None:
+        await game_session_service.process_game_click(player, data.get("data", ""), self.rooms, self.broadcast_snapshot)
+
+    async def _handle_jump(self, player: ConnectedPlayer, data: dict) -> None:
+        await game_session_service.process_game_jump(player, data.get("data", ""), self.rooms, self.broadcast_snapshot)
+
+    async def _handle_leave_room(self, player: ConnectedPlayer, data: dict) -> None:
+        await room_service.handle_leave_room(player, self.rooms, self.pubsub, self._send_json, self.broadcast_room_state)
+
+    async def _handle_get_snapshot(self, player: ConnectedPlayer, data: dict) -> None:
+        room = self.rooms.get(player.room_id) if player.room_id else None
+        if room:
+            await self.send_snapshot_to(player, room)
+
+    async def _handle_heartbeat(self, player: ConnectedPlayer, data: dict) -> None:
+        await self._send_json(player.ws, {"type": "heartbeat_ack"})
 
     async def _send_json(self, ws, data: dict) -> None:
         """Utility to safely send a JSON string to a WebSocket client."""

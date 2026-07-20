@@ -37,6 +37,15 @@ class GameClient:
         self.running: bool = False
         
         self.on_update: Optional[Callable] = None
+        self.message_handlers = {
+            "auth_response": self._handle_auth_response,
+            "room_state": self._handle_room_state,
+            "game_update": self._handle_game_update,
+            "snapshot": self._handle_snapshot,
+            "countdown": self._handle_countdown,
+            "game_over": self._handle_game_over,
+            "error": self._handle_error,
+        }
 
     def start(self) -> None:
         """Starts the background client thread with its own asyncio loop."""
@@ -105,37 +114,48 @@ class GameClient:
             return
 
         msg_type = data.get("type")
-        if msg_type == "auth_response":
-            self.authenticated = data.get("success", False)
-            if self.authenticated:
-                self.username = data.get("username")
-                self.rating = data.get("rating", 1200)
-            else:
-                self.error_message = data.get("error", "Authentication failed.")
-        elif msg_type == "room_state":
-            self.room_state = data
-            self.your_color = Color(data["your_color"]) if data.get("your_color") else None
-            self.game_over_result = None
-            self.countdown_seconds = 0
-        elif msg_type == "game_update":
-            self.request_snapshot()
-        elif msg_type == "snapshot":
-            self.current_snapshot = deserialize_snapshot(data["data"])
-        elif msg_type == "countdown":
-            self.countdown_seconds = data.get("seconds", 0)
-            self.countdown_message = data.get("message")
-        elif msg_type == "game_over":
-            self.game_over_result = data
-            if self.your_color == Color.WHITE and data.get("white_rating_change"):
-                self._update_elo_from_change(data["white_rating_change"])
-            elif self.your_color == Color.BLACK and data.get("black_rating_change"):
-                self._update_elo_from_change(data["black_rating_change"])
-        elif msg_type == "error":
-            self.error_message = data.get("message")
+        handler = self.message_handlers.get(msg_type)
+        if handler:
+            handler(data)
+        else:
+            logger.warning(f"Client received unhandled message type: {msg_type}")
 
-        # Trigger callback if UI needs repaint
         if self.on_update is not None:
             self.on_update()
+
+    def _handle_auth_response(self, data: dict) -> None:
+        self.authenticated = data.get("success", False)
+        if self.authenticated:
+            self.username = data.get("username")
+            self.rating = data.get("rating", 1200)
+        else:
+            self.error_message = data.get("error", "Authentication failed.")
+
+    def _handle_room_state(self, data: dict) -> None:
+        self.room_state = data
+        self.your_color = Color(data["your_color"]) if data.get("your_color") else None
+        self.game_over_result = None
+        self.countdown_seconds = 0
+
+    def _handle_game_update(self, data: dict) -> None:
+        self.request_snapshot()
+
+    def _handle_snapshot(self, data: dict) -> None:
+        self.current_snapshot = deserialize_snapshot(data["data"])
+
+    def _handle_countdown(self, data: dict) -> None:
+        self.countdown_seconds = data.get("seconds", 0)
+        self.countdown_message = data.get("message")
+
+    def _handle_game_over(self, data: dict) -> None:
+        self.game_over_result = data
+        if self.your_color == Color.WHITE and data.get("white_rating_change"):
+            self._update_elo_from_change(data["white_rating_change"])
+        elif self.your_color == Color.BLACK and data.get("black_rating_change"):
+            self._update_elo_from_change(data["black_rating_change"])
+
+    def _handle_error(self, data: dict) -> None:
+        self.error_message = data.get("message")
 
     def _update_elo_from_change(self, change_str: str) -> None:
         """Helper to parse updated ELO value from rating change suffix (e.g. ' (1200 -> 1216)')."""
