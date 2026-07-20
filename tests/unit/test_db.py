@@ -31,13 +31,13 @@ def test_register_and_authenticate(db):
     """Verify that a user can register and authenticate."""
     res = db.authenticate_or_register("alice_test", "pass123")
     assert res is not None
-    assert res["username"] == "alice_test"
-    assert res["rating"] == 1200
+    assert res.username == "alice_test"
+    assert res.rating == 1200
 
     # Test authentication with correct credentials
     auth_ok = db.authenticate_or_register("alice_test", "pass123")
     assert auth_ok is not None
-    assert auth_ok["username"] == "alice_test"
+    assert auth_ok.username == "alice_test"
 
     # Test authentication with incorrect credentials
     auth_bad = db.authenticate_or_register("alice_test", "wrong_pass")

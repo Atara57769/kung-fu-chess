@@ -14,8 +14,8 @@ async def handle_auth(player: ConnectedPlayer, data: dict, db, send_json_fn) -> 
 
     user_info = db.authenticate_or_register(username, password)
     if user_info:
-        player.username = user_info["username"]
-        player.rating = user_info["rating"]
+        player.username = user_info.username
+        player.rating = user_info.rating
         player.authenticated = True
         await send_json_fn(player.ws, {
             "type": "auth_response",

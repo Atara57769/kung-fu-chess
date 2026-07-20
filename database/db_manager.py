@@ -3,6 +3,12 @@ import hashlib
 import os
 import logging
 from typing import Optional, Dict
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class User:
+    username: str
+    rating: int
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +71,11 @@ class DBManager:
             logger.warning(f"Registration failed: User '{username}' already exists.")
             return False
 
-    def authenticate_or_register(self, username: str, password_plain: str) -> Optional[Dict]:
+    def authenticate_or_register(self, username: str, password_plain: str) -> Optional[User]:
         """
         Authenticates user if exists. 
         If user does not exist, registers them automatically as White/Black onboarding helper.
-        Returns a dict of user info if successful, else None.
+        Returns a User instance if successful, else None.
         """
         p_hash = self._hash_password(password_plain)
         
@@ -82,7 +88,10 @@ class DBManager:
                 db_hash, rating = row
                 if db_hash == p_hash:
                     logger.info(f"Authentication successful for '{username}'")
-                    return {"username": username, "rating": rating}
+                    return User(
+                        username=username,
+                        rating=rating
+                    )
                 else:
                     logger.warning(f"Failed authentication for '{username}': password mismatch.")
                     return None
@@ -90,7 +99,10 @@ class DBManager:
         logger.info(f"User '{username}' not found. Auto-registering user.")
         success = self.register_user(username, password_plain)
         if success:
-            return {"username": username, "rating": DEFAULT_RATING}
+            return User(
+                username=username,
+                rating=DEFAULT_RATING
+            )
         return None
 
     def update_user_rating(self, username: str, new_rating: int) -> bool:
