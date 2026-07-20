@@ -11,10 +11,8 @@ from ui.rendering.window import Window
 from ui.rendering.renderer import Renderer
 from ui.history.history_tracker import UIHistoryTracker
 from services.score_tracker import ScoreTracker
-from core.events.event_bus import EventBus
 from ui.screens.screen_manager import ScreenManager
 from network.client import GameClient
-
 from ui.app.terminal_login import run_terminal_login
 from ui.app.online_coordinator import OnlineCoordinator
 from ui.app.online_runner import OnlineUIRunner
@@ -32,7 +30,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     args = parse_args()
-    
+
     client = GameClient(host=args.host, port=args.port)
     client.start()
     
@@ -49,8 +47,7 @@ def main() -> None:
         logger.info("Loading graphic sprites...")
         asset_loader.load_all()
         
-        event_bus = EventBus()
-        score_tracker = ScoreTracker(event_bus)
+        score_tracker = ScoreTracker()
         history_tracker = UIHistoryTracker()
         
         animation_manager = AnimationManager(geometry, asset_loader)
@@ -67,7 +64,6 @@ def main() -> None:
         
         screen_manager = ScreenManager()
         
-        # Initialize the OnlineCoordinator (configures callbacks and handles state checking)
         coordinator = OnlineCoordinator(
             client=client,
             screen_manager=screen_manager,

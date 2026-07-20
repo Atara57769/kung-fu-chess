@@ -23,20 +23,18 @@ class GameClient:
         self.authenticated: bool = False
         
         self.room_state: Optional[dict] = None
-        self.your_color: Optional[str] = None  # 'w', 'b', or None
+        self.your_color: Optional[str] = None  
         self.current_snapshot = None
         self.countdown_seconds: int = 0
         self.countdown_message: Optional[str] = None
         self.game_over_result: Optional[dict] = None
         self.error_message: Optional[str] = None
         
-        # Async networking coordination
         self.loop: Optional[asyncio.AbstractEventLoop] = None
         self.ws = None
         self.thread: Optional[threading.Thread] = None
         self.running: bool = False
         
-        # UI callback to trigger window redraw or logic tick
         self.on_update: Optional[Callable] = None
 
     def start(self) -> None:
@@ -45,7 +43,6 @@ class GameClient:
         self.thread = threading.Thread(target=self._run_network_loop, daemon=True)
         self.thread.start()
         
-        # Give loop a brief moment to spin up
         time.sleep(0.2)
 
     def stop(self) -> None:
@@ -75,10 +72,8 @@ class GameClient:
                 self.ws = ws
                 logger.info(f"Connected to Game Server at {uri}")
                 
-                # Start heartbeat ping task
                 ping_task = asyncio.create_task(self._ping_loop())
                 
-                # Main message receive loop
                 while self.running:
                     try:
                         raw_msg = await ws.recv()
@@ -119,11 +114,11 @@ class GameClient:
         elif msg_type == "room_state":
             self.room_state = data
             self.your_color = data.get("your_color")
-            # Reset game-over outcomes when entering room
             self.game_over_result = None
             self.countdown_seconds = 0
+        elif msg_type == "game_update":
+            self.request_snapshot()
         elif msg_type == "snapshot":
-            # Deserialize raw JSON dict back into GameSnapshot
             self.current_snapshot = deserialize_snapshot(data["data"])
         elif msg_type == "countdown":
             self.countdown_seconds = data.get("seconds", 0)
@@ -151,7 +146,7 @@ class GameClient:
         except Exception:
             pass
 
-    def _send_json_now(self, data: dict) -> None:
+    def _send_json(self, data: dict) -> None:
         """Invokes raw socket write from external threads using loop scheduling."""
         if self.loop is not None and self.ws is not None:
             asyncio.run_coroutine_threadsafe(self._send_json_async(data), self.loop)
@@ -164,28 +159,30 @@ class GameClient:
             except websockets.exceptions.ConnectionClosed:
                 pass
 
-    # Thread-safe API commands for UI
     def authenticate(self, username, password) -> None:
         self.error_message = None
-        self._send_json_now({"type": "auth", "username": username, "password": password})
+        self._send_json({"type": "auth", "username": username, "password": password})
 
     def enter_matchmaking(self) -> None:
-        self._send_json_now({"type": "matchmaking"})
+        self._send_json({"type": "matchmaking"})
 
     def leave_matchmaking(self) -> None:
-        self._send_json_now({"type": "leave_matchmaking"})
+        self._send_json({"type": "leave_matchmaking"})
 
     def create_room(self) -> None:
-        self._send_json_now({"type": "create_room"})
+        self._send_json({"type": "create_room"})
 
     def join_room(self, room_id: str) -> None:
-        self._send_json_now({"type": "join_room", "room_id": room_id})
+        self._send_json({"type": "join_room", "room_id": room_id})
 
     def leave_room(self) -> None:
-        self._send_json_now({"type": "leave_room"})
+        self._send_json({"type": "leave_room"})
 
     def send_move(self, move_str: str) -> None:
-        self._send_json_now({"type": "move", "data": move_str})
+        self._send_json({"type": "move", "data": move_str})
 
     def send_jump(self, cell_str: str) -> None:
-        self._send_json_now({"type": "jump", "data": cell_str})
+        self._send_json({"type": "jump", "data": cell_str})
+
+    def request_snapshot(self) -> None:
+        self._send_json({"type": "get_snapshot"})

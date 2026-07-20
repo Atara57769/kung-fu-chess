@@ -14,8 +14,7 @@ class HistoryRenderer:
 
     def draw_history_panels(self, canvas: Img, snapshot: GameSnapshot, board_w: int, board_h: int, total_w: int) -> None:
         """Draws White and Black Move History Columns in the padded areas if available."""
-        if self.score_tracker.event_bus is None:
-            self.score_tracker.update(snapshot)
+        self.score_tracker.update(snapshot)
 
         if self.left_padding > 0 and self.history_tracker:
             self._draw_history_panel(canvas, "WHITE MOVES", Color.WHITE, cfg.HIST_PANEL_PADDING, self.left_padding - cfg.HIST_PANEL_PADDING, board_h, snapshot)

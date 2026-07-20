@@ -12,6 +12,7 @@ from database.db_manager import DBManager
 from network.models import ConnectedPlayer, GameRoom
 from network.services.game_services import elo_service, game_session_service, disconnect_service
 from network.services.network_services import connection_handler, auth_service, matchmaking_service, room_service
+from network.pubsub import PubSub, make_subscriber_callback
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ class GameServer:
         self.players: Dict[any, ConnectedPlayer] = {}
         self.rooms: Dict[str, GameRoom] = {}
         self.matchmaking_queue: List[ConnectedPlayer] = []
+        self.pubsub = PubSub()
 
     async def start(self) -> None:
         """Starts the WebSocket server listening loop."""
@@ -59,10 +61,10 @@ class GameServer:
         elif msg_type == "leave_matchmaking":
             await matchmaking_service.remove_from_matchmaking(player, self.matchmaking_queue, self._send_json)
         elif msg_type == "create_room":
-            await room_service.create_custom_room(player, self.rooms, self._send_json, self.broadcast_room_state)
+            await room_service.create_custom_room(player, self.rooms, self.pubsub, self._send_json, self.broadcast_room_state)
         elif msg_type == "join_room":
             await room_service.join_custom_room(
-                player, data.get("room_id", ""), self.rooms, self._send_json,
+                player, data.get("room_id", ""), self.rooms, self.pubsub, self._send_json,
                 self.broadcast_room_state, self._start_game_session, self.send_snapshot_to
             )
         elif msg_type == "move":
@@ -70,7 +72,11 @@ class GameServer:
         elif msg_type == "jump":
             await game_session_service.process_game_jump(player, data.get("data", ""), self.rooms, self.broadcast_snapshot)
         elif msg_type == "leave_room":
-            await room_service.handle_leave_room(player, self.rooms, self._send_json, self.broadcast_room_state)
+            await room_service.handle_leave_room(player, self.rooms, self.pubsub, self._send_json, self.broadcast_room_state)
+        elif msg_type == "get_snapshot":
+            room = self.rooms.get(player.room_id) if player.room_id else None
+            if room:
+                await self.send_snapshot_to(player, room)
         elif msg_type == "heartbeat":
             await self._send_json(player.ws, {"type": "heartbeat_ack"})
 
@@ -102,6 +108,9 @@ class GameServer:
         room.white_player.color = "w"
         room.black_player.room_id = room_id
         room.black_player.color = "b"
+
+        self.pubsub.subscribe(room_id, p1, make_subscriber_callback(p1, self._send_json))
+        self.pubsub.subscribe(room_id, p2, make_subscriber_callback(p2, self._send_json))
 
         logger.info(f"Matched Game started in Room {room_id}: White={room.white_player.username}, Black={room.black_player.username}")
         await self._start_game_session(room)
@@ -145,7 +154,7 @@ class GameServer:
         await room_service.broadcast_room_state(room, self._send_json)
 
     async def broadcast_snapshot(self, room: GameRoom) -> None:
-        await game_session_service.broadcast_snapshot(room, self._send_json)
+        await game_session_service.broadcast_snapshot(room, self.pubsub)
 
     async def send_snapshot_to(self, player: ConnectedPlayer, room: GameRoom) -> None:
         await game_session_service.send_snapshot_to(player, room, self._send_json)
@@ -155,7 +164,7 @@ class GameServer:
 
     async def handle_disconnect(self, player: ConnectedPlayer) -> None:
         await disconnect_service.handle_disconnect(
-            player, self.matchmaking_queue, self.rooms, self.broadcast_room_state, self._run_resign_countdown
+            player, self.matchmaking_queue, self.rooms, self.pubsub, self.broadcast_room_state, self._run_resign_countdown
         )
 
     async def _run_resign_countdown(self, room: GameRoom, disconnected: ConnectedPlayer, opponent: Optional[ConnectedPlayer]) -> None:

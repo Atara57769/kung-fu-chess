@@ -27,7 +27,6 @@ class OnlineCoordinator:
         total_w = cell_size * 8 + LEFT_PADDING + RIGHT_PADDING
         total_h = cell_size * 8
         
-        # Configure HomeScreen callbacks
         def trigger_quick_match():
             self.client.enter_matchmaking()
             waiting = WaitingScreen(self.screen_manager, total_w, total_h)

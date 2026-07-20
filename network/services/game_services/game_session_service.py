@@ -12,21 +12,12 @@ async def start_game_session(room: GameRoom, broadcast_room_state_fn, room_tick_
     await broadcast_room_state_fn(room)
     room.tick_task = asyncio.create_task(room_tick_loop_fn(room))
 
-async def broadcast_snapshot(room: GameRoom, send_json_fn) -> None:
-    """Broadcasts current state snapshot to players and spectators."""
-    snap = room.game_engine.snapshot(room.state)
+async def broadcast_snapshot(room: GameRoom, pubsub) -> None:
+    """Broadcasts a game_update event to players and spectators via pubsub."""
     data = {
-        "type": "snapshot",
-        "data": serialize_snapshot(snap)
+        "type": "game_update"
     }
-    
-    clients = []
-    if room.white_player: clients.append(room.white_player)
-    if room.black_player: clients.append(room.black_player)
-    clients.extend(room.spectators)
-    
-    for c in clients:
-        await send_json_fn(c.ws, data)
+    await pubsub.publish(room.room_id, data)
 
 async def send_snapshot_to(player: ConnectedPlayer, room: GameRoom, send_json_fn) -> None:
     """Sends current state snapshot to a specific player session."""

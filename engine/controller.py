@@ -4,7 +4,6 @@ from models.game_state import GameState
 from models.cell import Cell
 from engine.game_engine import GameEngine
 from models.game_snapshot import GameSnapshot
-from core.events import GameStarted
 
 logger = logging.getLogger(__name__)
 
@@ -15,19 +14,10 @@ class Controller:
     GameEngine calls. Manages piece selection in game_state.
     """
 
-    def __init__(self, state: GameState, game_engine: GameEngine, stdout, event_bus=None):
+    def __init__(self, state: GameState, game_engine: GameEngine, stdout):
         self.state = state
         self.game_engine = game_engine
         self.stdout = stdout
-        self.event_bus = event_bus
-        
-        if self.event_bus is not None:
-            initial_pieces = []
-            for row in self.state.board.grid:
-                for piece in row:
-                    if piece is not None:
-                        initial_pieces.append((piece.color, piece.kind))
-            self.event_bus.publish(GameStarted(initial_pieces=initial_pieces))
 
 
     def get_snapshot(self) -> GameSnapshot:

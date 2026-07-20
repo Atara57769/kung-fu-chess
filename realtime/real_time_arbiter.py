@@ -9,14 +9,12 @@ from models.color import Color
 from constants import COOLDOWN_MOVE
 from rules.win_condition import check_game_over
 from rules.promotion import PawnPromotion
-from core.events import PieceMoved, PieceCaptured, GameEnded
+
 logger = logging.getLogger(__name__)
 
-
 class RealTimeArbiter:
-    def __init__(self, promotion_service=None, event_bus=None) -> None:
+    def __init__(self, promotion_service=None) -> None:
         self.promotion_service = promotion_service or PawnPromotion()
-        self.event_bus = event_bus
 
     def advance_clock(self, game_state: GameState, ms: int) -> None:
         """Advances the clock of the game state by the given milliseconds."""
@@ -48,22 +46,11 @@ class RealTimeArbiter:
         board = game_state.board
         board.move_piece(move.from_pos, move.to_pos, move.piece)
 
-    def publish_capture(self, attacker_color: Color, victim: Piece) -> None:
-        """Publishes a PieceCaptured event to the event bus."""
-        if self.event_bus is not None:
-            self.event_bus.publish(PieceCaptured(
-                attacker_color=attacker_color,
-                victim_color=victim.color,
-                victim_kind=victim.kind
-            ))
-
     def _handle_moving_piece_captured(self, game_state: GameState, move: PendingMove) -> Optional[Color]:
         """Handles capture of the moving piece (mid-move collision or airborne enemy)."""
         self.execute_capture(game_state, move)
         if move.piece is not None:
             move.piece.status = PieceStatus.IDLE
-            opp_color = Color.WHITE if move.piece.color == Color.BLACK else Color.BLACK
-            self.publish_capture(opp_color, move.piece)
 
         if move.piece is not None and move.piece.kind == PieceType.KING:
             return Color.WHITE if move.piece.color == Color.BLACK else Color.BLACK
@@ -73,17 +60,10 @@ class RealTimeArbiter:
         """Handles successful arrival of the moving piece at destination."""
         board = game_state.board
         
-        victim_piece = board.get_piece_at(move.to_pos)
-        if victim_piece is not None and move.piece is not None:
-            self.publish_capture(move.piece.color, victim_piece)
-
         winner_color = check_game_over(game_state, move.to_pos)
 
         self.promotion_service.apply_pawn_promotion(game_state, move)
         self.execute_move_on_board(game_state, move)
-
-        if self.event_bus is not None:
-            self.event_bus.publish(PieceMoved(from_pos=move.from_pos, to_pos=move.to_pos))
 
         if move.piece is not None:
             move.piece.cooldown_until = move.arrival + COOLDOWN_MOVE
@@ -113,8 +93,6 @@ class RealTimeArbiter:
         game_state.pending_moves = remaining
         if winner_color is not None:
             game_state.game_over = True
-            if self.event_bus is not None:
-                self.event_bus.publish(GameEnded(winner=winner_color))
 
     def tick(self, game_state: GameState, ms: int) -> None:
         """Updates clock, processes pending moves, and checks game-over status."""

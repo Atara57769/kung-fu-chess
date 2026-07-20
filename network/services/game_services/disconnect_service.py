@@ -6,10 +6,10 @@ from constants import DISCONNECT_COUNTDOWN
 
 logger = logging.getLogger(__name__)
 
-async def handle_disconnect(
-    player: ConnectedPlayer,
+async def handle_disconnect(player: ConnectedPlayer,
     matchmaking_queue: List[ConnectedPlayer],
     rooms: Dict[str, GameRoom],
+    pubsub,
     broadcast_room_state_fn,
     start_resign_countdown_fn
 ) -> None:
@@ -20,9 +20,12 @@ async def handle_disconnect(
     if not player.room_id:
         return
 
-    room = rooms.get(player.room_id)
+    room_id = player.room_id
+    room = rooms.get(room_id)
     if not room:
         return
+
+    pubsub.unsubscribe(room_id, player)
 
     is_game_player = (room.white_player == player or room.black_player == player)
     
@@ -33,7 +36,6 @@ async def handle_disconnect(
             room.countdown_task.cancel()
         room.countdown_task = asyncio.create_task(start_resign_countdown_fn(room, player, opponent))
     else:
-        # Clean up spectator or waiting lobby occupant
         if room.white_player == player:
             room.white_player = None
         elif room.black_player == player:
