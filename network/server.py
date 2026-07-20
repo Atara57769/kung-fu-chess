@@ -6,16 +6,10 @@ import time
 from typing import Dict, List, Optional
 import websockets
 from websockets.exceptions import ConnectionClosed
-
-from constants import (
-    DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_TIMEOUT, 
-    DISCONNECT_COUNTDOWN, DEFAULT_BOARD_LAYOUT
-)
+from constants import (DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_TIMEOUT, DISCONNECT_COUNTDOWN, DEFAULT_BOARD_LAYOUT)
 from ui.ui_config import TIME_STEP_MS
 from database.db_manager import DBManager
 from network.models import ConnectedPlayer, GameRoom
-
-# Import services
 from network.services.game_services import elo_service, game_session_service, disconnect_service
 from network.services.network_services import connection_handler, auth_service, matchmaking_service, room_service
 
@@ -122,15 +116,11 @@ class GameServer:
             while room.status == "active":
                 await asyncio.sleep(tick_interval)
                 
-                # Advance clock on authoritative state
                 room.game_engine.wait(room.state, TIME_STEP_MS)
                 
-                # Verify game over condition
                 if room.state.game_over:
-                    # Capture winner from engine state or arbiter
                     winner_token = room.state.winner if hasattr(room.state, "winner") else None
                     if not winner_token:
-                        # Check if a king is missing to find winner
                         has_w_king = False
                         has_b_king = False
                         for row in room.state.board.grid:

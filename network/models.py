@@ -29,7 +29,7 @@ class GameRoom:
         self.board = TextBoardParser().parse(DEFAULT_BOARD_LAYOUT)
         self.state = GameState(board=self.board)
         self.game_engine = GameEngine()
-        self.status: str = "waiting"  # 'waiting', 'active', 'ended'
+        self.status: str = "waiting"  
         self.countdown_task: Optional[asyncio.Task] = None
         self.countdown_seconds: int = 0
         self.tick_task: Optional[asyncio.Task] = None

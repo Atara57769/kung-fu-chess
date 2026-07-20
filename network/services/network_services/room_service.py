@@ -49,7 +49,6 @@ async def join_custom_room(
         
         await start_game_callback(room)
     else:
-        # Join as spectator
         room.spectators.append(player)
         player.color = None
         logger.info(f"Player {player.username} joined Room {room_id} as Spectator.")

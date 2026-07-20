@@ -87,7 +87,6 @@ class DBManager:
                     logger.warning(f"Failed authentication for '{username}': password mismatch.")
                     return None
 
-        # User not found -> Auto register
         logger.info(f"User '{username}' not found. Auto-registering user.")
         success = self.register_user(username, password_plain)
         if success:
