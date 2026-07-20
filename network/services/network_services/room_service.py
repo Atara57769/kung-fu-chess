@@ -3,6 +3,7 @@ import random
 from typing import Dict, Optional
 from network.models import ConnectedPlayer, GameRoom
 from network.pubsub import make_subscriber_callback
+from models.color import Color
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ async def create_custom_room(
     room = GameRoom(room_id)
     room.white_player = player
     player.room_id = room_id
-    player.color = "w"
+    player.color = Color.WHITE
     
     rooms[room_id] = room
     pubsub.subscribe(room_id, player, make_subscriber_callback(player, send_json_fn))
@@ -49,7 +50,7 @@ async def join_custom_room(
     if room.white_player and room.white_player.username == player.username and room.white_player != player:
         # Reconnecting White player
         room.white_player = player
-        player.color = "w"
+        player.color = Color.WHITE
         if room.countdown_task:
             room.countdown_task.cancel()
             room.countdown_task = None
@@ -60,7 +61,7 @@ async def join_custom_room(
     elif room.black_player and room.black_player.username == player.username and room.black_player != player:
         # Reconnecting Black player
         room.black_player = player
-        player.color = "b"
+        player.color = Color.BLACK
         if room.countdown_task:
             room.countdown_task.cancel()
             room.countdown_task = None
@@ -73,7 +74,7 @@ async def join_custom_room(
         pubsub.subscribe(room_id, player, make_subscriber_callback(player, send_json_fn))
         if room.black_player is None and room.status == "waiting":
             room.black_player = player
-            player.color = "b"
+            player.color = Color.BLACK
             logger.info(f"Player {player.username} joined Room {room_id} as Black.")
             await start_game_callback(room)
         else:

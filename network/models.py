@@ -4,6 +4,7 @@ from typing import List, Optional
 from constants import DEFAULT_BOARD_LAYOUT
 from engine.game_engine import GameEngine
 from models.game_state import GameState
+from models.color import Color
 from services.board_parser import TextBoardParser
 
 class ConnectedPlayer:
@@ -15,7 +16,7 @@ class ConnectedPlayer:
         self.rating: int = 1200
         self.authenticated: bool = False
         self.room_id: Optional[str] = None
-        self.color: Optional[str] = None  # 'w' or 'b'
+        self.color: Optional[Color] = None  
         self.last_heartbeat: float = time.time()
 
 class GameRoom:

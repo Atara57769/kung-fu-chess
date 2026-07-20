@@ -9,6 +9,7 @@ from websockets.exceptions import ConnectionClosed
 from constants import (DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_TIMEOUT, DISCONNECT_COUNTDOWN, DEFAULT_BOARD_LAYOUT)
 from ui.ui_config import TIME_STEP_MS
 from database.db_manager import DBManager
+from models.color import Color
 from network.models import ConnectedPlayer, GameRoom
 from network.services.game_services import elo_service, game_session_service, disconnect_service
 from network.services.network_services import connection_handler, auth_service, matchmaking_service, room_service
@@ -105,9 +106,9 @@ class GameServer:
             room.black_player = p1
 
         room.white_player.room_id = room_id
-        room.white_player.color = "w"
+        room.white_player.color = Color.WHITE
         room.black_player.room_id = room_id
-        room.black_player.color = "b"
+        room.black_player.color = Color.BLACK
 
         self.pubsub.subscribe(room_id, p1, make_subscriber_callback(p1, self._send_json))
         self.pubsub.subscribe(room_id, p2, make_subscriber_callback(p2, self._send_json))
@@ -135,14 +136,14 @@ class GameServer:
                         for row in room.state.board.grid:
                             for p in row:
                                 if p is not None and p.kind == "K":
-                                    if p.color == "w": has_w_king = True
-                                    elif p.color == "b": has_b_king = True
+                                    if p.color == Color.WHITE: has_w_king = True
+                                    elif p.color == Color.BLACK: has_b_king = True
                         if has_w_king and not has_b_king:
-                            winner_token = "w"
+                            winner_token = Color.WHITE
                         elif has_b_king and not has_w_king:
-                            winner_token = "b"
+                            winner_token = Color.BLACK
                     
-                    winner_color = "white" if winner_token == "w" else ("black" if winner_token == "b" else "draw")
+                    winner_color = "white" if winner_token == Color.WHITE else ("black" if winner_token == Color.BLACK else "draw")
                     await self.end_game(room, winner_color)
                     break
                     

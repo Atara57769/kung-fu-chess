@@ -8,6 +8,7 @@ import websockets
 
 from constants import DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_INTERVAL
 from network.protocol import deserialize_snapshot
+from models.color import Color
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ class GameClient:
         self.authenticated: bool = False
         
         self.room_state: Optional[dict] = None
-        self.your_color: Optional[str] = None  
+        self.your_color: Optional[Color] = None  
         self.current_snapshot = None
         self.countdown_seconds: int = 0
         self.countdown_message: Optional[str] = None
@@ -113,7 +114,7 @@ class GameClient:
                 self.error_message = data.get("error", "Authentication failed.")
         elif msg_type == "room_state":
             self.room_state = data
-            self.your_color = data.get("your_color")
+            self.your_color = Color(data["your_color"]) if data.get("your_color") else None
             self.game_over_result = None
             self.countdown_seconds = 0
         elif msg_type == "game_update":
@@ -126,9 +127,9 @@ class GameClient:
         elif msg_type == "game_over":
             self.game_over_result = data
             # Sync ELO rating updates if provided in payload
-            if self.your_color == "w" and data.get("white_rating_change"):
+            if self.your_color == Color.WHITE and data.get("white_rating_change"):
                 self._update_elo_from_change(data["white_rating_change"])
-            elif self.your_color == "b" and data.get("black_rating_change"):
+            elif self.your_color == Color.BLACK and data.get("black_rating_change"):
                 self._update_elo_from_change(data["black_rating_change"])
         elif msg_type == "error":
             self.error_message = data.get("message")

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional, Tuple, TYPE_CHECKING
 from models.cell import Cell
+from models.color import Color
 
 if TYPE_CHECKING:
     from models.pieces import Piece
@@ -12,7 +13,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class PieceSnapshot:
-    color: str
+    color: Color
     kind: str
     cell: Optional[Cell] = None
     cooldown_until: int = 0

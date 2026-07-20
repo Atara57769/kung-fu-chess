@@ -4,6 +4,7 @@ import socket
 import pytest
 from network.server import GameServer
 from network.client import GameClient
+from models.color import Color
 
 TEST_DB = "test_net_kung_fu_chess.db"
 
@@ -83,8 +84,8 @@ async def _run_full_network_flow():
             
         assert client_a.room_state is not None, "Client A failed to pair"
         assert client_b.room_state is not None, "Client B failed to pair"
-        assert client_a.your_color in ["w", "b"]
-        assert client_b.your_color in ["w", "b"]
+        assert client_a.your_color in [Color.WHITE, Color.BLACK]
+        assert client_b.your_color in [Color.WHITE, Color.BLACK]
         assert client_a.your_color != client_b.your_color
         
         # Active wait for first game state snapshot

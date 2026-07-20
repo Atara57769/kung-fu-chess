@@ -73,7 +73,6 @@ def main() -> None:
         )
         coordinator.setup_screens()
         
-        # Initialize the OnlineUIRunner to manage the OpenCV window and game loop execution
         runner = OnlineUIRunner(
             client=client,
             screen_manager=screen_manager,
