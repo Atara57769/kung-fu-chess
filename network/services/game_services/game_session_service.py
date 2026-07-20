@@ -3,6 +3,7 @@ import logging
 from typing import Dict
 from network.models import GameRoom, ConnectedPlayer
 from network.protocol import serialize_snapshot, algebraic_to_move, algebraic_to_cell
+from models.color import Color
 
 logger = logging.getLogger(__name__)
 
@@ -21,35 +22,20 @@ async def broadcast_snapshot(room: GameRoom, pubsub) -> None:
 
 async def send_snapshot_to(player: ConnectedPlayer, room: GameRoom, send_json_fn) -> None:
     """Sends current state snapshot to a specific player session."""
-    snap = room.game_engine.snapshot(room.state)
+    snap = room.controller.get_snapshot(player_color=player.color)
     await send_json_fn(player.ws, {
         "type": "snapshot",
         "data": serialize_snapshot(snap)
     })
 
-async def process_game_move(player: ConnectedPlayer, move_str: str, rooms: Dict[str, GameRoom], broadcast_snapshot_fn) -> None:
-    """Validates client command coordinates and executes authorized request_move."""
+async def process_game_click(player: ConnectedPlayer, cell_str: str, rooms: Dict[str, GameRoom], broadcast_snapshot_fn) -> None:
+    """Validates client click coordinate and executes authorized click on player's controller."""
     room = rooms.get(player.room_id) if player.room_id else None
     if not room or room.status != "active":
         return
         
-    try:
-        from_cell, to_cell = algebraic_to_move(move_str, room.board.height)
-    except ValueError:
-        return
-
-    piece = room.state.board.get_piece_at(from_cell)
-    if piece is None or piece.color != player.color:
-        logger.warning(f"Unauthorized move attempt by {player.username}: no owned piece at {from_cell}")
-        return
-
-    room.game_engine.request_move(room.state, from_cell, to_cell)
-    await broadcast_snapshot_fn(room)
-
-async def process_game_jump(player: ConnectedPlayer, cell_str: str, rooms: Dict[str, GameRoom], broadcast_snapshot_fn) -> None:
-    """Validates client jump coordinate and executes authorized jump."""
-    room = rooms.get(player.room_id) if player.room_id else None
-    if not room or room.status != "active":
+    if player.color not in (Color.WHITE, Color.BLACK):
+        logger.warning(f"Unauthorized click attempt by spectator/non-player {player.username}")
         return
 
     try:
@@ -57,12 +43,26 @@ async def process_game_jump(player: ConnectedPlayer, cell_str: str, rooms: Dict[
     except ValueError:
         return
 
-    piece = room.state.board.get_piece_at(cell)
-    if piece is None or piece.color != player.color:
-        logger.warning(f"Unauthorized jump attempt by {player.username}: no owned piece at {cell}")
+    room.controller.click(cell, player_color=player.color)
+    await broadcast_snapshot_fn(room)
+
+async def process_game_jump(player: ConnectedPlayer, cell_str: str, rooms: Dict[str, GameRoom], broadcast_snapshot_fn) -> None:
+    """Validates client jump coordinate and executes authorized jump on player's controller."""
+    room = rooms.get(player.room_id) if player.room_id else None
+    if not room or room.status != "active":
         return
 
-    room.game_engine.jump(room.state, cell)
+    from models.color import Color
+    if player.color not in (Color.WHITE, Color.BLACK):
+        logger.warning(f"Unauthorized jump attempt by spectator/non-player {player.username}")
+        return
+
+    try:
+        cell = algebraic_to_cell(cell_str, room.board.height)
+    except ValueError:
+        return
+
+    room.controller.jump(cell, player_color=player.color)
     await broadcast_snapshot_fn(room)
 
 async def end_game(room: GameRoom, winner_color: str, db, elo_calc_fn, send_json_fn) -> None:

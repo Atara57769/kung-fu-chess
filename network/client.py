@@ -179,8 +179,8 @@ class GameClient:
     def leave_room(self) -> None:
         self._send_json({"type": "leave_room"})
 
-    def send_move(self, move_str: str) -> None:
-        self._send_json({"type": "move", "data": move_str})
+    def send_click(self, cell_str: str) -> None:
+        self._send_json({"type": "click", "data": cell_str})
 
     def send_jump(self, cell_str: str) -> None:
         self._send_json({"type": "jump", "data": cell_str})

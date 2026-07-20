@@ -68,8 +68,8 @@ class GameServer:
                 player, data.get("room_id", ""), self.rooms, self.pubsub, self._send_json,
                 self.broadcast_room_state, self._start_game_session, self.send_snapshot_to
             )
-        elif msg_type == "move":
-            await game_session_service.process_game_move(player, data.get("data", ""), self.rooms, self.broadcast_snapshot)
+        elif msg_type == "click":
+            await game_session_service.process_game_click(player, data.get("data", ""), self.rooms, self.broadcast_snapshot)
         elif msg_type == "jump":
             await game_session_service.process_game_jump(player, data.get("data", ""), self.rooms, self.broadcast_snapshot)
         elif msg_type == "leave_room":
@@ -126,7 +126,7 @@ class GameServer:
             while room.status == "active":
                 await asyncio.sleep(tick_interval)
                 
-                room.game_engine.wait(room.state, TIME_STEP_MS)
+                room.controller.wait(TIME_STEP_MS)
                 
                 if room.state.game_over:
                     winner_token = room.state.winner if hasattr(room.state, "winner") else None

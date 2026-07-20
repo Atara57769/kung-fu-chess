@@ -9,6 +9,7 @@ from models.pieces import Piece
 class GameState:
     board: Board
     selected_piece: Optional[Piece] = None
+    black_selected_piece: Optional[Piece] = None
     game_over: bool = False
     clock: int = 0
     pending_moves: List[PendingMove] = field(default_factory=list)

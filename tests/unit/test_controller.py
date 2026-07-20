@@ -293,4 +293,40 @@ def test_controller_jump_out_of_bounds():
     controller.jump(Cell(10, 10))  # out of bounds
     assert len(state.jumps) == 0
 
+def test_controller_player_color_restrictions():
+    from models.color import Color
+    board = TextBoardParser().parse(["wP .", ". bP"])
+    controller, state = create_controller(board)
+
+    # 1. White player clicks a black piece when no selection exists -> ignored
+    controller.click(Cell(1, 1), player_color=Color.WHITE)
+    assert state.selected_piece is None
+    assert state.black_selected_piece is None
+
+    # 2. Black player clicks a black piece -> selects it in black_selected_piece
+    controller.click(Cell(1, 1), player_color=Color.BLACK)
+    assert state.selected_piece is None
+    assert state.black_selected_piece == board.get_piece_at(Cell(1, 1))
+
+    # Clear selections
+    controller.click(None, player_color=Color.BLACK)
+    assert state.black_selected_piece is None
+
+    # 3. None player clicks black piece -> selects it in selected_piece (white selection) because color check is bypassed
+    controller.click(Cell(1, 1), player_color=None)
+    assert state.selected_piece == board.get_piece_at(Cell(1, 1))
+    assert state.black_selected_piece is None
+
+    # Clear
+    controller.click(None)
+    
+    # 4. Test jump restrictions: White jumps black piece -> ignored
+    controller.jump(Cell(1, 1), player_color=Color.WHITE)
+    assert len(state.jumps) == 0
+
+    # White jumps white piece -> works
+    controller.jump(Cell(0, 0), player_color=Color.WHITE)
+    assert len(state.jumps) == 1
+    assert state.jumps[0].cell == (0, 0)
+
 

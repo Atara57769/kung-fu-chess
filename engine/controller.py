@@ -8,6 +8,8 @@ from models.game_snapshot import GameSnapshot
 logger = logging.getLogger(__name__)
 
 
+from models.color import Color
+
 class Controller:
     """
     Thin input layer: translates pixel coordinates and events into
@@ -19,12 +21,27 @@ class Controller:
         self.game_engine = game_engine
         self.stdout = stdout
 
+    def _get_selection(self, player_color: Optional[Color]) -> Optional[any]:
+        if player_color == Color.BLACK:
+            return self.state.black_selected_piece
+        else:
+            return self.state.selected_piece
 
-    def get_snapshot(self) -> GameSnapshot:
-        """Returns a snapshot of the current game state."""
-        return self.game_engine.snapshot(self.state)
+    def _set_selection(self, player_color: Optional[Color], piece: Optional[any]) -> None:
+        if player_color == Color.BLACK:
+            self.state.black_selected_piece = piece
+        else:
+            self.state.selected_piece = piece
 
-    def click(self, cell: Optional[Cell]) -> None:
+    def get_snapshot(self, player_color: Optional[Color] = None) -> GameSnapshot:
+        """Returns a snapshot of the current game state, with selected_piece matching player_color selection."""
+        old_selected = self.state.selected_piece
+        self.state.selected_piece = self._get_selection(player_color)
+        snap = self.game_engine.snapshot(self.state)
+        self.state.selected_piece = old_selected
+        return snap
+
+    def click(self, cell: Optional[Cell], player_color: Optional[Color] = None) -> None:
         if self.state.game_over:
             return
 
@@ -32,51 +49,58 @@ class Controller:
             cell = None
 
         if cell is None:
-            self.state.selected_piece = None
+            self._set_selection(player_color, None)
             return
 
-        self._check_selected_piece_killed()
+        self._check_selected_piece_killed(player_color)
 
-        if self.state.selected_piece is None:
-            self._handle_no_selection_state(cell)
+        current_selection = self._get_selection(player_color)
+        if current_selection is None:
+            self._handle_no_selection_state(cell, player_color)
         else:
-            self._handle_selected_state(cell)
+            self._handle_selected_state(cell, player_color)
 
-    def _check_selected_piece_killed(self) -> None:
+    def _check_selected_piece_killed(self, player_color: Optional[Color]) -> None:
         """Resets the selection if the selected piece was killed/captured."""
-        if self.state.selected_piece is not None:
-            sel_piece = self.state.selected_piece
+        sel_piece = self._get_selection(player_color)
+        if sel_piece is not None:
             if sel_piece.cell is None or self.state.board.get_piece_at(sel_piece.cell) is not sel_piece:
-                self.state.selected_piece = None
+                self._set_selection(player_color, None)
 
-    def _handle_no_selection_state(self, cell: Cell) -> None:
+    def _handle_no_selection_state(self, cell: Cell, player_color: Optional[Color]) -> None:
         board = self.state.board
         piece = board.get_piece_at(cell)
         if piece is None:
             return
-        if not self.game_engine.is_piece_moving(self.state, cell):
-            self.state.selected_piece = piece
+        
+        if player_color is not None and piece.color != player_color:
+            return
 
-    def _handle_selected_state(self, cell: Cell) -> None:
+        if not self.game_engine.is_piece_moving(self.state, cell):
+            self._set_selection(player_color, piece)
+
+    def _handle_selected_state(self, cell: Cell, player_color: Optional[Color]) -> None:
         board = self.state.board
         piece = board.get_piece_at(cell)
-        sel_piece = self.state.selected_piece
+        sel_piece = self._get_selection(player_color)
+        if sel_piece is None:
+            return
         
         sel_cell = sel_piece.cell
 
         if piece is not None and piece.color == sel_piece.color:
             if not self.game_engine.is_piece_moving(self.state, cell):
-                self.state.selected_piece = piece
+                self._set_selection(player_color, piece)
                 return
 
         if not self.game_engine.is_piece_moving(self.state, sel_cell):
             self.game_engine.request_move(self.state, sel_cell, cell)
-        self.state.selected_piece = None
+        self._set_selection(player_color, None)
 
     def wait(self, ms: int) -> None:
         self.game_engine.wait(self.state, ms)
 
-    def jump(self, cell: Optional[Cell]) -> None:
+    def jump(self, cell: Optional[Cell], player_color: Optional[Color] = None) -> None:
         if self.state.game_over:
             return
 
@@ -91,6 +115,10 @@ class Controller:
         piece = board.get_piece_at(cell)
         if piece is None:
             logger.warning(f"Jump click at {cell} has no piece to jump.")
+            return
+
+        if player_color is not None and piece.color != player_color:
+            logger.warning(f"Unauthorized jump click at {cell} by player {player_color}")
             return
 
         self.game_engine.jump(self.state, cell)

@@ -17,40 +17,14 @@ class OnlineGameScreen(Screen):
         self.geometry = geometry
         self.renderer = renderer
         self.animation_manager = animation_manager
-        
-        self.selected_cell = None
 
     def _get_cell_from_coordinates(self, x: int, y: int) -> any:
         """Translates pixel coordinates to board cell taking left padding into account."""
         board_x = x - self.renderer.left_padding
         return self.geometry.pixel_to_cell(board_x, y)
 
-    def _handle_local_selection(self, cell) -> None:
-        """Manages piece selections locally for the client color."""
-        snapshot = self.client.current_snapshot
-        if snapshot is None:
-            return
-
-        # Fetch piece at target cell in snapshot
-        grid = snapshot.board.grid
-        piece = grid[cell.y][cell.x]
-        
-        if self.selected_cell is None:
-            # First click: select if it matches our color
-            if piece is not None and piece.color == self.client.your_color:
-                self.selected_cell = cell
-        else:
-            # Second click: change selection or request move
-            if piece is not None and piece.color == self.client.your_color:
-                self.selected_cell = cell
-            else:
-                # Request move
-                move_str = move_to_algebraic(self.selected_cell, cell, snapshot.board.height)
-                self.client.send_move(move_str)
-                self.selected_cell = None
-
     def handle_click(self, x: int, y: int, is_right: bool = False) -> None:
-        """Translates mouse coordinates to cells and requests move/jump from the server."""
+        """Translates mouse coordinates to cells and requests click/jump from the server."""
         if self.client.game_over_result is not None:
             # After game resolution, click anywhere to exit lobby back to Home Screen
             self._exit_to_home()
@@ -64,12 +38,13 @@ class OnlineGameScreen(Screen):
         if snapshot is None:
             return
 
+        cell_str = cell_to_algebraic(cell, snapshot.board.height)
         if is_right:
             # Request jump
-            cell_str = cell_to_algebraic(cell, snapshot.board.height)
             self.client.send_jump(cell_str)
         else:
-            self._handle_local_selection(cell)
+            # Request click
+            self.client.send_click(cell_str)
 
     def _exit_to_home(self) -> None:
         """Returns the client to the Home Screen and clears room session."""
@@ -132,14 +107,6 @@ class OnlineGameScreen(Screen):
             canvas.img[:] = BG_COLOR_BGR
             canvas.put_text("Waiting for server state...", 100, 100, 0.6, (200, 200, 200), 2)
             return
-
-        # Temporarily inject local selection highlights into the snapshot object so the base renderer shows it
-        if self.selected_cell is not None:
-            p = snapshot.board.grid[self.selected_cell.y][self.selected_cell.x]
-            if p is not None:
-                object.__setattr__(snapshot, 'selected_piece', p)
-        else:
-            object.__setattr__(snapshot, 'selected_piece', None)
 
         # Draw board & pieces
         rendered_canvas = self.renderer.render(snapshot, self.animation_manager.active_views)
