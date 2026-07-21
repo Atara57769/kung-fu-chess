@@ -2,7 +2,11 @@ import asyncio
 import logging
 from typing import List, Dict, Optional
 from server.network.models import ConnectedPlayer, GameRoom
-from shared.constants import DISCONNECT_COUNTDOWN
+from shared.constants import (
+    DISCONNECT_COUNTDOWN, ROOM_STATUS_ACTIVE, COLOR_NAME_WHITE, COLOR_NAME_BLACK,
+    FIELD_TYPE, FIELD_MESSAGE
+)
+from shared.protocol import MessageType
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +33,7 @@ async def handle_disconnect(player: ConnectedPlayer,
 
     is_game_player = (room.white_player == player or room.black_player == player)
     
-    if room.status == "active" and is_game_player:
+    if room.status == ROOM_STATUS_ACTIVE and is_game_player:
         opponent = room.black_player if room.white_player == player else room.white_player
         room.countdown_seconds = DISCONNECT_COUNTDOWN
         if room.countdown_task:
@@ -57,15 +61,16 @@ async def run_resign_countdown(
         while room.countdown_seconds > 0:
             if opponent:
                 await send_json_fn(opponent.ws, {
-                    "type": "countdown",
+                    FIELD_TYPE: MessageType.COUNTDOWN,
                     "seconds": room.countdown_seconds,
-                    "message": f"Opponent disconnected. Autoresign in {room.countdown_seconds}s."
+                    FIELD_MESSAGE: f"Opponent disconnected. Autoresign in {room.countdown_seconds}s."
                 })
             await asyncio.sleep(1.0)
             room.countdown_seconds -= 1
 
-        winner_color = "black" if room.white_player == disconnected else "white"
+        winner_color = COLOR_NAME_BLACK if room.white_player == disconnected else COLOR_NAME_WHITE
         logger.info(f"Countdown expired in Room {room.room_id}. Disconnected player {disconnected.username} resigned.")
         await end_game_fn(room, winner_color)
     except asyncio.CancelledError:
         logger.info(f"Resign countdown cancelled in Room {room.room_id} (player reconnected).")
+

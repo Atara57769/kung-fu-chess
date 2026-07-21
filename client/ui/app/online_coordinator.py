@@ -10,6 +10,11 @@ from client.ui.board.board_geometry import BoardGeometry
 from client.ui.rendering.game_renderer import GameRenderer
 from client.ui.animation.animation_manager import AnimationManager
 from client.network.client import GameClient
+from shared.protocol import MessageType
+from shared.constants import (
+    ROOM_STATUS_WAITING, ROOM_STATUS_ACTIVE,
+    FIELD_STATUS, FIELD_ROOM_ID, FIELD_WHITE, FIELD_BLACK, FIELD_SPECTATORS
+)
 
 class OnlineCoordinator:
     def __init__(self, client: GameClient, screen_manager: ScreenManager, 
@@ -23,14 +28,14 @@ class OnlineCoordinator:
         self.logger = logging.getLogger(__name__)
         
         self._pending_events: list = []
-        self.client.pubsub.subscribe("room_state", self._on_room_state)
-        self.client.pubsub.subscribe("error", self._on_error)
+        self.client.pubsub.subscribe(MessageType.ROOM_STATE, self._on_room_state)
+        self.client.pubsub.subscribe(MessageType.ERROR, self._on_error)
 
     def _on_room_state(self, state: dict) -> None:
-        self._pending_events.append(("room_state", state))
+        self._pending_events.append((MessageType.ROOM_STATE, state))
 
     def _on_error(self, message: str) -> None:
-        self._pending_events.append(("error", message))
+        self._pending_events.append((MessageType.ERROR, message))
 
     def _create_online_home_screen(self) -> HomeScreen:
         """Helper to construct HomeScreen with online match and custom room callbacks."""
@@ -70,35 +75,35 @@ class OnlineCoordinator:
                 self.screen_manager.switch_to(home)
             return
             
-        status = state.get("status")
-        room_id = state.get("room_id")
+        status = state.get(FIELD_STATUS)
+        room_id = state.get(FIELD_ROOM_ID)
         
         if room_id is None:
             if not isinstance(curr_screen, HomeScreen) and not isinstance(curr_screen, WaitingScreen):
                 home = self._create_online_home_screen()
                 self.screen_manager.switch_to(home)
-        elif status == "waiting":
+        elif status == ROOM_STATUS_WAITING:
             if not isinstance(curr_screen, RoomScreen):
-                is_creator = (state.get("white") == self.client.username)
+                is_creator = (state.get(FIELD_WHITE) == self.client.username)
                 room = RoomScreen(
                     self.screen_manager, 
                     total_w, 
                     total_h,
                     room_id=room_id,
                     is_creator=is_creator,
-                    white_player=state.get("white"),
-                    black_player=state.get("black"),
+                    white_player=state.get(FIELD_WHITE),
+                    black_player=state.get(FIELD_BLACK),
                     client=self.client
                 )
                 self.screen_manager.switch_to(room)
             else:
-                curr_screen.white_player = state.get("white") or "[Empty]"
-                curr_screen.black_player = state.get("black") or "[Empty]"
+                curr_screen.white_player = state.get(FIELD_WHITE) or "[Empty]"
+                curr_screen.black_player = state.get(FIELD_BLACK) or "[Empty]"
                 curr_screen.labels[1].text = f"White Seat: {curr_screen.white_player}"
                 curr_screen.labels[2].text = f"Black Seat: {curr_screen.black_player}"
-                curr_screen.spectators = state.get("spectators", [])
+                curr_screen.spectators = state.get(FIELD_SPECTATORS, [])
                 curr_screen.labels[3].text = f"Spectators: {', '.join(curr_screen.spectators) if curr_screen.spectators else 'None'}"
-        elif status == "active":
+        elif status == ROOM_STATUS_ACTIVE:
             if not isinstance(curr_screen, OnlineGameScreen):
                 online_game = OnlineGameScreen(
                     self.screen_manager,
@@ -119,7 +124,7 @@ class OnlineCoordinator:
         self._pending_events.clear()
         
         for event_type, payload in events_to_process:
-            if event_type == "room_state":
+            if event_type == MessageType.ROOM_STATE:
                 self._handle_room_state_change(payload)
-            elif event_type == "error":
+            elif event_type == MessageType.ERROR:
                 self._handle_error_message(payload)

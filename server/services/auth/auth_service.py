@@ -1,5 +1,6 @@
 import logging
 from server.network.models import ConnectedPlayer
+from shared.protocol import MessageType
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +10,7 @@ async def handle_auth(player: ConnectedPlayer, data: dict, db, send_json_fn) -> 
     password = data.get("password", "").strip()
     
     if not username or not password:
-        await send_json_fn(player.ws, {"type": "auth_response", "success": False, "error": "Invalid fields."})
+        await send_json_fn(player.ws, {"type": MessageType.AUTH_RESPONSE, "success": False, "error": "Invalid fields."})
         return
 
     user_info = db.authenticate_or_register(username, password)
@@ -18,7 +19,7 @@ async def handle_auth(player: ConnectedPlayer, data: dict, db, send_json_fn) -> 
         player.rating = user_info.rating
         player.authenticated = True
         await send_json_fn(player.ws, {
-            "type": "auth_response",
+            "type": MessageType.AUTH_RESPONSE,
             "success": True,
             "username": player.username,
             "rating": player.rating
@@ -26,7 +27,7 @@ async def handle_auth(player: ConnectedPlayer, data: dict, db, send_json_fn) -> 
         logger.info(f"Player {player.username} authenticated successfully.")
     else:
         await send_json_fn(player.ws, {
-            "type": "auth_response",
+            "type": MessageType.AUTH_RESPONSE,
             "success": False,
             "error": "Authentication failed."
         })

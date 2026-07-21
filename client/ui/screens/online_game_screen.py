@@ -82,14 +82,12 @@ class OnlineGameScreen(Screen):
             cv2.rectangle(canvas.img, (0, by), (width, by + banner_h), (25, 22, 20), thickness=-1)
             cv2.rectangle(canvas.img, (0, by), (width, by + banner_h), (80, 75, 70), thickness=2)
             
-            # Winner Announcement
-            winner = result.get("winner", "draw").upper()
+            winner = result.winner_name.upper()
             announcement = f"GAME OVER - {winner} WINS" if winner != "DRAW" else "GAME OVER - DRAW"
             canvas.put_text(announcement, width // 2 - 200, by + 50, font_size=0.8, color=(0, 0, 255), thickness=3)
             
-            # Rating change
-            change_w = result.get("white_rating_change", "")
-            change_b = result.get("black_rating_change", "")
+            change_w = result.white_rating_change
+            change_b = result.black_rating_change
             details = f"White: {change_w}  |  Black: {change_b}"
             canvas.put_text(details, width // 2 - 220, by + 95, font_size=0.5, color=(200, 200, 200), thickness=1)
             

@@ -65,3 +65,24 @@ def test_snapshot_serialization():
     assert deserialized.selected_piece.kind == "K"
     assert deserialized.board.grid[0][0].color == "w"
     assert deserialized.board.grid[0][1] is None
+
+def test_message_type_enum():
+    """Verify MessageType enum values, string equality, and JSON serialization."""
+    from shared.protocol import MessageType
+    import json
+
+    assert MessageType.AUTH == "auth"
+    assert MessageType.ROOM_STATE == "room_state"
+    assert MessageType.SNAPSHOT == "snapshot"
+    assert MessageType.GAME_OVER == "game_over"
+
+    # String equality and dict lookup
+    assert MessageType("auth") == MessageType.AUTH
+    assert MessageType.AUTH.value == "auth"
+
+    # JSON serialization compatibility
+    payload = {"type": MessageType.ROOM_STATE, "room_id": "1234"}
+    serialized = json.dumps(payload)
+    assert serialized == '{"type": "room_state", "room_id": "1234"}'
+    deserialized = json.loads(serialized)
+    assert deserialized["type"] == MessageType.ROOM_STATE

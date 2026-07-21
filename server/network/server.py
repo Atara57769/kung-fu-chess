@@ -6,7 +6,12 @@ import time
 from typing import Dict, List, Optional
 import websockets
 from websockets.exceptions import ConnectionClosed
-from shared.constants import (DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_TIMEOUT, DISCONNECT_COUNTDOWN, DEFAULT_BOARD_LAYOUT)
+from shared.constants import (
+    DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_TIMEOUT, DISCONNECT_COUNTDOWN, DEFAULT_BOARD_LAYOUT,
+    FIELD_TYPE, FIELD_MESSAGE, FIELD_ROOM_ID, FIELD_DATA,
+    ROOM_STATUS_ACTIVE, COLOR_NAME_WHITE, COLOR_NAME_BLACK, GAME_RESULT_DRAW,
+    MSG_UNAUTHORIZED
+)
 from client.ui.ui_config import TIME_STEP_MS
 from server.database.db_manager import DBManager
 from shared.models.color import Color
@@ -17,8 +22,13 @@ from server.network import client_connection
 from server.services.auth import auth_service
 from server.services.matchmaking import matchmaking_service, room_service
 from shared.protocol.pubsub import PubSub, make_subscriber_callback
+from shared.protocol import MessageType
 
 logger = logging.getLogger(__name__)
+
+ATTR_WINNER = "winner"
+PIECE_KIND_KING = "K"
+
 
 class GameServer:
     """WebSocket server coordinating authentication, matchmaking, and authoritative game state."""
@@ -32,15 +42,15 @@ class GameServer:
         self.matchmaking_queue: List[ConnectedPlayer] = []
         self.pubsub = PubSub()
         self.message_handlers = {
-            "matchmaking": self._handle_matchmaking,
-            "leave_matchmaking": self._handle_leave_matchmaking,
-            "create_room": self._handle_create_room,
-            "join_room": self._handle_join_room,
-            "click": self._handle_click,
-            "jump": self._handle_jump,
-            "leave_room": self._handle_leave_room,
-            "get_snapshot": self._handle_get_snapshot,
-            "heartbeat": self._handle_heartbeat,
+            MessageType.MATCHMAKING: self._handle_matchmaking,
+            MessageType.LEAVE_MATCHMAKING: self._handle_leave_matchmaking,
+            MessageType.CREATE_ROOM: self._handle_create_room,
+            MessageType.JOIN_ROOM: self._handle_join_room,
+            MessageType.CLICK: self._handle_click,
+            MessageType.JUMP: self._handle_jump,
+            MessageType.LEAVE_ROOM: self._handle_leave_room,
+            MessageType.GET_SNAPSHOT: self._handle_get_snapshot,
+            MessageType.HEARTBEAT: self._handle_heartbeat,
         }
 
     async def start(self) -> None:
@@ -61,11 +71,11 @@ class GameServer:
             logger.warning("Received invalid non-JSON message.")
             return
 
-        msg_type = data.get("type")
-        if msg_type == "auth":
+        msg_type = data.get(FIELD_TYPE)
+        if msg_type == MessageType.AUTH:
             await auth_service.handle_auth(player, data, self.db, self._send_json)
         elif not player.authenticated:
-            await self._send_json(player.ws, {"type": "error", "message": "Unauthorized client."})
+            await self._send_json(player.ws, {FIELD_TYPE: MessageType.ERROR, FIELD_MESSAGE: MSG_UNAUTHORIZED})
         else:
             await self._handle_authenticated_message(player, msg_type, data)
 
@@ -84,20 +94,20 @@ class GameServer:
         await matchmaking_service.remove_from_matchmaking(player, self.matchmaking_queue, self._send_json)
 
     async def _handle_create_room(self, player: ConnectedPlayer, data: dict) -> None:
-        custom_id = data.get("room_id")
+        custom_id = data.get(FIELD_ROOM_ID)
         await room_service.create_custom_room(player, self.rooms, self.pubsub, self._send_json, self.broadcast_room_state, custom_id)
 
     async def _handle_join_room(self, player: ConnectedPlayer, data: dict) -> None:
         await room_service.join_custom_room(
-            player, data.get("room_id", ""), self.rooms, self.pubsub, self._send_json,
+            player, data.get(FIELD_ROOM_ID, ""), self.rooms, self.pubsub, self._send_json,
             self.broadcast_room_state, self._start_game_session, self.send_snapshot_to
         )
 
     async def _handle_click(self, player: ConnectedPlayer, data: dict) -> None:
-        await game_session_service.process_game_click(player, data.get("data", ""), self.rooms, self.broadcast_snapshot)
+        await game_session_service.process_game_click(player, data.get(FIELD_DATA, ""), self.rooms, self.broadcast_snapshot)
 
     async def _handle_jump(self, player: ConnectedPlayer, data: dict) -> None:
-        await game_session_service.process_game_jump(player, data.get("data", ""), self.rooms, self.broadcast_snapshot)
+        await game_session_service.process_game_jump(player, data.get(FIELD_DATA, ""), self.rooms, self.broadcast_snapshot)
 
     async def _handle_leave_room(self, player: ConnectedPlayer, data: dict) -> None:
         await room_service.handle_leave_room(player, self.rooms, self.pubsub, self._send_json, self.broadcast_room_state)
@@ -108,7 +118,7 @@ class GameServer:
             await self.send_snapshot_to(player, room)
 
     async def _handle_heartbeat(self, player: ConnectedPlayer, data: dict) -> None:
-        await self._send_json(player.ws, {"type": "heartbeat_ack"})
+        await self._send_json(player.ws, {FIELD_TYPE: MessageType.HEARTBEAT_ACK})
 
     async def _send_json(self, ws, data: dict) -> None:
         """Utility to safely send a JSON string to a WebSocket client."""
@@ -151,19 +161,19 @@ class GameServer:
         """Authoritative real-time progression ticking game state."""
         tick_interval = TIME_STEP_MS / 1000.0
         try:
-            while room.status == "active":
+            while room.status == ROOM_STATUS_ACTIVE:
                 await asyncio.sleep(tick_interval)
                 
                 room.controller.wait(TIME_STEP_MS)
                 
                 if room.state.game_over:
-                    winner_token = room.state.winner if hasattr(room.state, "winner") else None
+                    winner_token = room.state.winner if hasattr(room.state, ATTR_WINNER) else None
                     if not winner_token:
                         has_w_king = False
                         has_b_king = False
                         for row in room.state.board.grid:
                             for p in row:
-                                if p is not None and p.kind == "K":
+                                if p is not None and p.kind == PIECE_KIND_KING:
                                     if p.color == Color.WHITE: has_w_king = True
                                     elif p.color == Color.BLACK: has_b_king = True
                         if has_w_king and not has_b_king:
@@ -171,7 +181,7 @@ class GameServer:
                         elif has_b_king and not has_w_king:
                             winner_token = Color.BLACK
                     
-                    winner_color = "white" if winner_token == Color.WHITE else ("black" if winner_token == Color.BLACK else "draw")
+                    winner_color = COLOR_NAME_WHITE if winner_token == Color.WHITE else (COLOR_NAME_BLACK if winner_token == Color.BLACK else GAME_RESULT_DRAW)
                     await self.end_game(room, winner_color)
                     break
                     
@@ -198,3 +208,4 @@ class GameServer:
 
     async def _run_resign_countdown(self, room: GameRoom, disconnected: ConnectedPlayer, opponent: Optional[ConnectedPlayer]) -> None:
         await disconnect_service.run_resign_countdown(room, disconnected, opponent, self._send_json, self.end_game)
+

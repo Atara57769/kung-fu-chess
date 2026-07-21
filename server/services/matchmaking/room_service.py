@@ -3,7 +3,14 @@ import random
 from typing import Dict, Optional
 from server.network.models import ConnectedPlayer, GameRoom
 from shared.protocol.pubsub import make_subscriber_callback
+from shared.protocol import MessageType
 from shared.models.color import Color
+from shared.constants import (
+    ROOM_STATUS_WAITING, ROOM_STATUS_ACTIVE,
+    FIELD_TYPE, FIELD_MESSAGE, FIELD_ROOM_ID, FIELD_WHITE, FIELD_BLACK,
+    FIELD_SPECTATORS, FIELD_STATUS, FIELD_YOUR_COLOR,
+    MSG_ROOM_ALREADY_EXISTS, MSG_ROOM_NOT_FOUND
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +29,7 @@ async def create_custom_room(
             room_id = str(random.randint(1000, 9999))
     else:
         if room_id in rooms:
-            await send_json_fn(player.ws, {"type": "error", "message": "Room already exists."})
+            await send_json_fn(player.ws, {FIELD_TYPE: MessageType.ERROR, FIELD_MESSAGE: MSG_ROOM_ALREADY_EXISTS})
             return
 
     room = GameRoom(room_id)
@@ -48,7 +55,7 @@ async def join_custom_room(
     """Joins custom lobby as Black (if empty) or Spectator."""
     room = rooms.get(room_id)
     if not room:
-        await send_json_fn(player.ws, {"type": "error", "message": "Room not found."})
+        await send_json_fn(player.ws, {FIELD_TYPE: MessageType.ERROR, FIELD_MESSAGE: MSG_ROOM_NOT_FOUND})
         return
 
     player.room_id = room_id
@@ -76,7 +83,7 @@ async def join_custom_room(
     else:
         # Normal joining flow
         pubsub.subscribe(room_id, player, make_subscriber_callback(player, send_json_fn))
-        if room.black_player is None and room.status == "waiting":
+        if room.black_player is None and room.status == ROOM_STATUS_WAITING:
             room.black_player = player
             player.color = Color.BLACK
             logger.info(f"Player {player.username} joined Room {room_id} as Black.")
@@ -86,7 +93,7 @@ async def join_custom_room(
             player.color = None
             logger.info(f"Player {player.username} joined Room {room_id} as Spectator.")
             await broadcast_room_state_fn(room)
-            if room.status == "active":
+            if room.status == ROOM_STATUS_ACTIVE:
                 await send_snapshot_to_fn(player, room)
 
 async def handle_leave_room(
@@ -117,7 +124,7 @@ async def handle_leave_room(
     pubsub.unsubscribe(room_id, player)
 
     await broadcast_room_state_fn(room)
-    await send_json_fn(player.ws, {"type": "room_state", "room_id": None})
+    await send_json_fn(player.ws, {FIELD_TYPE: MessageType.ROOM_STATE, FIELD_ROOM_ID: None})
 
 async def broadcast_room_state(room: GameRoom, send_json_fn) -> None:
     """Sends current lobby rosters to all participants."""
@@ -126,12 +133,12 @@ async def broadcast_room_state(room: GameRoom, send_json_fn) -> None:
     specs = [p.username for p in room.spectators if p.username]
     
     payload = {
-        "type": "room_state",
-        "room_id": room.room_id,
-        "white": white_name,
-        "black": black_name,
-        "spectators": specs,
-        "status": room.status
+        FIELD_TYPE: MessageType.ROOM_STATE,
+        FIELD_ROOM_ID: room.room_id,
+        FIELD_WHITE: white_name,
+        FIELD_BLACK: black_name,
+        FIELD_SPECTATORS: specs,
+        FIELD_STATUS: room.status
     }
     
     clients = []
@@ -141,5 +148,6 @@ async def broadcast_room_state(room: GameRoom, send_json_fn) -> None:
     
     for c in clients:
         color_payload = dict(payload)
-        color_payload["your_color"] = c.color
+        color_payload[FIELD_YOUR_COLOR] = c.color
         await send_json_fn(c.ws, color_payload)
+

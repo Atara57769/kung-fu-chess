@@ -10,6 +10,8 @@ from shared.constants import DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_INTERVAL
 from shared.protocol.protocol import deserialize_snapshot, cell_to_algebraic
 from shared.models.color import Color
 from shared.models.cell import Cell
+from shared.models.game_over_result import GameOverResult
+from shared.protocol import MessageType
 from client.services.client_pubsub import ClientPubSub
 
 logger = logging.getLogger(__name__)
@@ -30,7 +32,7 @@ class GameClient:
         self.current_snapshot = None
         self.countdown_seconds: int = 0
         self.countdown_message: Optional[str] = None
-        self.game_over_result: Optional[dict] = None
+        self.game_over_result: Optional[GameOverResult] = None
         self.error_message: Optional[str] = None
         
         self.loop: Optional[asyncio.AbstractEventLoop] = None
@@ -41,12 +43,12 @@ class GameClient:
         self.pubsub = ClientPubSub()
         self.on_update: Optional[Callable] = None
         self.message_handlers = {
-            "auth_response": self._handle_auth_response,
-            "room_state": self._handle_room_state,
-            "snapshot": self._handle_snapshot,
-            "countdown": self._handle_countdown,
-            "game_over": self._handle_game_over,
-            "error": self._handle_error,
+            MessageType.AUTH_RESPONSE: self._handle_auth_response,
+            MessageType.ROOM_STATE: self._handle_room_state,
+            MessageType.SNAPSHOT: self._handle_snapshot,
+            MessageType.COUNTDOWN: self._handle_countdown,
+            MessageType.GAME_OVER: self._handle_game_over,
+            MessageType.ERROR: self._handle_error,
         }
 
     def start(self) -> None:
@@ -104,7 +106,7 @@ class GameClient:
         try:
             while self.running:
                 await asyncio.sleep(HEARTBEAT_INTERVAL)
-                await self._send_json_async({"type": "heartbeat"})
+                await self._send_json_async({"type": MessageType.HEARTBEAT})
         except asyncio.CancelledError:
             pass
 
@@ -138,18 +140,18 @@ class GameClient:
         self.your_color = Color(data["your_color"]) if data.get("your_color") else None
         self.game_over_result = None
         self.countdown_seconds = 0
-        self.pubsub.publish("room_state", data)
+        self.pubsub.publish(MessageType.ROOM_STATE, data)
 
     def _handle_snapshot(self, data: dict) -> None:
         self.current_snapshot = deserialize_snapshot(data["data"])
-        self.pubsub.publish("snapshot", self.current_snapshot)
+        self.pubsub.publish(MessageType.SNAPSHOT, self.current_snapshot)
 
     def _handle_countdown(self, data: dict) -> None:
         self.countdown_seconds = data.get("seconds", 0)
         self.countdown_message = data.get("message")
 
     def _handle_game_over(self, data: dict) -> None:
-        self.game_over_result = data
+        self.game_over_result = GameOverResult.from_dict(data)
         if self.your_color == Color.WHITE and data.get("white_rating_change"):
             self._update_elo_from_change(data["white_rating_change"])
         elif self.your_color == Color.BLACK and data.get("black_rating_change"):
@@ -157,7 +159,7 @@ class GameClient:
 
     def _handle_error(self, data: dict) -> None:
         self.error_message = data.get("message")
-        self.pubsub.publish("error", self.error_message)
+        self.pubsub.publish(MessageType.ERROR, self.error_message)
 
     def _update_elo_from_change(self, change_str: str) -> None:
         """Helper to parse updated ELO value from rating change suffix (e.g. ' (1200 -> 1216)')."""
@@ -183,35 +185,35 @@ class GameClient:
 
     def authenticate(self, username, password) -> None:
         self.error_message = None
-        self._send_json({"type": "auth", "username": username, "password": password})
+        self._send_json({"type": MessageType.AUTH, "username": username, "password": password})
 
     def enter_matchmaking(self) -> None:
-        self._send_json({"type": "matchmaking"})
+        self._send_json({"type": MessageType.MATCHMAKING})
 
     def leave_matchmaking(self) -> None:
-        self._send_json({"type": "leave_matchmaking"})
+        self._send_json({"type": MessageType.LEAVE_MATCHMAKING})
 
     def create_room(self, room_id: Optional[str] = None) -> None:
-        payload = {"type": "create_room"}
+        payload = {"type": MessageType.CREATE_ROOM}
         if room_id:
             payload["room_id"] = room_id
         self._send_json(payload)
 
     def join_room(self, room_id: str) -> None:
-        self._send_json({"type": "join_room", "room_id": room_id})
+        self._send_json({"type": MessageType.JOIN_ROOM, "room_id": room_id})
 
     def leave_room(self) -> None:
-        self._send_json({"type": "leave_room"})
+        self._send_json({"type": MessageType.LEAVE_ROOM})
 
     def send_click(self, cell: Cell) -> None:
         height = self.current_snapshot.board.height if self.current_snapshot else 8
         cell_str = cell_to_algebraic(cell, height)
-        self._send_json({"type": "click", "data": cell_str})
+        self._send_json({"type": MessageType.CLICK, "data": cell_str})
 
     def send_jump(self, cell: Cell) -> None:
         height = self.current_snapshot.board.height if self.current_snapshot else 8
         cell_str = cell_to_algebraic(cell, height)
-        self._send_json({"type": "jump", "data": cell_str})
+        self._send_json({"type": MessageType.JUMP, "data": cell_str})
 
     def request_snapshot(self) -> None:
-        self._send_json({"type": "get_snapshot"})
+        self._send_json({"type": MessageType.GET_SNAPSHOT})
