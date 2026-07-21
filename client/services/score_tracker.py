@@ -1,6 +1,6 @@
 from shared.models.color import Color
 from shared.models.piece_type import PieceType
-from constants import PIECE_POINTS
+from shared.constants import PIECE_POINTS
 
 class ScoreTracker:
     def __init__(self):

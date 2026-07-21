@@ -64,7 +64,7 @@ JUMP_DEFAULT_DURATION = 500
 MOVE_DEFAULT_DURATION = 1000
 
 # 8. Chess piece points for score calculations
-from constants import PIECE_POINTS
+from shared.constants import PIECE_POINTS
 
 # 9. UI Components Constants (BGR/BGRA)
 BTN_BG_COLOR = (55, 52, 48)

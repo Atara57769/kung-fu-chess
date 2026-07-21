@@ -1,6 +1,6 @@
 from typing import Tuple
 from shared.models.pieces import Piece
-from constants import DURATION, COOLDOWN_JUMP
+from shared.constants import DURATION, COOLDOWN_JUMP
 from shared.models.jump import Jump
 from shared.models.game_state import GameState
 

@@ -6,7 +6,7 @@ import time
 from typing import Optional, Callable
 import websockets
 
-from constants import DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_INTERVAL
+from shared.constants import DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_INTERVAL
 from shared.protocol.protocol import deserialize_snapshot, cell_to_algebraic
 from shared.models.color import Color
 from shared.models.cell import Cell

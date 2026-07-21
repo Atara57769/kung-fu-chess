@@ -6,7 +6,7 @@ import time
 from typing import Dict, List, Optional
 import websockets
 from websockets.exceptions import ConnectionClosed
-from constants import (DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_TIMEOUT, DISCONNECT_COUNTDOWN, DEFAULT_BOARD_LAYOUT)
+from shared.constants import (DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_TIMEOUT, DISCONNECT_COUNTDOWN, DEFAULT_BOARD_LAYOUT)
 from client.ui.ui_config import TIME_STEP_MS
 from server.database.db_manager import DBManager
 from shared.models.color import Color

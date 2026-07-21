@@ -3,7 +3,7 @@ from client.ui.rendering.img import Img
 from shared.models.game_snapshot import GameSnapshot
 from client.ui.board.board_geometry import BoardGeometry
 from client.ui.rendering.history_renderer import HistoryRenderer
-from constants import CELL_SIZE
+from shared.constants import CELL_SIZE
 from client.ui.ui_config import (
     BG_COLOR_BGR, BG_COLOR_BGRA,
     SEL_TEXT, SEL_OFFSET_X, SEL_OFFSET_Y, SEL_FONT_SCALE, SEL_COLOR, SEL_THICKNESS,

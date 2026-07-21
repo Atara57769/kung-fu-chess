@@ -6,7 +6,7 @@ from shared.models.cell import Cell
 from shared.models.pieces import Piece, PieceStatus
 from shared.models.piece_type import PieceType
 from shared.models.color import Color
-from constants import COOLDOWN_MOVE
+from shared.constants import COOLDOWN_MOVE
 from server.game.rules.win_condition import check_game_over
 from server.game.rules.promotion import PawnPromotion
 

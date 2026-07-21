@@ -1,12 +1,12 @@
 import sys
 import logging
-from exceptions import UnknownTokenError, RowWidthMismatchError
+from shared.exceptions import UnknownTokenError, RowWidthMismatchError
 from server.game.services.board_parser import TextBoardParser
 from shared.models.game_state import GameState
 from server.game.engine.game_engine import GameEngine
 from server.game.engine.controller import Controller
 from shared.models.cell import Cell
-from constants import CELL_SIZE
+from shared.constants import CELL_SIZE
 
 logger = logging.getLogger(__name__)
 

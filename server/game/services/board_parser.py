@@ -3,9 +3,9 @@ from typing import List, Optional, Any
 from shared.models.board import Board
 from shared.models.cell import Cell
 from shared.models.pieces import Piece
-from exceptions import UnknownTokenError, RowWidthMismatchError
+from shared.exceptions import UnknownTokenError, RowWidthMismatchError
 
-from constants import EMPTY_TOKEN, TOKEN_LENGTH, COLOR_INDEX, KIND_INDEX
+from shared.constants import EMPTY_TOKEN, TOKEN_LENGTH, COLOR_INDEX, KIND_INDEX
 from shared.models.piece_type import PieceType
 from shared.models.color import Color
 

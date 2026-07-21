@@ -16,7 +16,7 @@ from client.ui.interaction.mouse_handler import MouseHandler
 from client.ui.rendering.game_renderer import GameRenderer
 from client.ui.app.ui_runner import UIRunner
 from client.ui.history.history_tracker import UIHistoryTracker
-from constants import DEFAULT_BOARD_LAYOUT, CELL_SIZE
+from shared.constants import DEFAULT_BOARD_LAYOUT, CELL_SIZE
 from client.ui.ui_config import LEFT_PADDING, RIGHT_PADDING, TIME_STEP_MS
 from client.services.score_tracker import ScoreTracker
 

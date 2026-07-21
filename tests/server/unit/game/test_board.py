@@ -1,7 +1,7 @@
 import pytest
 from shared.models.board import Board
 from server.game.services.board_parser import TextBoardParser
-from exceptions import UnknownTokenError, RowWidthMismatchError
+from shared.exceptions import UnknownTokenError, RowWidthMismatchError
 from shared.models.pieces import Piece
 from shared.models.cell import Cell
 

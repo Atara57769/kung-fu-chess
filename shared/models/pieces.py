@@ -4,7 +4,7 @@ from enum import Enum
 from shared.models.cell import Cell
 from shared.models.piece_type import PieceType
 from shared.models.color import Color
-from constants import EMPTY_TOKEN, TOKEN_LENGTH, COLOR_INDEX, KIND_INDEX
+from shared.constants import EMPTY_TOKEN, TOKEN_LENGTH, COLOR_INDEX, KIND_INDEX
 
 class PieceStatus(Enum):
     IDLE = "IDLE"
