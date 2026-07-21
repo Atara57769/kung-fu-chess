@@ -1,6 +1,6 @@
 CELL_SIZE = 100
 EMPTY_TOKEN = '.'
-from models.color import Color
+from shared.models.color import Color
 
 DURATION = 1000
 COOLDOWN_DURATION = 1000
@@ -28,7 +28,7 @@ DEFAULT_BOARD_LAYOUT = [
     "wR wN wB wQ wK wB wN wR"
 ]
 
-from models.piece_type import PieceType
+from shared.models.piece_type import PieceType
 PIECE_POINTS = {
     PieceType.PAWN: 1,
     PieceType.KNIGHT: 3,
@@ -44,4 +44,4 @@ DEFAULT_PORT = 8765
 HEARTBEAT_INTERVAL = 5.0
 HEARTBEAT_TIMEOUT = 10.0
 DISCONNECT_COUNTDOWN = 20
-
+

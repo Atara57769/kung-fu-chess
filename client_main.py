@@ -3,19 +3,19 @@ import sys
 import logging
 import cv2
 from constants import DEFAULT_HOST, DEFAULT_PORT, CELL_SIZE
-from ui.ui_config import LEFT_PADDING, RIGHT_PADDING, TIME_STEP_MS
-from ui.board.board_geometry import BoardGeometry
-from ui.assets.asset_loader import AssetLoader
-from ui.animation.animation_manager import AnimationManager
-from ui.rendering.window import Window
-from ui.rendering.game_renderer import GameRenderer
-from ui.history.history_tracker import UIHistoryTracker
-from services.score_tracker import ScoreTracker
-from ui.screens.screen_manager import ScreenManager
-from network.client import GameClient
-from ui.app.terminal_login import run_terminal_login
-from ui.app.online_coordinator import OnlineCoordinator
-from ui.app.online_runner import OnlineUIRunner
+from client.ui.ui_config import LEFT_PADDING, RIGHT_PADDING, TIME_STEP_MS
+from client.ui.board.board_geometry import BoardGeometry
+from client.ui.assets.asset_loader import AssetLoader
+from client.ui.animation.animation_manager import AnimationManager
+from client.ui.rendering.window import Window
+from client.ui.rendering.game_renderer import GameRenderer
+from client.ui.history.history_tracker import UIHistoryTracker
+from client.services.score_tracker import ScoreTracker
+from client.ui.screens.screen_manager import ScreenManager
+from client.network.client import GameClient
+from client.ui.app.terminal_login import run_terminal_login
+from client.ui.app.online_coordinator import OnlineCoordinator
+from client.ui.app.online_runner import OnlineUIRunner
 
 logger = logging.getLogger(__name__)
 

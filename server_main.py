@@ -1,7 +1,7 @@
 import argparse
 import asyncio
 import logging
-from network.server import GameServer
+from server.network.server import GameServer
 from constants import DEFAULT_HOST, DEFAULT_PORT
 
 def parse_arguments() -> argparse.Namespace:
