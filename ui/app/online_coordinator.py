@@ -6,13 +6,13 @@ from ui.screens.waiting_screen import WaitingScreen
 from ui.screens.room_screen import RoomScreen
 from ui.screens.online_game_screen import OnlineGameScreen
 from ui.board.board_geometry import BoardGeometry
-from ui.rendering.renderer import Renderer
+from ui.rendering.game_renderer import GameRenderer
 from ui.animation.animation_manager import AnimationManager
 from network.client import GameClient
 
 class OnlineCoordinator:
     def __init__(self, client: GameClient, screen_manager: ScreenManager, 
-                 geometry: BoardGeometry, renderer: Renderer, 
+                 geometry: BoardGeometry, renderer: GameRenderer, 
                  animation_manager: AnimationManager) -> None:
         self.client = client
         self.screen_manager = screen_manager

@@ -3,14 +3,14 @@ import numpy as np
 from unittest.mock import MagicMock
 from models.cell import Cell
 from models.game_snapshot import GameSnapshot, BoardSnapshot, PieceSnapshot
-from ui.rendering.renderer import Renderer
+from ui.rendering.game_renderer import GameRenderer
 from ui.rendering.img import Img
 
-def test_renderer_initialization():
+def test_game_renderer_initialization():
     asset_loader = MagicMock()
     geometry = MagicMock()
     geometry.cell_size = 100
-    renderer = Renderer(asset_loader, geometry, left_padding=10, right_padding=20)
+    renderer = GameRenderer(asset_loader, geometry, left_padding=10, right_padding=20)
     assert renderer.left_padding == 10
     assert renderer.right_padding == 20
 
@@ -23,7 +23,7 @@ def test_render_basic_board():
 
     geometry = MagicMock()
     geometry.cell_size = 100
-    renderer = Renderer(asset_loader, geometry, left_padding=10, right_padding=20)
+    renderer = GameRenderer(asset_loader, geometry, left_padding=10, right_padding=20)
 
     # Mock snapshot
     grid = tuple(tuple(None for _ in range(8)) for _ in range(8))
@@ -51,7 +51,7 @@ def test_render_with_active_views_and_overlays():
 
     geometry = MagicMock()
     geometry.cell_size = 100
-    renderer = Renderer(asset_loader, geometry, left_padding=10, right_padding=20)
+    renderer = GameRenderer(asset_loader, geometry, left_padding=10, right_padding=20)
 
     # Mock piece snap
     p_snap = PieceSnapshot(color='w', kind='N', cell=Cell(0, 0))
@@ -99,7 +99,7 @@ def test_render_with_cooldown():
 
     geometry = MagicMock()
     geometry.cell_size = 100
-    renderer = Renderer(asset_loader, geometry, left_padding=10, right_padding=20)
+    renderer = GameRenderer(asset_loader, geometry, left_padding=10, right_padding=20)
 
     # Piece on cooldown (cooldown_until=500, clock=200)
     p_snap = PieceSnapshot(color='w', kind='N', cell=Cell(0, 0), cooldown_until=500)
@@ -141,7 +141,7 @@ def test_render_game_over():
 
     geometry = MagicMock()
     geometry.cell_size = 100
-    renderer = Renderer(asset_loader, geometry, left_padding=10, right_padding=20)
+    renderer = GameRenderer(asset_loader, geometry, left_padding=10, right_padding=20)
 
     grid = tuple(tuple(None for _ in range(8)) for _ in range(8))
     board_snap = BoardSnapshot(grid=grid, width=8, height=8)
@@ -231,7 +231,7 @@ def test_history_renderer_score_calculation():
     assert len(black_title_call) == 1
     assert black_title_call[0][0][0] == "Black (10)"
 
-def test_renderer_4_channel():
+def test_game_renderer_4_channel():
     # Setup mock asset loader with 4 channel background
     bg_img = Img()
     bg_img.img = np.zeros((100, 100, 4), dtype=np.uint8)
@@ -240,7 +240,7 @@ def test_renderer_4_channel():
 
     geometry = MagicMock()
     geometry.cell_size = 100
-    renderer = Renderer(asset_loader, geometry, left_padding=10, right_padding=20)
+    renderer = GameRenderer(asset_loader, geometry, left_padding=10, right_padding=20)
 
     grid = tuple(tuple(None for _ in range(8)) for _ in range(8))
     board_snap = BoardSnapshot(grid=grid, width=8, height=8)

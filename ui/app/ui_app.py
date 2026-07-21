@@ -13,7 +13,7 @@ from ui.assets.asset_loader import AssetLoader
 from ui.animation.animation_manager import AnimationManager
 from ui.rendering.window import Window
 from ui.interaction.mouse_handler import MouseHandler
-from ui.rendering.renderer import Renderer
+from ui.rendering.game_renderer import GameRenderer
 from ui.app.ui_runner import UIRunner
 from ui.history.history_tracker import UIHistoryTracker
 from constants import DEFAULT_BOARD_LAYOUT, CELL_SIZE
@@ -85,7 +85,7 @@ def main():
     history_tracker = UIHistoryTracker()
 
     mouse_handler = MouseHandler(controller, geometry, left_padding=left_padding)
-    renderer = Renderer(
+    renderer = GameRenderer(
         asset_loader, 
         geometry, 
         history_tracker=history_tracker, 

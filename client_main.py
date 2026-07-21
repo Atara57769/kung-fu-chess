@@ -8,7 +8,7 @@ from ui.board.board_geometry import BoardGeometry
 from ui.assets.asset_loader import AssetLoader
 from ui.animation.animation_manager import AnimationManager
 from ui.rendering.window import Window
-from ui.rendering.renderer import Renderer
+from ui.rendering.game_renderer import GameRenderer
 from ui.history.history_tracker import UIHistoryTracker
 from services.score_tracker import ScoreTracker
 from ui.screens.screen_manager import ScreenManager
@@ -53,7 +53,7 @@ def main() -> None:
         animation_manager = AnimationManager(geometry, asset_loader)
         window = Window(title=f"Kung-Fu Chess Online: {client.username}")
         
-        renderer = Renderer(
+        renderer = GameRenderer(
             asset_loader,
             geometry,
             history_tracker=history_tracker,

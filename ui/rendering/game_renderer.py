@@ -11,7 +11,7 @@ from ui.ui_config import (
     GAMEOVER_TEXT, GAMEOVER_X_OFFSET, GAMEOVER_FONT_SCALE, GAMEOVER_COLOR, GAMEOVER_THICKNESS
 )
 
-class Renderer:
+class GameRenderer:
     def __init__(self, asset_loader, geometry: BoardGeometry, history_tracker=None, left_padding: int = 0, right_padding: int = 0, score_tracker=None):
         self.asset_loader = asset_loader
         self.geometry = geometry

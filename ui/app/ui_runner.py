@@ -1,7 +1,7 @@
 import cv2
 from ui.rendering.img import Img
 from ui.interaction.mouse_handler import MouseHandler
-from ui.rendering.renderer import Renderer
+from ui.rendering.game_renderer import GameRenderer
 from ui.animation.animation_manager import AnimationManager
 from ui.rendering.window import Window
 from ui.ui_config import TIME_STEP_MS
@@ -9,7 +9,7 @@ from ui.screens.screen_manager import ScreenManager
 from ui.screens.game_screen import GameScreen
 
 class UIRunner:
-    def __init__(self, controller, mouse_handler: MouseHandler, renderer: Renderer, 
+    def __init__(self, controller, mouse_handler: MouseHandler, renderer: GameRenderer, 
                  animation_manager: AnimationManager, window: Window, time_step_ms: int = TIME_STEP_MS,
                  history_tracker = None, screen_manager: ScreenManager = None):
         self.controller = controller
