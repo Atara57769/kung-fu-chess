@@ -7,8 +7,9 @@ from typing import Optional, Callable
 import websockets
 
 from constants import DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_INTERVAL
-from shared.protocol.protocol import deserialize_snapshot
+from shared.protocol.protocol import deserialize_snapshot, cell_to_algebraic
 from shared.models.color import Color
+from shared.models.cell import Cell
 
 logger = logging.getLogger(__name__)
 
@@ -198,10 +199,14 @@ class GameClient:
     def leave_room(self) -> None:
         self._send_json({"type": "leave_room"})
 
-    def send_click(self, cell_str: str) -> None:
+    def send_click(self, cell: Cell) -> None:
+        height = self.current_snapshot.board.height if self.current_snapshot else 8
+        cell_str = cell_to_algebraic(cell, height)
         self._send_json({"type": "click", "data": cell_str})
 
-    def send_jump(self, cell_str: str) -> None:
+    def send_jump(self, cell: Cell) -> None:
+        height = self.current_snapshot.board.height if self.current_snapshot else 8
+        cell_str = cell_to_algebraic(cell, height)
         self._send_json({"type": "jump", "data": cell_str})
 
     def request_snapshot(self) -> None:
