@@ -14,11 +14,14 @@ async def start_game_session(room: GameRoom, broadcast_room_state_fn, room_tick_
     room.tick_task = asyncio.create_task(room_tick_loop_fn(room))
 
 async def broadcast_snapshot(room: GameRoom, pubsub) -> None:
-    """Broadcasts a game_update event to players and spectators via pubsub."""
-    data = {
-        "type": "game_update"
-    }
-    await pubsub.publish(room.room_id, data)
+    """Broadcasts a game snapshot directly to players and spectators via pubsub."""
+    def make_snapshot_message(player: ConnectedPlayer) -> dict:
+        snap = room.controller.get_snapshot(player_color=player.color)
+        return {
+            "type": "snapshot",
+            "data": serialize_snapshot(snap)
+        }
+    await pubsub.publish(room.room_id, make_snapshot_message)
 
 async def send_snapshot_to(player: ConnectedPlayer, room: GameRoom, send_json_fn) -> None:
     """Sends current state snapshot to a specific player session."""

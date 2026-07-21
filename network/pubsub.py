@@ -32,7 +32,8 @@ class PubSub:
             # Copy items to prevent dictionary modification during iteration
             for player, callback in list(self._channels[channel].items()):
                 try:
-                    await callback(message)
+                    msg = message(player) if callable(message) else message
+                    await callback(msg)
                 except Exception as e:
                     logger.error(f"Error executing callback for player {player.username or player.ip_address}: {e}")
 

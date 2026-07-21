@@ -40,7 +40,6 @@ class GameClient:
         self.message_handlers = {
             "auth_response": self._handle_auth_response,
             "room_state": self._handle_room_state,
-            "game_update": self._handle_game_update,
             "snapshot": self._handle_snapshot,
             "countdown": self._handle_countdown,
             "game_over": self._handle_game_over,
@@ -137,8 +136,6 @@ class GameClient:
         self.game_over_result = None
         self.countdown_seconds = 0
 
-    def _handle_game_update(self, data: dict) -> None:
-        self.request_snapshot()
 
     def _handle_snapshot(self, data: dict) -> None:
         self.current_snapshot = deserialize_snapshot(data["data"])
