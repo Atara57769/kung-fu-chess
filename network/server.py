@@ -123,7 +123,6 @@ class GameServer:
         room = GameRoom(room_id)
         self.rooms[room_id] = room
 
-        # Determine colors randomly
         if random.choice([True, False]):
             room.white_player = p1
             room.black_player = p2

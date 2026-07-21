@@ -54,7 +54,6 @@ async def join_custom_room(
     player.room_id = room_id
     
     if room.white_player and room.white_player.username == player.username and room.white_player != player:
-        # Reconnecting White player
         room.white_player = player
         player.color = Color.WHITE
         if room.countdown_task:
@@ -65,7 +64,6 @@ async def join_custom_room(
         await broadcast_room_state_fn(room)
         await send_snapshot_to_fn(player, room)
     elif room.black_player and room.black_player.username == player.username and room.black_player != player:
-        # Reconnecting Black player
         room.black_player = player
         player.color = Color.BLACK
         if room.countdown_task:

@@ -36,18 +36,9 @@ class OnlineCoordinator:
         def cancel_quick_match():
             self.client.leave_matchmaking()
             self.screen_manager.switch_to(home)
-            
-        def trigger_create_room(room_id: str):
-            self.client.create_room(room_id if room_id else None)
-            
-        def trigger_join_room(room_id: str):
-            if room_id:
-                self.client.join_room(room_id)
 
-        home = HomeScreen(self.screen_manager, total_w, total_h, self.client.username, self.client.rating)
+        home = HomeScreen(self.screen_manager, total_w, total_h, self.client.username, self.client.rating, client=self.client)
         home.buttons[0].callback = trigger_quick_match
-        home.custom_room_create_callback = trigger_create_room
-        home.custom_room_join_callback = trigger_join_room
         return home
 
     def setup_screens(self) -> None:
@@ -69,7 +60,6 @@ class OnlineCoordinator:
         total_h = cell_size * 8
         
         if state is None:
-            # Check if we were in lobby and need to return home
             if not isinstance(curr_screen, HomeScreen) and not isinstance(curr_screen, WaitingScreen) and not isinstance(curr_screen, OnlineGameScreen):
                 home = self._create_online_home_screen()
                 self.screen_manager.switch_to(home)
@@ -92,15 +82,11 @@ class OnlineCoordinator:
                     room_id=room_id,
                     is_creator=is_creator,
                     white_player=state.get("white"),
-                    black_player=state.get("black")
+                    black_player=state.get("black"),
+                    client=self.client
                 )
-                # Route leave button to client leave API
-                for btn in room.buttons:
-                    if btn.text == "Leave Lobby":
-                        btn.callback = self.client.leave_room
                 self.screen_manager.switch_to(room)
             else:
-                # Update lobby view
                 curr_screen.white_player = state.get("white") or "[Empty]"
                 curr_screen.black_player = state.get("black") or "[Empty]"
                 curr_screen.labels[1].text = f"White Seat: {curr_screen.white_player}"

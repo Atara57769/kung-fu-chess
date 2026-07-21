@@ -5,16 +5,20 @@ from ui.screens.base_screen import Screen
 from ui.components.button import Button
 from ui.components.label import Label
 from ui.ui_config import BG_COLOR_BGR
+from ui.screens.waiting_screen import WaitingScreen
+from ui.components.room_dialog import RoomDialog
+from ui.screens.room_screen import RoomScreen
 
 class HomeScreen(Screen):
     """Presents the main home dashboard with matchmaking and room options."""
     
-    def __init__(self, screen_manager, width: int, height: int, username: str = "Player", rating: int = 1200) -> None:
+    def __init__(self, screen_manager, width: int, height: int, username: str = "Player", rating: int = 1200, client=None) -> None:
         self.screen_manager = screen_manager
         self.width = width
         self.height = height
         self.username = username
         self.rating = rating
+        self.client = client
         
         self.buttons: list[Button] = []
         self.labels: list[Label] = []
@@ -25,63 +29,27 @@ class HomeScreen(Screen):
         """Initializes the labels and buttons on the home screen."""
         cx = self.width // 2
         
-        # Labels
         self.labels.append(Label(cx, 80, "KUNG-FU CHESS", centered=True))
         self.labels.append(Label(cx, 130, f"Welcome, {self.username} (ELO: {self.rating})", centered=True))
         
-        # Buttons
         self.buttons.append(Button(cx - 130, 200, 260, 45, "Quick Match", self._on_quick_match))
         self.buttons.append(Button(cx - 130, 260, 260, 45, "Custom Room", self._on_custom_room_click))
 
     def _on_quick_match(self) -> None:
         """Triggers matchmaking and transitions to the waiting screen."""
-        from ui.screens.waiting_screen import WaitingScreen
         waiting_screen = WaitingScreen(self.screen_manager, self.width, self.height)
         self.screen_manager.switch_to(waiting_screen)
 
     def _on_custom_room_click(self) -> None:
         """Opens the native Tkinter room option popup modal."""
-        from ui.components.room_dialog import RoomDialog
         dialog = RoomDialog()
         
         if dialog.result_action == "create":
-            if hasattr(self, "custom_room_create_callback"):
-                self.custom_room_create_callback(dialog.room_name)
-            else:
-                self._offline_create_room(dialog.room_name)
+            if self.client:
+                self.client.create_room(dialog.room_name if dialog.room_name else None)
         elif dialog.result_action == "join":
-            if hasattr(self, "custom_room_join_callback"):
-                self.custom_room_join_callback(dialog.room_name)
-            else:
-                self._offline_join_room(dialog.room_name)
-
-    def _offline_create_room(self, room_id: str) -> None:
-        room_id = room_id or "9999"
-        from ui.screens.room_screen import RoomScreen
-        room_screen = RoomScreen(
-            self.screen_manager, 
-            self.width, 
-            self.height, 
-            room_id=room_id, 
-            is_creator=True,
-            white_player=self.username
-        )
-        self.screen_manager.switch_to(room_screen)
-
-    def _offline_join_room(self, room_id: str) -> None:
-        if not room_id:
-            room_id = "0000"
-        from ui.screens.room_screen import RoomScreen
-        room_screen = RoomScreen(
-            self.screen_manager, 
-            self.width, 
-            self.height, 
-            room_id=room_id, 
-            is_creator=False,
-            white_player="Opponent",
-            black_player=self.username
-        )
-        self.screen_manager.switch_to(room_screen)
+            if dialog.room_name and self.client:
+                self.client.join_room(dialog.room_name)
 
     def handle_click(self, x: int, y: int, is_right: bool = False) -> None:
         """Directs mouse clicks to buttons."""

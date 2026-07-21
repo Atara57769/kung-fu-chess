@@ -86,29 +86,25 @@ def test_online_coordinator_setup():
     assert initial_screen.username == "test_player"
     assert initial_screen.rating == 1500
 
-    # Test matchmaking trigger
     quick_match_btn_callback = initial_screen.buttons[0].callback
     quick_match_btn_callback()
     
     assert 'enter_matchmaking' in client.calls
-    # Should have switched to waiting screen
     waiting_screen = screen_manager.switch_to.call_args[0][0]
     assert isinstance(waiting_screen, WaitingScreen)
 
-    # Test cancel matchmaking
     cancel_btn_callback = waiting_screen.buttons[0].callback
     cancel_btn_callback()
     assert 'leave_matchmaking' in client.calls
     
-    # Test custom room flow by patching RoomDialog
-    with patch('ui.components.room_dialog.RoomDialog') as MockRoomDialog:
+    with patch('ui.screens.home_screen.RoomDialog') as MockRoomDialog:
         # Mock Create Room flow
         mock_dialog = MagicMock()
         mock_dialog.result_action = "create"
         mock_dialog.room_name = "room123"
         MockRoomDialog.return_value = mock_dialog
         
-        initial_screen.buttons[1].callback()  # _on_custom_room_click
+        initial_screen.buttons[1].callback()  
         assert ('create_room', 'room123') in client.calls
         
         # Mock Join Room flow
@@ -145,7 +141,14 @@ def test_online_coordinator_transitions():
     assert isinstance(room_screen, RoomScreen)
     assert room_screen.room_id == "room_xyz"
     assert room_screen.is_creator is True
+    assert room_screen.client is client
     
+    # Test Leave Lobby button
+    assert len(room_screen.buttons) == 1
+    assert room_screen.buttons[0].text == "Leave Lobby"
+    room_screen.buttons[0].callback()
+    assert 'leave_room' in client.calls
+
     # Update active screen to be the RoomScreen
     screen_manager.active_screen = room_screen
     

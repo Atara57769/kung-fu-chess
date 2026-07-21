@@ -37,13 +37,10 @@ class OnlineUIRunner:
         while self.running:
             dt = self.time_step_ms / 1000.0
             
-            # Update coordinator logic (network transitions)
             self.coordinator.update(dt)
             
-            # Tick screen logic
             self.screen_manager.update(dt)
             
-            # Render & Display canvas
             canvas = Img()
             self.screen_manager.render(canvas)
             self.window.display(canvas, self.time_step_ms)

@@ -15,17 +15,14 @@ class RoomDialog:
         root.resizable(False, False)
         root.configure(bg="#f0f0f0")
         
-        # Center the dialog on screen
         screen_w = root.winfo_screenwidth()
         screen_h = root.winfo_screenheight()
         x = (screen_w - 330) // 2
         y = (screen_h - 120) // 2
         root.geometry(f"330x120+{x}+{y}")
         
-        # Make the dialog modal and topmost
         root.attributes("-topmost", True)
         
-        # Room name Label
         label = tk.Label(
             root, 
             text="room name", 
@@ -36,7 +33,6 @@ class RoomDialog:
         )
         label.place(x=10, y=10, width=100, height=15)
         
-        # Entry text box with solid border and auto-focus
         entry = tk.Entry(
             root, 
             bg="white", 
@@ -49,7 +45,6 @@ class RoomDialog:
         entry.place(x=10, y=30, width=310, height=20)
         entry.focus_set()
         
-        # Button handlers
         def on_create():
             room_name = entry.get().strip()
             self.result = ("create", room_name)
@@ -64,7 +59,6 @@ class RoomDialog:
             self.result = ("cancel", "")
             root.destroy()
             
-        # Classic rectangular OS buttons
         btn_create = tk.Button(
             root, 
             text="Create", 
@@ -104,10 +98,8 @@ class RoomDialog:
         )
         btn_cancel.place(x=210, y=75, width=75, height=23)
         
-        # Intercept window close button
         root.protocol("WM_DELETE_WINDOW", on_cancel)
         
-        # Modal event loop block
         root.mainloop()
         
         return self.result
