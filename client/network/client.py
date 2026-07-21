@@ -10,6 +10,7 @@ from shared.constants import DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_INTERVAL
 from shared.protocol.protocol import deserialize_snapshot, cell_to_algebraic
 from shared.models.color import Color
 from shared.models.cell import Cell
+from client.services.client_pubsub import ClientPubSub
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ class GameClient:
         self.thread: Optional[threading.Thread] = None
         self.running: bool = False
         
+        self.pubsub = ClientPubSub()
         self.on_update: Optional[Callable] = None
         self.message_handlers = {
             "auth_response": self._handle_auth_response,
@@ -136,10 +138,11 @@ class GameClient:
         self.your_color = Color(data["your_color"]) if data.get("your_color") else None
         self.game_over_result = None
         self.countdown_seconds = 0
-
+        self.pubsub.publish("room_state", data)
 
     def _handle_snapshot(self, data: dict) -> None:
         self.current_snapshot = deserialize_snapshot(data["data"])
+        self.pubsub.publish("snapshot", self.current_snapshot)
 
     def _handle_countdown(self, data: dict) -> None:
         self.countdown_seconds = data.get("seconds", 0)
@@ -154,6 +157,7 @@ class GameClient:
 
     def _handle_error(self, data: dict) -> None:
         self.error_message = data.get("message")
+        self.pubsub.publish("error", self.error_message)
 
     def _update_elo_from_change(self, change_str: str) -> None:
         """Helper to parse updated ELO value from rating change suffix (e.g. ' (1200 -> 1216)')."""

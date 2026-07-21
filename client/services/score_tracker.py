@@ -3,9 +3,12 @@ from shared.models.piece_type import PieceType
 from shared.constants import PIECE_POINTS
 
 class ScoreTracker:
-    def __init__(self):
+    def __init__(self, pubsub=None):
         self.white_score = 0
         self.black_score = 0
+        self.pubsub = pubsub
+        if self.pubsub is not None:
+            self.pubsub.subscribe("snapshot", self.update)
 
     def get_score(self, color: str) -> int:
         """Exposes the current score for a given color (Color.WHITE or Color.BLACK)."""
@@ -23,5 +26,6 @@ class ScoreTracker:
                         white += points
                     elif piece.color == Color.BLACK:
                         black += points
+        
         self.white_score = white
         self.black_score = black

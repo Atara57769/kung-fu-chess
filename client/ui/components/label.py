@@ -26,7 +26,6 @@ class Label:
             self.font_scale, 
             self.thickness
         )
-        # Center horizontally, keep baseline at vertical y
         return self.x - tw // 2, self.y
 
     def render(self, canvas: Img) -> None:

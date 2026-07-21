@@ -47,7 +47,7 @@ def main() -> None:
         logger.info("Loading graphic sprites...")
         asset_loader.load_all()
         
-        score_tracker = ScoreTracker()
+        score_tracker = ScoreTracker(client.pubsub)
         history_tracker = UIHistoryTracker()
         
         animation_manager = AnimationManager(geometry, asset_loader)

@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 from client.ui.ui_config import LEFT_PADDING, RIGHT_PADDING
 from client.ui.screens.screen_manager import ScreenManager
 from client.ui.screens.home_screen import HomeScreen
@@ -20,6 +21,16 @@ class OnlineCoordinator:
         self.renderer = renderer
         self.animation_manager = animation_manager
         self.logger = logging.getLogger(__name__)
+        
+        self._pending_events: list = []
+        self.client.pubsub.subscribe("room_state", self._on_room_state)
+        self.client.pubsub.subscribe("error", self._on_error)
+
+    def _on_room_state(self, state: dict) -> None:
+        self._pending_events.append(("room_state", state))
+
+    def _on_error(self, message: str) -> None:
+        self._pending_events.append(("error", message))
 
     def _create_online_home_screen(self) -> HomeScreen:
         """Helper to construct HomeScreen with online match and custom room callbacks."""
@@ -46,15 +57,9 @@ class OnlineCoordinator:
         home = self._create_online_home_screen()
         self.screen_manager.switch_to(home)
 
-    def check_network_transitions(self) -> None:
-        """Polls client room state updates and transitions screens synchronously."""
-        if self.client.error_message:
-            self.logger.error(f"Server error: {self.client.error_message}")
-            self.client.error_message = None
-            
-        state = self.client.room_state
+    def _handle_room_state_change(self, state: Optional[dict]) -> None:
+        """Transitions screen states based on room status updates."""
         curr_screen = self.screen_manager.active_screen
-        
         cell_size = self.geometry.cell_size
         total_w = cell_size * 8 + LEFT_PADDING + RIGHT_PADDING
         total_h = cell_size * 8
@@ -104,6 +109,17 @@ class OnlineCoordinator:
                 )
                 self.screen_manager.switch_to(online_game)
 
+    def _handle_error_message(self, message: str) -> None:
+        if message:
+            self.logger.error(f"Server error: {message}")
+
     def update(self, dt: float) -> None:
-        """Checks for network transitions and updates coordinator logic."""
-        self.check_network_transitions()
+        """Processes any queued network events on the main render thread."""
+        events_to_process = list(self._pending_events)
+        self._pending_events.clear()
+        
+        for event_type, payload in events_to_process:
+            if event_type == "room_state":
+                self._handle_room_state_change(payload)
+            elif event_type == "error":
+                self._handle_error_message(payload)

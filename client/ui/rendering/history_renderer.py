@@ -51,7 +51,8 @@ class HistoryRenderer:
 
     def draw_history_panels(self, canvas: Img, snapshot: GameSnapshot, board_w: int, board_h: int, total_w: int) -> None:
         """Draws White and Black Move History Columns in the padded areas if available."""
-        self.score_tracker.update(snapshot)
+        if self.score_tracker.pubsub is None:
+            self.score_tracker.update(snapshot)
 
         if self.left_padding > 0 and self.history_tracker:
             self._draw_history_panel(canvas, "WHITE MOVES", Color.WHITE, cfg.HIST_PANEL_PADDING, self.left_padding - cfg.HIST_PANEL_PADDING, board_h, snapshot)
@@ -62,7 +63,6 @@ class HistoryRenderer:
     def _draw_history_panel(self, canvas: Img, title: str, color: str, x_start: int, x_end: int, board_h: int, snapshot: GameSnapshot) -> None:
         cv2.rectangle(canvas.img, (x_start, cfg.HIST_PANEL_Y_MARGIN), (x_end, board_h - cfg.HIST_PANEL_Y_MARGIN), cfg.BG_COLOR_BGR, -1)
 
-        # Title box
         title_y_start = cfg.HIST_PANEL_Y_MARGIN + 10
         title_y_end = title_y_start + 35
         title_box_margin = 25
@@ -90,7 +90,6 @@ class HistoryRenderer:
         cv2.rectangle(canvas.img, (table_x_start, table_y_start), (table_x_end, table_y_end), (255, 255, 255), -1)
         cv2.rectangle(canvas.img, (table_x_start, table_y_start), (table_x_end, table_y_end), (200, 200, 200), 1)
 
-        # Headers
         header_height = 25
         header_line_y = table_y_start + header_height
         cv2.line(canvas.img, (table_x_start, header_line_y), (table_x_end, header_line_y), (220, 220, 220), 1)
@@ -109,7 +108,6 @@ class HistoryRenderer:
         move_x = sep_x + (right_col_w - mw) // 2
         canvas.put_text("Move", move_x, table_y_start + 17, 0.4, (80, 80, 80), 1)
 
-        # Rows
         moves = [m for m in self.history_tracker.history if m['color'] == color]
         row_height = 25
         max_moves = (table_y_end - header_line_y) // row_height
@@ -125,12 +123,10 @@ class HistoryRenderer:
             time_str = format_time(m['time'])
             move_str = format_move_notation(m, snapshot.board.height)
 
-            # Draw time text
             (tw, th), _ = cv2.getTextSize(time_str, cv2.FONT_HERSHEY_SIMPLEX, 0.38, 1)
             tx = table_x_start + (left_col_w - tw) // 2
             canvas.put_text(time_str, tx, curr_row_y + 17, 0.38, (120, 120, 120), 1)
 
-            # Draw move text
             (mw, mh), _ = cv2.getTextSize(move_str, cv2.FONT_HERSHEY_SIMPLEX, 0.38, 1)
             mx = sep_x + (right_col_w - mw) // 2
             canvas.put_text(move_str, mx, curr_row_y + 17, 0.38, (50, 50, 50), 1)

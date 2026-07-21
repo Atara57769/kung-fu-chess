@@ -11,6 +11,8 @@ from client.ui.screens.online_game_screen import OnlineGameScreen
 
 class DummyClient:
     def __init__(self):
+        from client.services.client_pubsub import ClientPubSub
+        self.pubsub = ClientPubSub()
         self.authenticated = False
         self.error_message = None
         self.username = "test_player"
@@ -133,6 +135,7 @@ def test_online_coordinator_transitions():
         "black": None,
         "spectators": []
     }
+    client.pubsub.publish("room_state", client.room_state)
     
     coordinator.update(0.1)
     
@@ -160,6 +163,7 @@ def test_online_coordinator_transitions():
         "black": "opponent_player",
         "spectators": ["spec1"]
     }
+    client.pubsub.publish("room_state", client.room_state)
     coordinator.update(0.1)
     
     assert room_screen.black_player == "opponent_player"
@@ -172,6 +176,7 @@ def test_online_coordinator_transitions():
         "white": "test_player",
         "black": "opponent_player"
     }
+    client.pubsub.publish("room_state", client.room_state)
     coordinator.update(0.1)
     
     game_screen = screen_manager.switch_to.call_args_list[-1][0][0]
