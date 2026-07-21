@@ -1,6 +1,6 @@
 import sys
 from logger_config import setup_logging
-from runners.script_runner import ScriptRunner
+from server.game.services.script_runner import ScriptRunner
 
 
 def main(stdin=sys.stdin, stdout=sys.stdout, exit_fn=sys.exit):
