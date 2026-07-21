@@ -1,7 +1,7 @@
 import asyncio
 import time
 from typing import List, Optional
-from constants import DEFAULT_BOARD_LAYOUT
+from shared.constants import DEFAULT_BOARD_LAYOUT
 from server.game.engine.game_engine import GameEngine
 from shared.models.game_state import GameState
 from shared.models.color import Color

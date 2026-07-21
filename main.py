@@ -1,5 +1,5 @@
 import sys
-from logger_config import setup_logging
+from shared.logger_config import setup_logging
 from server.game.services.script_runner import ScriptRunner
 
 

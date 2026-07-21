@@ -2,7 +2,7 @@ import os
 import json
 import pathlib
 from client.ui.rendering.img import Img
-from constants import CELL_SIZE
+from shared.constants import CELL_SIZE
 
 class PieceAsset:
     def __init__(self, color: str, kind: str, state_name: str, config: dict, sprites: list[Img]):

@@ -2,7 +2,7 @@ import argparse
 import asyncio
 import logging
 from server.network.server import GameServer
-from constants import DEFAULT_HOST, DEFAULT_PORT
+from shared.constants import DEFAULT_HOST, DEFAULT_PORT
 
 def parse_arguments() -> argparse.Namespace:
     """Parses command line arguments for hosting the chess server."""

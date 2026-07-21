@@ -3,7 +3,7 @@ from shared.models.cell import Cell
 from shared.models.pieces import Piece
 from shared.models.pending_move import PendingMove
 from shared.models.game_state import GameState
-from constants import DURATION
+from shared.constants import DURATION
 from shared.models.piece_type import PieceType
 
 class CollisionService:

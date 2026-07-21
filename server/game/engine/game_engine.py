@@ -4,7 +4,7 @@ from shared.models.game_state import GameState
 from shared.models.cell import Cell
 from shared.models.pieces import Piece
 from shared.models.pending_move import PendingMove
-from constants import DURATION
+from shared.constants import DURATION
 from server.game.rules.rule_engine import RuleEngine
 from server.game.services.collision_service import CollisionService
 from server.game.engine.real_time_arbiter import RealTimeArbiter

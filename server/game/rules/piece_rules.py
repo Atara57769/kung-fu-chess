@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from constants import EMPTY_TOKEN, PAWN_DIRECTIONS
+from shared.constants import EMPTY_TOKEN, PAWN_DIRECTIONS
 from shared.models.piece_type import PieceType
 from shared.models.color import Color
 from shared.models.cell import Cell

@@ -6,7 +6,7 @@ from client.ui.components.button import Button
 from client.ui.ui_config import (
     BG_COLOR_BGR, GAMEOVER_FONT_SCALE, GAMEOVER_COLOR, GAMEOVER_THICKNESS
 )
-from shared.protocol.protocol import cell_to_algebraic, move_to_algebraic
+
 
 class OnlineGameScreen(Screen):
     """Presents the active online game board, handles local selections, and replicates server snapshots."""
@@ -38,11 +38,10 @@ class OnlineGameScreen(Screen):
         if snapshot is None:
             return
 
-        cell_str = cell_to_algebraic(cell, snapshot.board.height)
         if is_right:
-            self.client.send_jump(cell_str)
+            self.client.send_jump(cell)
         else:
-            self.client.send_click(cell_str)
+            self.client.send_click(cell)
 
     def _exit_to_home(self) -> None:
         """Returns the client to the Home Screen and clears room session."""

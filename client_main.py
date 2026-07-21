@@ -2,7 +2,7 @@ import argparse
 import sys
 import logging
 import cv2
-from constants import DEFAULT_HOST, DEFAULT_PORT, CELL_SIZE
+from shared.constants import DEFAULT_HOST, DEFAULT_PORT, CELL_SIZE
 from client.ui.ui_config import LEFT_PADDING, RIGHT_PADDING, TIME_STEP_MS
 from client.ui.board.board_geometry import BoardGeometry
 from client.ui.assets.asset_loader import AssetLoader

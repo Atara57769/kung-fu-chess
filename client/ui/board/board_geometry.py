@@ -1,5 +1,5 @@
 from shared.models.cell import Cell
-from constants import CELL_SIZE
+from shared.constants import CELL_SIZE
 
 class BoardGeometry:
     def __init__(self, cell_size: int = CELL_SIZE):

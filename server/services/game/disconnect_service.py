@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import List, Dict, Optional
 from server.network.models import ConnectedPlayer, GameRoom
-from constants import DISCONNECT_COUNTDOWN
+from shared.constants import DISCONNECT_COUNTDOWN
 
 logger = logging.getLogger(__name__)
 
