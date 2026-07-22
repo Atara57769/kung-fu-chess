@@ -29,7 +29,6 @@ class PubSub:
     async def publish(self, channel: str, message: Any) -> None:
         """Publishes a message to all subscribers of a channel."""
         if channel in self._channels:
-            # Copy items to prevent dictionary modification during iteration
             for player, callback in list(self._channels[channel].items()):
                 try:
                     msg = message(player) if callable(message) else message

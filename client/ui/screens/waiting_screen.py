@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from typing import Optional, Callable
 from client.ui.rendering.img import Img
 from client.ui.screens.base_screen import Screen
 from client.ui.components.button import Button
@@ -9,13 +10,18 @@ from client.ui.ui_config import BG_COLOR_BGR
 class WaitingScreen(Screen):
     """Presents a loading/waiting state while searching for an opponent."""
     
-    def __init__(self, screen_manager, width: int, height: int) -> None:
+    def __init__(self, screen_manager, width: int, height: int, 
+                 timeout_seconds: float = 60.0, on_timeout: Optional[Callable] = None) -> None:
         self.screen_manager = screen_manager
         self.width = width
         self.height = height
+        self.timeout_seconds = timeout_seconds
+        self.on_timeout = on_timeout
+        self._has_timed_out = False
         
         self.buttons: list[Button] = []
         self.labels: list[Label] = []
+        self.elapsed_time = 0.0
         
         self._setup_components()
 
@@ -28,7 +34,6 @@ class WaitingScreen(Screen):
         self.labels.append(Label(cx, 220, "Waiting time: 0s", centered=True))
         
         self.buttons.append(Button(cx - 100, 280, 200, 45, "Cancel", self._on_cancel))
-        self.elapsed_time = 0.0
 
     def _on_cancel(self) -> None:
         """Cancels matchmaking and returns to the home screen."""
@@ -48,9 +53,16 @@ class WaitingScreen(Screen):
 
     def update(self, dt: float) -> None:
         """Ticks the elapsed matchmaking time and updates the duration label."""
+        if self._has_timed_out:
+            return
+
         self.elapsed_time += dt
-        # Update the time label text
         self.labels[2].text = f"Waiting time: {int(self.elapsed_time)}s"
+        
+        if self.elapsed_time >= self.timeout_seconds:
+            self._has_timed_out = True
+            if self.on_timeout:
+                self.on_timeout()
 
     def _draw_gradient_background(self, canvas: Img) -> None:
         """Fills canvas with a sleek dark radial-like vertical gradient."""

@@ -12,22 +12,16 @@ from shared.constants import (
     ROOM_STATUS_ACTIVE, COLOR_NAME_WHITE, COLOR_NAME_BLACK, GAME_RESULT_DRAW,
     MSG_UNAUTHORIZED
 )
-from client.ui.ui_config import TIME_STEP_MS
 from server.database.db_manager import DBManager
 from shared.models.color import Color
 from server.network.models import ConnectedPlayer, GameRoom
-from server.services.elo import elo_service
 from server.services.game import game_session_service, disconnect_service
-from server.network import client_connection
 from server.services.auth import auth_service
 from server.services.matchmaking import matchmaking_service, room_service
 from shared.protocol.pubsub import PubSub, make_subscriber_callback
 from shared.protocol import MessageType
 
 logger = logging.getLogger(__name__)
-
-ATTR_WINNER = "winner"
-PIECE_KIND_KING = "K"
 
 
 class GameServer:
@@ -56,11 +50,28 @@ class GameServer:
     async def start(self) -> None:
         """Starts the WebSocket server listening loop."""
         async def _internal_handler(ws, path=None):
-            await client_connection.client_connection(ws, self)
+            await self.handle_client_connection(ws)
             
         async with websockets.serve(_internal_handler, self.host, self.port):
             logger.info(f"Kung-Fu Chess Server started on ws://{self.host}:{self.port}")
             await asyncio.Future()
+
+    async def handle_client_connection(self, websocket) -> None:
+        """Entry handler for each new WebSocket connection client."""
+        ip = websocket.remote_address[0]
+        player = ConnectedPlayer(websocket, ip)
+        self.players[websocket] = player
+        logger.info(f"Connection opened from {ip}")
+        
+        try:
+            async for message in websocket:
+                await self.dispatch_message(player, message)
+        except ConnectionClosed:
+            logger.info(f"Connection closed by client {ip}")
+        finally:
+            await self.handle_disconnect(player)
+            if websocket in self.players:
+                del self.players[websocket]
 
     async def dispatch_message(self, player: ConnectedPlayer, raw_msg: str) -> None:
         """Decodes JSON message and dispatches it to the correct action handler."""
@@ -155,39 +166,7 @@ class GameServer:
         await self._start_game_session(room)
 
     async def _start_game_session(self, room: GameRoom) -> None:
-        await game_session_service.start_game_session(room, self.broadcast_room_state, self._room_tick_loop)
-
-    async def _room_tick_loop(self, room: GameRoom) -> None:
-        """Authoritative real-time progression ticking game state."""
-        tick_interval = TIME_STEP_MS / 1000.0
-        try:
-            while room.status == ROOM_STATUS_ACTIVE:
-                await asyncio.sleep(tick_interval)
-                
-                room.controller.wait(TIME_STEP_MS)
-                
-                if room.state.game_over:
-                    winner_token = room.state.winner if hasattr(room.state, ATTR_WINNER) else None
-                    if not winner_token:
-                        has_w_king = False
-                        has_b_king = False
-                        for row in room.state.board.grid:
-                            for p in row:
-                                if p is not None and p.kind == PIECE_KIND_KING:
-                                    if p.color == Color.WHITE: has_w_king = True
-                                    elif p.color == Color.BLACK: has_b_king = True
-                        if has_w_king and not has_b_king:
-                            winner_token = Color.WHITE
-                        elif has_b_king and not has_w_king:
-                            winner_token = Color.BLACK
-                    
-                    winner_color = COLOR_NAME_WHITE if winner_token == Color.WHITE else (COLOR_NAME_BLACK if winner_token == Color.BLACK else GAME_RESULT_DRAW)
-                    await self.end_game(room, winner_color)
-                    break
-                    
-                await self.broadcast_snapshot(room)
-        except asyncio.CancelledError:
-            pass
+        await game_session_service.start_game_session(room, self.broadcast_room_state, self.broadcast_snapshot, self.db, self._send_json)
 
     async def broadcast_room_state(self, room: GameRoom) -> None:
         await room_service.broadcast_room_state(room, self._send_json)
@@ -199,7 +178,7 @@ class GameServer:
         await game_session_service.send_snapshot_to(player, room, self._send_json)
 
     async def end_game(self, room: GameRoom, winner_color: str) -> None:
-        await game_session_service.end_game(room, winner_color, self.db, elo_service.calculate_elo, self._send_json)
+        await game_session_service.end_game(room, winner_color, self.db, self._send_json)
 
     async def handle_disconnect(self, player: ConnectedPlayer) -> None:
         await disconnect_service.handle_disconnect(

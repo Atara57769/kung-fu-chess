@@ -9,10 +9,12 @@ from client.ui.screens.online_game_screen import OnlineGameScreen
 from client.ui.board.board_geometry import BoardGeometry
 from client.ui.rendering.game_renderer import GameRenderer
 from client.ui.animation.animation_manager import AnimationManager
+from client.ui.components.popup_dialog import show_error_dialog, show_warning_dialog
 from client.network.client import GameClient
 from shared.protocol import MessageType
 from shared.constants import (
     ROOM_STATUS_WAITING, ROOM_STATUS_ACTIVE,
+    MATCHMAKING_STATUS_TIMEOUT,
     FIELD_STATUS, FIELD_ROOM_ID, FIELD_WHITE, FIELD_BLACK, FIELD_SPECTATORS
 )
 
@@ -30,12 +32,16 @@ class OnlineCoordinator:
         self._pending_events: list = []
         self.client.pubsub.subscribe(MessageType.ROOM_STATE, self._on_room_state)
         self.client.pubsub.subscribe(MessageType.ERROR, self._on_error)
+        self.client.pubsub.subscribe(MessageType.MATCHMAKING_STATUS, self._on_matchmaking_status)
 
     def _on_room_state(self, state: dict) -> None:
         self._pending_events.append((MessageType.ROOM_STATE, state))
 
     def _on_error(self, message: str) -> None:
         self._pending_events.append((MessageType.ERROR, message))
+
+    def _on_matchmaking_status(self, data: dict) -> None:
+        self._pending_events.append((MessageType.MATCHMAKING_STATUS, data))
 
     def _create_online_home_screen(self) -> HomeScreen:
         """Helper to construct HomeScreen with online match and custom room callbacks."""
@@ -45,13 +51,24 @@ class OnlineCoordinator:
         
         def trigger_quick_match():
             self.client.enter_matchmaking()
-            waiting = WaitingScreen(self.screen_manager, total_w, total_h)
+            waiting = WaitingScreen(
+                self.screen_manager, 
+                total_w, 
+                total_h,
+                timeout_seconds=60.0,
+                on_timeout=handle_client_timeout
+            )
             waiting.buttons[0].callback = cancel_quick_match
             self.screen_manager.switch_to(waiting)
             
         def cancel_quick_match():
             self.client.leave_matchmaking()
             self.screen_manager.switch_to(home)
+
+        def handle_client_timeout():
+            self.client.leave_matchmaking()
+            self.screen_manager.switch_to(home)
+            show_warning_dialog("Matchmaking Timeout", "No opponent was found within 60 seconds.")
 
         home = HomeScreen(self.screen_manager, total_w, total_h, self.client.username, self.client.rating, client=self.client)
         home.buttons[0].callback = trigger_quick_match
@@ -117,6 +134,16 @@ class OnlineCoordinator:
     def _handle_error_message(self, message: str) -> None:
         if message:
             self.logger.error(f"Server error: {message}")
+            show_error_dialog("Error", message)
+
+    def _handle_matchmaking_status(self, data: dict) -> None:
+        status = data.get(FIELD_STATUS)
+        if status == MATCHMAKING_STATUS_TIMEOUT:
+            curr_screen = self.screen_manager.active_screen
+            if isinstance(curr_screen, WaitingScreen):
+                home = self._create_online_home_screen()
+                self.screen_manager.switch_to(home)
+            show_warning_dialog("Matchmaking Timeout", "No opponent was found within 60 seconds.")
 
     def update(self, dt: float) -> None:
         """Processes any queued network events on the main render thread."""
@@ -128,3 +155,5 @@ class OnlineCoordinator:
                 self._handle_room_state_change(payload)
             elif event_type == MessageType.ERROR:
                 self._handle_error_message(payload)
+            elif event_type == MessageType.MATCHMAKING_STATUS:
+                self._handle_matchmaking_status(payload)

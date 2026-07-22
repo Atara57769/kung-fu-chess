@@ -49,6 +49,7 @@ class GameClient:
             MessageType.COUNTDOWN: self._handle_countdown,
             MessageType.GAME_OVER: self._handle_game_over,
             MessageType.ERROR: self._handle_error,
+            MessageType.MATCHMAKING_STATUS: self._handle_matchmaking_status,
         }
 
     def start(self) -> None:
@@ -160,6 +161,9 @@ class GameClient:
     def _handle_error(self, data: dict) -> None:
         self.error_message = data.get("message")
         self.pubsub.publish(MessageType.ERROR, self.error_message)
+
+    def _handle_matchmaking_status(self, data: dict) -> None:
+        self.pubsub.publish(MessageType.MATCHMAKING_STATUS, data)
 
     def _update_elo_from_change(self, change_str: str) -> None:
         """Helper to parse updated ELO value from rating change suffix (e.g. ' (1200 -> 1216)')."""

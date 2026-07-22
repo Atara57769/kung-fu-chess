@@ -5,19 +5,55 @@ from server.network.models import GameRoom, ConnectedPlayer
 from shared.protocol.protocol import serialize_snapshot, algebraic_to_move, algebraic_to_cell
 from shared.protocol import MessageType
 from shared.models.color import Color
+from client.ui.ui_config import TIME_STEP_MS
 from shared.constants import (
     ROOM_STATUS_ACTIVE, ROOM_STATUS_ENDED, COLOR_NAME_WHITE, COLOR_NAME_BLACK,
-    FIELD_TYPE, FIELD_DATA
+    GAME_RESULT_DRAW, FIELD_TYPE, FIELD_DATA
 )
-from shared.models.game_over_result import KEY_WINNER, KEY_MESSAGE, KEY_WHITE_RATING_CHANGE, KEY_BLACK_RATING_CHANGE
+from server.services.elo import elo_service
 
 logger = logging.getLogger(__name__)
 
-async def start_game_session(room: GameRoom, broadcast_room_state_fn, room_tick_loop_fn) -> None:
+ATTR_WINNER = "winner"
+PIECE_KIND_KING = "K"
+
+async def start_game_session(room: GameRoom, broadcast_room_state_fn, broadcast_snapshot_fn, db, send_json_fn) -> None:
     """Transitions room status to active and starts tick task."""
     room.status = ROOM_STATUS_ACTIVE
     await broadcast_room_state_fn(room)
-    room.tick_task = asyncio.create_task(room_tick_loop_fn(room))
+    room.tick_task = asyncio.create_task(room_tick_loop(room, broadcast_snapshot_fn, db, send_json_fn))
+
+async def room_tick_loop(room: GameRoom, broadcast_snapshot_fn, db, send_json_fn) -> None:
+    """Authoritative real-time progression ticking game state."""
+    tick_interval = TIME_STEP_MS / 1000.0
+    try:
+        while room.status == ROOM_STATUS_ACTIVE:
+            await asyncio.sleep(tick_interval)
+            
+            room.controller.wait(TIME_STEP_MS)
+            
+            if room.state.game_over:
+                winner_token = room.state.winner if hasattr(room.state, ATTR_WINNER) else None
+                if not winner_token:
+                    has_w_king = False
+                    has_b_king = False
+                    for row in room.state.board.grid:
+                        for p in row:
+                            if p is not None and p.kind == PIECE_KIND_KING:
+                                if p.color == Color.WHITE: has_w_king = True
+                                elif p.color == Color.BLACK: has_b_king = True
+                    if has_w_king and not has_b_king:
+                        winner_token = Color.WHITE
+                    elif has_b_king and not has_w_king:
+                        winner_token = Color.BLACK
+                
+                winner_color = COLOR_NAME_WHITE if winner_token == Color.WHITE else (COLOR_NAME_BLACK if winner_token == Color.BLACK else GAME_RESULT_DRAW)
+                await end_game(room, winner_color, db, send_json_fn)
+                break
+                
+            await broadcast_snapshot_fn(room)
+    except asyncio.CancelledError:
+        pass
 
 async def broadcast_snapshot(room: GameRoom, pubsub) -> None:
     """Broadcasts a game snapshot directly to players and spectators via pubsub."""
@@ -73,8 +109,11 @@ async def process_game_jump(player: ConnectedPlayer, cell_str: str, rooms: Dict[
     room.controller.jump(cell, player_color=player.color)
     await broadcast_snapshot_fn(room)
 
-async def end_game(room: GameRoom, winner_color: str, db, elo_calc_fn, send_json_fn) -> None:
+async def end_game(room: GameRoom, winner_color: str, db, send_json_fn, elo_calc_fn=None) -> None:
     """Resolves results, ELO updates, DB updates, and closes lobby tick loops."""
+    if elo_calc_fn is None:
+        elo_calc_fn = elo_service.calculate_elo
+
     room.status = ROOM_STATUS_ENDED
     if room.tick_task:
         room.tick_task.cancel()

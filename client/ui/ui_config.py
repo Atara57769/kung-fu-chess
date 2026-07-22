@@ -2,7 +2,7 @@
 # 1. Screen & Layout configuration
 LEFT_PADDING = 250
 RIGHT_PADDING = 250
-TIME_STEP_MS = 50
+TIME_STEP_MS = 70
 
 # 2. Colors (BGR & BGRA)
 BG_COLOR_BGRA = (27, 26, 24, 255)  
