@@ -15,7 +15,6 @@ async def create_custom_room(
     player: ConnectedPlayer,
     rooms: Dict[str, GameRoom],
     send_json_fn,
-    broadcast_room_state_fn,
     room_id: Optional[str] = None
 ) -> None:
     """Creates custom lobby and seats creator as White."""
@@ -35,18 +34,18 @@ async def create_custom_room(
     
     rooms[room_id] = room
     logger.info(f"Custom Room {room_id} created by {player.username}.")
-    await broadcast_room_state_fn(room)
+    await broadcast_room_state(room, send_json_fn)
 
 async def join_custom_room(
     player: ConnectedPlayer,
     room_id: str,
     rooms: Dict[str, GameRoom],
     send_json_fn,
-    broadcast_room_state_fn,
-    start_game_callback,
-    send_snapshot_to_fn
+    db
 ) -> None:
     """Joins custom lobby as Black (if empty) or Spectator."""
+    from server.services.game import game_session_service
+
     room = rooms.get(room_id)
     if not room:
         await send_json_fn(player.ws, ErrorMessage(message=MSG_ROOM_NOT_FOUND))
@@ -61,8 +60,8 @@ async def join_custom_room(
             room.countdown_task.cancel()
             room.countdown_task = None
         logger.info(f"Player {player.username} reconnected to Room {room_id} as White.")
-        await broadcast_room_state_fn(room)
-        await send_snapshot_to_fn(player, room)
+        await broadcast_room_state(room, send_json_fn)
+        await game_session_service.send_snapshot_to(player, room, send_json_fn)
     elif room.black_player and room.black_player.username == player.username and room.black_player != player:
         room.black_player = player
         player.color = Color.BLACK
@@ -70,27 +69,26 @@ async def join_custom_room(
             room.countdown_task.cancel()
             room.countdown_task = None
         logger.info(f"Player {player.username} reconnected to Room {room_id} as Black.")
-        await broadcast_room_state_fn(room)
-        await send_snapshot_to_fn(player, room)
+        await broadcast_room_state(room, send_json_fn)
+        await game_session_service.send_snapshot_to(player, room, send_json_fn)
     else:
         if room.black_player is None and room.status == ROOM_STATUS_WAITING:
             room.black_player = player
             player.color = Color.BLACK
             logger.info(f"Player {player.username} joined Room {room_id} as Black.")
-            await start_game_callback(room)
+            await game_session_service.start_game_session(room, db, send_json_fn)
         else:
             room.spectators.append(player)
             player.color = None
             logger.info(f"Player {player.username} joined Room {room_id} as Spectator.")
-            await broadcast_room_state_fn(room)
+            await broadcast_room_state(room, send_json_fn)
             if room.status == ROOM_STATUS_ACTIVE:
-                await send_snapshot_to_fn(player, room)
+                await game_session_service.send_snapshot_to(player, room, send_json_fn)
 
 async def handle_leave_room(
     player: ConnectedPlayer,
     rooms: Dict[str, GameRoom],
-    send_json_fn,
-    broadcast_room_state_fn
+    send_json_fn
 ) -> None:
     """Removes a player from their current lobby session."""
     if not player.room_id:
@@ -110,7 +108,7 @@ async def handle_leave_room(
     player.room_id = None
     player.color = None
 
-    await broadcast_room_state_fn(room)
+    await broadcast_room_state(room, send_json_fn)
     await send_json_fn(player.ws, RoomStateMessage(room_id=None))
 
 async def broadcast_room_state(room: GameRoom, send_json_fn) -> None:

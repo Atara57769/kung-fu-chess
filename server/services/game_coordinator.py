@@ -127,7 +127,5 @@ class GameCoordinator:
     async def handle_disconnect(self, player: ConnectedPlayer) -> None:
         await disconnect_service.handle_disconnect(
             player, self.matchmaking_queue, self.rooms,
-            lambda r: room_service.broadcast_room_state(r, self.send_json_fn),
-            self.send_json_fn,
-            lambda r, w: game_session_service.end_game(r, w, self.db, self.send_json_fn)
+            self.send_json_fn, self.db
         )

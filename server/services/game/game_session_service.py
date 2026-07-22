@@ -20,13 +20,14 @@ GAME_OVER_MESSAGE_FORMAT = "Game Over! Winner: {}"
 
 logger = logging.getLogger(__name__)
 
-async def start_game_session(room: GameRoom, broadcast_room_state_fn, broadcast_snapshot_fn, db, send_json_fn) -> None:
+async def start_game_session(room: GameRoom, db, send_json_fn) -> None:
     """Transitions room status to active and starts tick task."""
+    from server.services.matchmaking import room_service
     room.status = ROOM_STATUS_ACTIVE
-    await broadcast_room_state_fn(room)
-    room.tick_task = asyncio.create_task(room_tick_loop(room, broadcast_snapshot_fn, db, send_json_fn))
+    await room_service.broadcast_room_state(room, send_json_fn)
+    room.tick_task = asyncio.create_task(room_tick_loop(room, db, send_json_fn))
  
-async def room_tick_loop(room: GameRoom, broadcast_snapshot_fn, db, send_json_fn) -> None:
+async def room_tick_loop(room: GameRoom, db, send_json_fn) -> None:
     """Authoritative real-time progression ticking game state."""
     tick_interval = TIME_STEP_MS / 1000.0
     try:
@@ -54,7 +55,7 @@ async def room_tick_loop(room: GameRoom, broadcast_snapshot_fn, db, send_json_fn
                 await end_game(room, winner_color, db, send_json_fn)
                 break
                 
-            await broadcast_snapshot_fn(room)
+            await broadcast_snapshot(room, send_json_fn)
     except asyncio.CancelledError:
         pass
  
@@ -74,7 +75,7 @@ async def send_snapshot_to(player: ConnectedPlayer, room: GameRoom, send_json_fn
     snap = room.controller.get_snapshot(player_color=player.color)
     await send_json_fn(player.ws, SnapshotMessage(data=serialize_snapshot(snap)))
  
-async def process_game_move(player: ConnectedPlayer, move_str: str, rooms: Dict[str, GameRoom], broadcast_snapshot_fn) -> None:
+async def process_game_move(player: ConnectedPlayer, move_str: str, rooms: Dict[str, GameRoom], send_json_fn) -> None:
     """Validates client move coordinates and executes authorized move on player's controller."""
     room = rooms.get(player.room_id) if player.room_id else None
     if not room or room.status != ROOM_STATUS_ACTIVE:
@@ -90,10 +91,10 @@ async def process_game_move(player: ConnectedPlayer, move_str: str, rooms: Dict[
         return
  
     room.controller.move(from_cell, to_cell, player_color=player.color)
-    await broadcast_snapshot_fn(room)
+    await broadcast_snapshot(room, send_json_fn)
  
  
-async def process_game_jump(player: ConnectedPlayer, cell_str: str, rooms: Dict[str, GameRoom], broadcast_snapshot_fn) -> None:
+async def process_game_jump(player: ConnectedPlayer, cell_str: str, rooms: Dict[str, GameRoom], send_json_fn) -> None:
     """Validates client jump coordinate and executes authorized jump on player's controller."""
     room = rooms.get(player.room_id) if player.room_id else None
     if not room or room.status != ROOM_STATUS_ACTIVE:
@@ -109,7 +110,7 @@ async def process_game_jump(player: ConnectedPlayer, cell_str: str, rooms: Dict[
         return
  
     room.controller.jump(cell, player_color=player.color)
-    await broadcast_snapshot_fn(room)
+    await broadcast_snapshot(room, send_json_fn)
  
 async def end_game(room: GameRoom, winner_color: str, db, send_json_fn, elo_calc_fn=None) -> None:
     """Resolves results, ELO updates, DB updates, and closes lobby tick loops."""

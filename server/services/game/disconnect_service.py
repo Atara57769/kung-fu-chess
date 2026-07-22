@@ -6,6 +6,8 @@ from shared.constants import (
     DISCONNECT_COUNTDOWN, ROOM_STATUS_ACTIVE, COLOR_NAME_WHITE, COLOR_NAME_BLACK
 )
 from shared.protocol import CountdownMessage
+from server.services.matchmaking import room_service
+from server.services.game import game_session_service
 
 DISCONNECT_COUNTDOWN_MSG_FORMAT = "Opponent disconnected. Autoresign in {}s."
 
@@ -14,9 +16,8 @@ logger = logging.getLogger(__name__)
 async def handle_disconnect(player: ConnectedPlayer,
     matchmaking_queue: List[ConnectedPlayer],
     rooms: Dict[str, GameRoom],
-    broadcast_room_state_fn,
     send_json_fn,
-    end_game_fn
+    db
 ) -> None:
     """Starts countdown resignation timer if an active player disconnects."""
     if player in matchmaking_queue:
@@ -37,7 +38,7 @@ async def handle_disconnect(player: ConnectedPlayer,
         room.countdown_seconds = DISCONNECT_COUNTDOWN
         if room.countdown_task:
             room.countdown_task.cancel()
-        room.countdown_task = asyncio.create_task(run_resign_countdown(room, player, opponent, send_json_fn, end_game_fn))
+        room.countdown_task = asyncio.create_task(run_resign_countdown(room, player, opponent, send_json_fn, db))
     else:
         if room.white_player == player:
             room.white_player = None
@@ -46,14 +47,14 @@ async def handle_disconnect(player: ConnectedPlayer,
         elif player in room.spectators:
             room.spectators.remove(player)
             
-        await broadcast_room_state_fn(room)
+        await room_service.broadcast_room_state(room, send_json_fn)
 
 async def run_resign_countdown(
     room: GameRoom,
     disconnected: ConnectedPlayer,
     opponent: Optional[ConnectedPlayer],
     send_json_fn,
-    end_game_fn
+    db
 ) -> None:
     """Waits up to 20 seconds; resigns disconnected player if they do not return."""
     try:
@@ -68,9 +69,6 @@ async def run_resign_countdown(
 
         winner_color = COLOR_NAME_BLACK if room.white_player == disconnected else COLOR_NAME_WHITE
         logger.info(f"Countdown expired in Room {room.room_id}. Disconnected player {disconnected.username} resigned.")
-        await end_game_fn(room, winner_color)
+        await game_session_service.end_game(room, winner_color, db, send_json_fn)
     except asyncio.CancelledError:
         logger.info(f"Resign countdown cancelled in Room {room.room_id} (player reconnected).")
-
-
-
