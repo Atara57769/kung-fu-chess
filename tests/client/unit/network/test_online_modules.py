@@ -127,14 +127,16 @@ def test_online_coordinator_transitions():
     
     coordinator = OnlineCoordinator(client, screen_manager, geometry, renderer, animation_manager)
     
+    from shared.protocol import RoomStateMessage
+    
     # 1. Transition to Waiting Room Screen
-    client.room_state = {
-        "status": "waiting",
-        "room_id": "room_xyz",
-        "white": "test_player",
-        "black": None,
-        "spectators": []
-    }
+    client.room_state = RoomStateMessage(
+        status="waiting",
+        room_id="room_xyz",
+        white="test_player",
+        black=None,
+        spectators=[]
+    )
     client.pubsub.publish("room_state", client.room_state)
     
     coordinator.update(0.1)
@@ -156,13 +158,13 @@ def test_online_coordinator_transitions():
     screen_manager.active_screen = room_screen
     
     # 2. Update player joining state
-    client.room_state = {
-        "status": "waiting",
-        "room_id": "room_xyz",
-        "white": "test_player",
-        "black": "opponent_player",
-        "spectators": ["spec1"]
-    }
+    client.room_state = RoomStateMessage(
+        status="waiting",
+        room_id="room_xyz",
+        white="test_player",
+        black="opponent_player",
+        spectators=["spec1"]
+    )
     client.pubsub.publish("room_state", client.room_state)
     coordinator.update(0.1)
     
@@ -170,17 +172,19 @@ def test_online_coordinator_transitions():
     assert room_screen.spectators == ["spec1"]
 
     # 3. Transition to Active game screen
-    client.room_state = {
-        "status": "active",
-        "room_id": "room_xyz",
-        "white": "test_player",
-        "black": "opponent_player"
-    }
+    client.room_state = RoomStateMessage(
+        status="active",
+        room_id="room_xyz",
+        white="test_player",
+        black="opponent_player",
+        spectators=[]
+    )
     client.pubsub.publish("room_state", client.room_state)
     coordinator.update(0.1)
     
     game_screen = screen_manager.switch_to.call_args_list[-1][0][0]
     assert isinstance(game_screen, OnlineGameScreen)
+
 
 @patch('cv2.namedWindow')
 @patch('cv2.setMouseCallback')

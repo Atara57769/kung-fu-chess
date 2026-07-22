@@ -49,14 +49,12 @@ class GameServer:
 
     async def start(self) -> None:
         """Starts the WebSocket server listening loop."""
-        async def _internal_handler(ws, path=None):
-            await self.handle_client_connection(ws)
-            
-        async with websockets.serve(_internal_handler, self.host, self.port):
+        async with websockets.serve(self.handle_client_connection, self.host, self.port):
             logger.info(f"Kung-Fu Chess Server started on ws://{self.host}:{self.port}")
             await asyncio.Future()
 
-    async def handle_client_connection(self, websocket) -> None:
+    async def handle_client_connection(self, websocket, path=None) -> None:
+
         """Entry handler for each new WebSocket connection client."""
         ip = websocket.remote_address[0]
         player = ConnectedPlayer(websocket, ip)

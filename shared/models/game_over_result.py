@@ -21,9 +21,10 @@ class GameOverResult:
     white_rating_change: str = ""
     black_rating_change: str = ""
 
+
     @classmethod
-    def from_dict(cls, data: dict) -> "GameOverResult":
-        raw_winner = str(data.get(KEY_WINNER, DEFAULT_WINNER_NAME)).lower()
+    def from_message(cls, msg) -> "GameOverResult":
+        raw_winner = str(getattr(msg, "winner", None) or DEFAULT_WINNER_NAME).lower()
         if raw_winner in WHITE_WINNER_KEYS:
             winner = Color.WHITE
         elif raw_winner in BLACK_WINNER_KEYS:
@@ -34,7 +35,8 @@ class GameOverResult:
         return cls(
             winner=winner,
             winner_name=raw_winner,
-            message=data.get(KEY_MESSAGE, ""),
-            white_rating_change=data.get(KEY_WHITE_RATING_CHANGE, ""),
-            black_rating_change=data.get(KEY_BLACK_RATING_CHANGE, "")
+            message=getattr(msg, "message", "") or "",
+            white_rating_change=getattr(msg, "white_rating_change", "") or "",
+            black_rating_change=getattr(msg, "black_rating_change", "") or ""
         )
+

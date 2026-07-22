@@ -13,25 +13,11 @@ from shared.models.color import Color
 from shared.models.cell import Cell
 from shared.models.game_over_result import GameOverResult
 from shared.protocol import (
-    MessageType,
-    AuthMessage,
-    AuthResponseMessage,
-    HeartbeatMessage,
-    MatchmakingMessage,
-    LeaveMatchmakingMessage,
-    MatchmakingStatusMessage,
-    CreateRoomMessage,
-    JoinRoomMessage,
-    LeaveRoomMessage,
-    RoomStateMessage,
-    MoveMessage,
-    JumpMessage,
-    SnapshotMessage,
-    CountdownMessage,
-    GameOverMessage,
-    ErrorMessage,
-    parse_message,
+    MessageType, AuthMessage, AuthResponseMessage, HeartbeatMessage, MatchmakingMessage,
+    LeaveMatchmakingMessage, MatchmakingStatusMessage, CreateRoomMessage, JoinRoomMessage,
+    LeaveRoomMessage, RoomStateMessage, MoveMessage, JumpMessage, SnapshotMessage, CountdownMessage, GameOverMessage, ErrorMessage, parse_message,
 )
+
 from client.services.client_pubsub import ClientPubSub
 
 
@@ -155,14 +141,13 @@ class GameClient:
             self.username = msg.username
             self.rating = msg.rating or 1200
         else:
-            self.error_message = msg.error or "Authentication failed."
-
+            self.error_message = msg.error 
     def _handle_room_state(self, msg: RoomStateMessage) -> None:
-        self.room_state = asdict(msg)
+        self.room_state = msg
         self.your_color = Color(msg.your_color) if msg.your_color else None
         self.game_over_result = None
         self.countdown_seconds = 0
-        self.pubsub.publish(MessageType.ROOM_STATE, self.room_state)
+        self.pubsub.publish(MessageType.ROOM_STATE, msg)
 
     def _handle_snapshot(self, msg: SnapshotMessage) -> None:
         self.current_snapshot = deserialize_snapshot(msg.data)
@@ -173,18 +158,20 @@ class GameClient:
         self.countdown_message = msg.message
 
     def _handle_game_over(self, msg: GameOverMessage) -> None:
-        self.game_over_result = GameOverResult.from_dict(asdict(msg))
+        self.game_over_result = GameOverResult.from_message(msg)
         if self.your_color == Color.WHITE and msg.white_rating_change:
             self._update_elo_from_change(msg.white_rating_change)
         elif self.your_color == Color.BLACK and msg.black_rating_change:
             self._update_elo_from_change(msg.black_rating_change)
 
+
     def _handle_error(self, msg: ErrorMessage) -> None:
         self.error_message = msg.message
-        self.pubsub.publish(MessageType.ERROR, self.error_message)
+        self.pubsub.publish(MessageType.ERROR, msg)
+
 
     def _handle_matchmaking_status(self, msg: MatchmakingStatusMessage) -> None:
-        self.pubsub.publish(MessageType.MATCHMAKING_STATUS, asdict(msg))
+        self.pubsub.publish(MessageType.MATCHMAKING_STATUS, msg)
 
 
     def _update_elo_from_change(self, change_str: str) -> None:
