@@ -1,16 +1,16 @@
 import logging
 from server.network.models import ConnectedPlayer
-from shared.protocol import MessageType
+from shared.protocol import AuthMessage, AuthResponseMessage
 
 logger = logging.getLogger(__name__)
 
-async def handle_auth(player: ConnectedPlayer, data: dict, db, send_json_fn) -> None:
+async def handle_auth(player: ConnectedPlayer, msg: AuthMessage, db, send_json_fn) -> None:
     """Verifies credentials against DBManager and updates player session."""
-    username = data.get("username", "").strip()
-    password = data.get("password", "").strip()
+    username = msg.username.strip()
+    password = msg.password.strip()
     
     if not username or not password:
-        await send_json_fn(player.ws, {"type": MessageType.AUTH_RESPONSE, "success": False, "error": "Invalid fields."})
+        await send_json_fn(player.ws, AuthResponseMessage(success=False, error="Invalid fields."))
         return
 
     user_info = db.authenticate_or_register(username, password)
@@ -18,16 +18,16 @@ async def handle_auth(player: ConnectedPlayer, data: dict, db, send_json_fn) -> 
         player.username = user_info.username
         player.rating = user_info.rating
         player.authenticated = True
-        await send_json_fn(player.ws, {
-            "type": MessageType.AUTH_RESPONSE,
-            "success": True,
-            "username": player.username,
-            "rating": player.rating
-        })
+        await send_json_fn(player.ws, AuthResponseMessage(
+            success=True,
+            username=player.username,
+            rating=player.rating
+        ))
         logger.info(f"Player {player.username} authenticated successfully.")
     else:
-        await send_json_fn(player.ws, {
-            "type": MessageType.AUTH_RESPONSE,
-            "success": False,
-            "error": "Authentication failed."
-        })
+        await send_json_fn(player.ws, AuthResponseMessage(
+            success=False,
+            error="Authentication failed."
+        ))
+
+

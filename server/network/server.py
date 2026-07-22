@@ -1,3 +1,4 @@
+from dataclasses import is_dataclass, asdict
 import asyncio
 import json
 import logging
@@ -8,7 +9,6 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 from shared.constants import (
     DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_TIMEOUT, DISCONNECT_COUNTDOWN, DEFAULT_BOARD_LAYOUT,
-    FIELD_TYPE, FIELD_MESSAGE, FIELD_ROOM_ID, FIELD_DATA,
     ROOM_STATUS_ACTIVE, COLOR_NAME_WHITE, COLOR_NAME_BLACK, GAME_RESULT_DRAW,
     MSG_UNAUTHORIZED
 )
@@ -18,7 +18,9 @@ from server.network.models import ConnectedPlayer, GameRoom
 from server.services.game import game_session_service, disconnect_service
 from server.services.auth import auth_service
 from server.services.matchmaking import matchmaking_service, room_service
-from shared.protocol import MessageType
+from shared.protocol import (
+    MessageType, ErrorMessage, HeartbeatAckMessage, AuthMessage, BaseMessage, parse_message
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,66 +78,74 @@ class GameServer:
         player.last_heartbeat = time.time()
         try:
             data = json.loads(raw_msg)
-        except json.JSONDecodeError:
-            logger.warning("Received invalid non-JSON message.")
+            msg = parse_message(data)
+        except (json.JSONDecodeError, ValueError, KeyError):
+            logger.warning("Received invalid or unparseable message.")
             return
 
-        msg_type = data.get(FIELD_TYPE)
-        if msg_type == MessageType.AUTH:
-            await auth_service.handle_auth(player, data, self.db, self._send_json)
+        if msg.type == MessageType.AUTH:
+            await auth_service.handle_auth(player, msg, self.db, self._send_json)
         elif not player.authenticated:
-            await self._send_json(player.ws, {FIELD_TYPE: MessageType.ERROR, FIELD_MESSAGE: MSG_UNAUTHORIZED})
+            await self._send_json(player.ws, ErrorMessage(message=MSG_UNAUTHORIZED))
         else:
-            await self._handle_authenticated_message(player, msg_type, data)
+            await self._handle_authenticated_message(player, msg)
 
-    async def _handle_authenticated_message(self, player: ConnectedPlayer, msg_type: str, data: dict) -> None:
+
+    async def _handle_authenticated_message(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         """Dispatches authenticated client message command to its matching service using a dispatch map."""
-        handler = self.message_handlers.get(msg_type)
+        handler = self.message_handlers.get(msg.type)
         if handler:
-            await handler(player, data)
+            await handler(player, msg)
         else:
-            logger.warning(f"Received unhandled message type: {msg_type}")
+            logger.warning(f"Received unhandled message type: {msg.type}")
 
-    async def _handle_matchmaking(self, player: ConnectedPlayer, data: dict) -> None:
+    async def _handle_matchmaking(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         await matchmaking_service.add_to_matchmaking(player, self.matchmaking_queue, self._send_json, self._start_matched_game)
 
-    async def _handle_leave_matchmaking(self, player: ConnectedPlayer, data: dict) -> None:
+    async def _handle_leave_matchmaking(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         await matchmaking_service.remove_from_matchmaking(player, self.matchmaking_queue, self._send_json)
 
-    async def _handle_create_room(self, player: ConnectedPlayer, data: dict) -> None:
-        custom_id = data.get(FIELD_ROOM_ID)
+    async def _handle_create_room(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
+        custom_id = getattr(msg, "room_id", None)
         await room_service.create_custom_room(player, self.rooms, self._send_json, self.broadcast_room_state, custom_id)
 
-    async def _handle_join_room(self, player: ConnectedPlayer, data: dict) -> None:
+    async def _handle_join_room(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
+        room_id = getattr(msg, "room_id", "")
         await room_service.join_custom_room(
-            player, data.get(FIELD_ROOM_ID, ""), self.rooms, self._send_json,
+            player, room_id, self.rooms, self._send_json,
             self.broadcast_room_state, self._start_game_session, self.send_snapshot_to
         )
 
-    async def _handle_move(self, player: ConnectedPlayer, data: dict) -> None:
-        await game_session_service.process_game_move(player, data.get(FIELD_DATA, ""), self.rooms, self.broadcast_snapshot)
+    async def _handle_move(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
+        move_str = getattr(msg, "data", "")
+        await game_session_service.process_game_move(player, move_str, self.rooms, self.broadcast_snapshot)
 
+    async def _handle_jump(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
+        cell_str = getattr(msg, "data", "")
+        await game_session_service.process_game_jump(player, cell_str, self.rooms, self.broadcast_snapshot)
 
-    async def _handle_jump(self, player: ConnectedPlayer, data: dict) -> None:
-        await game_session_service.process_game_jump(player, data.get(FIELD_DATA, ""), self.rooms, self.broadcast_snapshot)
-
-    async def _handle_leave_room(self, player: ConnectedPlayer, data: dict) -> None:
+    async def _handle_leave_room(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         await room_service.handle_leave_room(player, self.rooms, self._send_json, self.broadcast_room_state)
 
-    async def _handle_get_snapshot(self, player: ConnectedPlayer, data: dict) -> None:
+    async def _handle_get_snapshot(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         room = self.rooms.get(player.room_id) if player.room_id else None
         if room:
             await self.send_snapshot_to(player, room)
 
-    async def _handle_heartbeat(self, player: ConnectedPlayer, data: dict) -> None:
-        await self._send_json(player.ws, {FIELD_TYPE: MessageType.HEARTBEAT_ACK})
+    async def _handle_heartbeat(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
+        await self._send_json(player.ws, HeartbeatAckMessage())
 
-    async def _send_json(self, ws, data: dict) -> None:
+
+    async def _send_json(self, ws, data: any) -> None:
         """Utility to safely send a JSON string to a WebSocket client."""
+        if is_dataclass(data):
+            data = asdict(data)
         try:
             await ws.send(json.dumps(data))
         except ConnectionClosed:
             pass
+
+
 
     async def _start_matched_game(self, p1: ConnectedPlayer, p2: ConnectedPlayer) -> None:
         """Pairs two matchmaking players into a new room and starts game."""

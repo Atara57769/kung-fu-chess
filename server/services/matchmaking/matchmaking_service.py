@@ -2,10 +2,9 @@ import asyncio
 import logging
 from typing import List
 from server.network.models import ConnectedPlayer
-from shared.protocol import MessageType
+from shared.protocol import MatchmakingStatusMessage
 from shared.constants import (
-    MATCHMAKING_STATUS_WAITING, MATCHMAKING_STATUS_IDLE,
-    FIELD_TYPE, FIELD_STATUS
+    MATCHMAKING_STATUS_WAITING, MATCHMAKING_STATUS_IDLE
 )
 
 logger = logging.getLogger(__name__)
@@ -16,7 +15,7 @@ async def add_to_matchmaking(player: ConnectedPlayer, matchmaking_queue: List[Co
         return
     matchmaking_queue.append(player)
     logger.info(f"Player {player.username} ({player.rating}) entered matchmaking queue.")
-    await send_json_fn(player.ws, {FIELD_TYPE: MessageType.MATCHMAKING_STATUS, FIELD_STATUS: MATCHMAKING_STATUS_WAITING})
+    await send_json_fn(player.ws, MatchmakingStatusMessage(status=MATCHMAKING_STATUS_WAITING))
     
     asyncio.create_task(process_matchmaking_for_player(player, matchmaking_queue, send_json_fn, pair_callback))
 
@@ -25,7 +24,8 @@ async def remove_from_matchmaking(player: ConnectedPlayer, matchmaking_queue: Li
     if player in matchmaking_queue:
         matchmaking_queue.remove(player)
         logger.info(f"Player {player.username} left matchmaking queue.")
-        await send_json_fn(player.ws, {FIELD_TYPE: MessageType.MATCHMAKING_STATUS, FIELD_STATUS: MATCHMAKING_STATUS_IDLE})
+        await send_json_fn(player.ws, MatchmakingStatusMessage(status=MATCHMAKING_STATUS_IDLE))
+
 
 async def process_matchmaking_for_player(
     player: ConnectedPlayer,

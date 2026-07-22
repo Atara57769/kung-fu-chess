@@ -86,3 +86,46 @@ def test_message_type_enum():
     assert serialized == '{"type": "room_state", "room_id": "1234"}'
     deserialized = json.loads(serialized)
     assert deserialized["type"] == MessageType.ROOM_STATE
+
+def test_message_dataclasses():
+    """Verify message dataclasses serialize via asdict and deserialize via dataclass unpacking (**data) and parse_message."""
+    from dataclasses import asdict
+    from shared.protocol import (
+        AuthMessage, AuthResponseMessage, RoomStateMessage, MoveMessage,
+        ErrorMessage, GameOverMessage, parse_message
+    )
+
+    auth = AuthMessage(username="alice", password="pwd")
+    auth_data = asdict(auth)
+    assert auth_data == {"type": "auth", "username": "alice", "password": "pwd"}
+
+    parsed_auth = parse_message(auth_data)
+    assert isinstance(parsed_auth, AuthMessage)
+    assert parsed_auth.username == "alice"
+    assert parsed_auth.password == "pwd"
+
+    move = MoveMessage(data="e2e4")
+    move_data = asdict(move)
+    assert move_data == {"type": "move", "data": "e2e4"}
+    
+    # Direct unpacking: msg = MoveMessage(**data)
+    unpacked_move = MoveMessage(**move_data)
+    assert isinstance(unpacked_move, MoveMessage)
+    assert unpacked_move.data == "e2e4"
+
+    auth_resp = AuthResponseMessage(success=True, username="alice", rating=1300)
+    resp_data = asdict(auth_resp)
+    parsed_resp = parse_message(resp_data)
+    assert isinstance(parsed_resp, AuthResponseMessage)
+    assert parsed_resp.success is True
+    assert parsed_resp.username == "alice"
+    assert parsed_resp.rating == 1300
+
+    err = ErrorMessage(message="Error occurred")
+    err_data = asdict(err)
+    assert err_data == {"type": "error", "message": "Error occurred"}
+    parsed_err = parse_message(err_data)
+    assert isinstance(parsed_err, ErrorMessage)
+    assert parsed_err.message == "Error occurred"
+
+

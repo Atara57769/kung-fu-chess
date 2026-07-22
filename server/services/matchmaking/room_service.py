@@ -2,12 +2,10 @@ import logging
 import random
 from typing import Dict, Optional
 from server.network.models import ConnectedPlayer, GameRoom
-from shared.protocol import MessageType
+from shared.protocol import ErrorMessage, RoomStateMessage
 from shared.models.color import Color
 from shared.constants import (
     ROOM_STATUS_WAITING, ROOM_STATUS_ACTIVE,
-    FIELD_TYPE, FIELD_MESSAGE, FIELD_ROOM_ID, FIELD_WHITE, FIELD_BLACK,
-    FIELD_SPECTATORS, FIELD_STATUS, FIELD_YOUR_COLOR,
     MSG_ROOM_ALREADY_EXISTS, MSG_ROOM_NOT_FOUND
 )
 
@@ -27,7 +25,7 @@ async def create_custom_room(
             room_id = str(random.randint(1000, 9999))
     else:
         if room_id in rooms:
-            await send_json_fn(player.ws, {FIELD_TYPE: MessageType.ERROR, FIELD_MESSAGE: MSG_ROOM_ALREADY_EXISTS})
+            await send_json_fn(player.ws, ErrorMessage(message=MSG_ROOM_ALREADY_EXISTS))
             return
 
     room = GameRoom(room_id)
@@ -51,7 +49,7 @@ async def join_custom_room(
     """Joins custom lobby as Black (if empty) or Spectator."""
     room = rooms.get(room_id)
     if not room:
-        await send_json_fn(player.ws, {FIELD_TYPE: MessageType.ERROR, FIELD_MESSAGE: MSG_ROOM_NOT_FOUND})
+        await send_json_fn(player.ws, ErrorMessage(message=MSG_ROOM_NOT_FOUND))
         return
 
     player.room_id = room_id
@@ -113,7 +111,7 @@ async def handle_leave_room(
     player.color = None
 
     await broadcast_room_state_fn(room)
-    await send_json_fn(player.ws, {FIELD_TYPE: MessageType.ROOM_STATE, FIELD_ROOM_ID: None})
+    await send_json_fn(player.ws, RoomStateMessage(room_id=None))
 
 async def broadcast_room_state(room: GameRoom, send_json_fn) -> None:
     """Sends current lobby rosters to all participants."""
@@ -121,22 +119,20 @@ async def broadcast_room_state(room: GameRoom, send_json_fn) -> None:
     black_name = room.black_player.username if room.black_player else None
     specs = [p.username for p in room.spectators if p.username]
     
-    payload = {
-        FIELD_TYPE: MessageType.ROOM_STATE,
-        FIELD_ROOM_ID: room.room_id,
-        FIELD_WHITE: white_name,
-        FIELD_BLACK: black_name,
-        FIELD_SPECTATORS: specs,
-        FIELD_STATUS: room.status
-    }
-    
     clients = []
     if room.white_player: clients.append(room.white_player)
     if room.black_player: clients.append(room.black_player)
     clients.extend(room.spectators)
     
     for c in clients:
-        color_payload = dict(payload)
-        color_payload[FIELD_YOUR_COLOR] = c.color
-        await send_json_fn(c.ws, color_payload)
+        msg = RoomStateMessage(
+            room_id=room.room_id,
+            white=white_name,
+            black=black_name,
+            spectators=specs,
+            status=room.status,
+            your_color=c.color
+        )
+        await send_json_fn(c.ws, msg)
+
 

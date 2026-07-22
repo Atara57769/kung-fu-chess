@@ -14,8 +14,7 @@ from client.network.client import GameClient
 from shared.protocol import MessageType
 from shared.constants import (
     ROOM_STATUS_WAITING, ROOM_STATUS_ACTIVE,
-    MATCHMAKING_STATUS_TIMEOUT,
-    FIELD_STATUS, FIELD_ROOM_ID, FIELD_WHITE, FIELD_BLACK, FIELD_SPECTATORS
+    MATCHMAKING_STATUS_TIMEOUT
 )
 
 class OnlineCoordinator:
@@ -92,8 +91,8 @@ class OnlineCoordinator:
                 self.screen_manager.switch_to(home)
             return
             
-        status = state.get(FIELD_STATUS)
-        room_id = state.get(FIELD_ROOM_ID)
+        status = state.get("status")
+        room_id = state.get("room_id")
         
         if room_id is None:
             if not isinstance(curr_screen, HomeScreen) and not isinstance(curr_screen, WaitingScreen):
@@ -101,24 +100,24 @@ class OnlineCoordinator:
                 self.screen_manager.switch_to(home)
         elif status == ROOM_STATUS_WAITING:
             if not isinstance(curr_screen, RoomScreen):
-                is_creator = (state.get(FIELD_WHITE) == self.client.username)
+                is_creator = (state.get("white") == self.client.username)
                 room = RoomScreen(
                     self.screen_manager, 
                     total_w, 
                     total_h,
                     room_id=room_id,
                     is_creator=is_creator,
-                    white_player=state.get(FIELD_WHITE),
-                    black_player=state.get(FIELD_BLACK),
+                    white_player=state.get("white"),
+                    black_player=state.get("black"),
                     client=self.client
                 )
                 self.screen_manager.switch_to(room)
             else:
-                curr_screen.white_player = state.get(FIELD_WHITE) or "[Empty]"
-                curr_screen.black_player = state.get(FIELD_BLACK) or "[Empty]"
+                curr_screen.white_player = state.get("white") or "[Empty]"
+                curr_screen.black_player = state.get("black") or "[Empty]"
                 curr_screen.labels[1].text = f"White Seat: {curr_screen.white_player}"
                 curr_screen.labels[2].text = f"Black Seat: {curr_screen.black_player}"
-                curr_screen.spectators = state.get(FIELD_SPECTATORS, [])
+                curr_screen.spectators = state.get("spectators", [])
                 curr_screen.labels[3].text = f"Spectators: {', '.join(curr_screen.spectators) if curr_screen.spectators else 'None'}"
         elif status == ROOM_STATUS_ACTIVE:
             if not isinstance(curr_screen, OnlineGameScreen):
@@ -137,13 +136,14 @@ class OnlineCoordinator:
             show_error_dialog("Error", message)
 
     def _handle_matchmaking_status(self, data: dict) -> None:
-        status = data.get(FIELD_STATUS)
+        status = data.get("status")
         if status == MATCHMAKING_STATUS_TIMEOUT:
             curr_screen = self.screen_manager.active_screen
             if isinstance(curr_screen, WaitingScreen):
                 home = self._create_online_home_screen()
                 self.screen_manager.switch_to(home)
             show_warning_dialog("Matchmaking Timeout", "No opponent was found within 60 seconds.")
+
 
     def update(self, dt: float) -> None:
         """Processes any queued network events on the main render thread."""

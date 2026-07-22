@@ -3,12 +3,12 @@ import logging
 from typing import Dict
 from server.network.models import GameRoom, ConnectedPlayer
 from shared.protocol.protocol import serialize_snapshot, algebraic_to_move, algebraic_to_cell
-from shared.protocol import MessageType
+from shared.protocol import SnapshotMessage, GameOverMessage
 from shared.models.color import Color
 from client.ui.ui_config import TIME_STEP_MS
 from shared.constants import (
     ROOM_STATUS_ACTIVE, ROOM_STATUS_ENDED, COLOR_NAME_WHITE, COLOR_NAME_BLACK,
-    GAME_RESULT_DRAW, FIELD_TYPE, FIELD_DATA
+    GAME_RESULT_DRAW
 )
 from server.services.elo import elo_service
 
@@ -64,18 +64,12 @@ async def broadcast_snapshot(room: GameRoom, send_json_fn) -> None:
 
     for c in clients:
         snap = room.controller.get_snapshot(player_color=c.color)
-        await send_json_fn(c.ws, {
-            FIELD_TYPE: MessageType.SNAPSHOT,
-            FIELD_DATA: serialize_snapshot(snap)
-        })
+        await send_json_fn(c.ws, SnapshotMessage(data=serialize_snapshot(snap)))
 
 async def send_snapshot_to(player: ConnectedPlayer, room: GameRoom, send_json_fn) -> None:
     """Sends current state snapshot to a specific player session."""
     snap = room.controller.get_snapshot(player_color=player.color)
-    await send_json_fn(player.ws, {
-        FIELD_TYPE: MessageType.SNAPSHOT,
-        FIELD_DATA: serialize_snapshot(snap)
-    })
+    await send_json_fn(player.ws, SnapshotMessage(data=serialize_snapshot(snap)))
 
 async def process_game_move(player: ConnectedPlayer, move_str: str, rooms: Dict[str, GameRoom], broadcast_snapshot_fn) -> None:
     """Validates client move coordinates and executes authorized move on player's controller."""
@@ -144,13 +138,12 @@ async def end_game(room: GameRoom, winner_color: str, db, send_json_fn, elo_calc
         elo_w_str = f" ({r_w} -> {new_w})"
         elo_b_str = f" ({r_b} -> {new_b})"
         
-    payload = {
-        FIELD_TYPE: MessageType.GAME_OVER,
-        KEY_WINNER: winner_color,
-        KEY_MESSAGE: f"Game Over! Winner: {winner_color.upper()}",
-        KEY_WHITE_RATING_CHANGE: elo_w_str,
-        KEY_BLACK_RATING_CHANGE: elo_b_str
-    }
+    payload = GameOverMessage(
+        winner=winner_color,
+        message=f"Game Over! Winner: {winner_color.upper()}",
+        white_rating_change=elo_w_str,
+        black_rating_change=elo_b_str
+    )
 
     clients = []
     if room.white_player: clients.append(room.white_player)
@@ -161,4 +154,5 @@ async def end_game(room: GameRoom, winner_color: str, db, send_json_fn, elo_calc
         await send_json_fn(c.ws, payload)
 
     logger.info(f"Game resolved in Room {room.room_id}. Winner={winner_color}")
+
 

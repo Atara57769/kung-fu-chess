@@ -3,10 +3,9 @@ import logging
 from typing import List, Dict, Optional
 from server.network.models import ConnectedPlayer, GameRoom
 from shared.constants import (
-    DISCONNECT_COUNTDOWN, ROOM_STATUS_ACTIVE, COLOR_NAME_WHITE, COLOR_NAME_BLACK,
-    FIELD_TYPE, FIELD_MESSAGE
+    DISCONNECT_COUNTDOWN, ROOM_STATUS_ACTIVE, COLOR_NAME_WHITE, COLOR_NAME_BLACK
 )
-from shared.protocol import MessageType
+from shared.protocol import CountdownMessage
 
 logger = logging.getLogger(__name__)
 
@@ -57,11 +56,10 @@ async def run_resign_countdown(
     try:
         while room.countdown_seconds > 0:
             if opponent:
-                await send_json_fn(opponent.ws, {
-                    FIELD_TYPE: MessageType.COUNTDOWN,
-                    "seconds": room.countdown_seconds,
-                    FIELD_MESSAGE: f"Opponent disconnected. Autoresign in {room.countdown_seconds}s."
-                })
+                await send_json_fn(opponent.ws, CountdownMessage(
+                    seconds=room.countdown_seconds,
+                    message=f"Opponent disconnected. Autoresign in {room.countdown_seconds}s."
+                ))
             await asyncio.sleep(1.0)
             room.countdown_seconds -= 1
 
@@ -70,4 +68,5 @@ async def run_resign_countdown(
         await end_game_fn(room, winner_color)
     except asyncio.CancelledError:
         logger.info(f"Resign countdown cancelled in Room {room.room_id} (player reconnected).")
+
 

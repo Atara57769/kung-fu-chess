@@ -1,3 +1,4 @@
+from dataclasses import is_dataclass, asdict
 import asyncio
 import json
 import logging
@@ -11,8 +12,28 @@ from shared.protocol.protocol import deserialize_snapshot, cell_to_algebraic, mo
 from shared.models.color import Color
 from shared.models.cell import Cell
 from shared.models.game_over_result import GameOverResult
-from shared.protocol import MessageType
+from shared.protocol import (
+    MessageType,
+    AuthMessage,
+    AuthResponseMessage,
+    HeartbeatMessage,
+    MatchmakingMessage,
+    LeaveMatchmakingMessage,
+    MatchmakingStatusMessage,
+    CreateRoomMessage,
+    JoinRoomMessage,
+    LeaveRoomMessage,
+    RoomStateMessage,
+    MoveMessage,
+    JumpMessage,
+    SnapshotMessage,
+    CountdownMessage,
+    GameOverMessage,
+    ErrorMessage,
+    parse_message,
+)
 from client.services.client_pubsub import ClientPubSub
+
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +128,7 @@ class GameClient:
         try:
             while self.running:
                 await asyncio.sleep(HEARTBEAT_INTERVAL)
-                await self._send_json_async({"type": MessageType.HEARTBEAT})
+                await self._send_json_async(HeartbeatMessage())
         except asyncio.CancelledError:
             pass
 
@@ -115,55 +136,56 @@ class GameClient:
         """Parses server JSON message types and updates state attributes."""
         try:
             data = json.loads(raw_msg)
-        except json.JSONDecodeError:
+            msg = parse_message(data)
+        except (json.JSONDecodeError, ValueError, KeyError):
             return
 
-        msg_type = data.get("type")
-        handler = self.message_handlers.get(msg_type)
+        handler = self.message_handlers.get(msg.type)
         if handler:
-            handler(data)
+            handler(msg)
         else:
-            logger.warning(f"Client received unhandled message type: {msg_type}")
+            logger.warning(f"Client received unhandled message type: {msg.type}")
 
         if self.on_update is not None:
             self.on_update()
 
-    def _handle_auth_response(self, data: dict) -> None:
-        self.authenticated = data.get("success", False)
+    def _handle_auth_response(self, msg: AuthResponseMessage) -> None:
+        self.authenticated = msg.success
         if self.authenticated:
-            self.username = data.get("username")
-            self.rating = data.get("rating", 1200)
+            self.username = msg.username
+            self.rating = msg.rating or 1200
         else:
-            self.error_message = data.get("error", "Authentication failed.")
+            self.error_message = msg.error or "Authentication failed."
 
-    def _handle_room_state(self, data: dict) -> None:
-        self.room_state = data
-        self.your_color = Color(data["your_color"]) if data.get("your_color") else None
+    def _handle_room_state(self, msg: RoomStateMessage) -> None:
+        self.room_state = asdict(msg)
+        self.your_color = Color(msg.your_color) if msg.your_color else None
         self.game_over_result = None
         self.countdown_seconds = 0
-        self.pubsub.publish(MessageType.ROOM_STATE, data)
+        self.pubsub.publish(MessageType.ROOM_STATE, self.room_state)
 
-    def _handle_snapshot(self, data: dict) -> None:
-        self.current_snapshot = deserialize_snapshot(data["data"])
+    def _handle_snapshot(self, msg: SnapshotMessage) -> None:
+        self.current_snapshot = deserialize_snapshot(msg.data)
         self.pubsub.publish(MessageType.SNAPSHOT, self.current_snapshot)
 
-    def _handle_countdown(self, data: dict) -> None:
-        self.countdown_seconds = data.get("seconds", 0)
-        self.countdown_message = data.get("message")
+    def _handle_countdown(self, msg: CountdownMessage) -> None:
+        self.countdown_seconds = msg.seconds
+        self.countdown_message = msg.message
 
-    def _handle_game_over(self, data: dict) -> None:
-        self.game_over_result = GameOverResult.from_dict(data)
-        if self.your_color == Color.WHITE and data.get("white_rating_change"):
-            self._update_elo_from_change(data["white_rating_change"])
-        elif self.your_color == Color.BLACK and data.get("black_rating_change"):
-            self._update_elo_from_change(data["black_rating_change"])
+    def _handle_game_over(self, msg: GameOverMessage) -> None:
+        self.game_over_result = GameOverResult.from_dict(asdict(msg))
+        if self.your_color == Color.WHITE and msg.white_rating_change:
+            self._update_elo_from_change(msg.white_rating_change)
+        elif self.your_color == Color.BLACK and msg.black_rating_change:
+            self._update_elo_from_change(msg.black_rating_change)
 
-    def _handle_error(self, data: dict) -> None:
-        self.error_message = data.get("message")
+    def _handle_error(self, msg: ErrorMessage) -> None:
+        self.error_message = msg.message
         self.pubsub.publish(MessageType.ERROR, self.error_message)
 
-    def _handle_matchmaking_status(self, data: dict) -> None:
-        self.pubsub.publish(MessageType.MATCHMAKING_STATUS, data)
+    def _handle_matchmaking_status(self, msg: MatchmakingStatusMessage) -> None:
+        self.pubsub.publish(MessageType.MATCHMAKING_STATUS, asdict(msg))
+
 
     def _update_elo_from_change(self, change_str: str) -> None:
         """Helper to parse updated ELO value from rating change suffix (e.g. ' (1200 -> 1216)')."""
@@ -174,47 +196,48 @@ class GameClient:
         except Exception:
             pass
 
-    def _send_json(self, data: dict) -> None:
+    def _send_json(self, data: any) -> None:
         """Invokes raw socket write from external threads using loop scheduling."""
         if self.loop is not None and self.ws is not None:
             asyncio.run_coroutine_threadsafe(self._send_json_async(data), self.loop)
 
-    async def _send_json_async(self, data: dict) -> None:
+    async def _send_json_async(self, data: any) -> None:
         """Asynchronously writes json payload to raw websocket."""
+        if is_dataclass(data):
+            data = asdict(data)
         if self.ws is not None:
             try:
                 await self.ws.send(json.dumps(data))
             except websockets.exceptions.ConnectionClosed:
                 pass
 
+
     def authenticate(self, username, password) -> None:
         self.error_message = None
-        self._send_json({"type": MessageType.AUTH, "username": username, "password": password})
+        self._send_json(AuthMessage(username=username, password=password))
 
     def enter_matchmaking(self) -> None:
-        self._send_json({"type": MessageType.MATCHMAKING})
+        self._send_json(MatchmakingMessage())
 
     def leave_matchmaking(self) -> None:
-        self._send_json({"type": MessageType.LEAVE_MATCHMAKING})
+        self._send_json(LeaveMatchmakingMessage())
 
     def create_room(self, room_id: Optional[str] = None) -> None:
-        payload = {"type": MessageType.CREATE_ROOM}
-        if room_id:
-            payload["room_id"] = room_id
-        self._send_json(payload)
+        self._send_json(CreateRoomMessage(room_id=room_id))
 
     def join_room(self, room_id: str) -> None:
-        self._send_json({"type": MessageType.JOIN_ROOM, "room_id": room_id})
+        self._send_json(JoinRoomMessage(room_id=room_id))
 
     def leave_room(self) -> None:
-        self._send_json({"type": MessageType.LEAVE_ROOM})
+        self._send_json(LeaveRoomMessage())
 
     def send_move(self, from_cell: Cell, to_cell: Cell) -> None:
         height = self.current_snapshot.board.height if self.current_snapshot else 8
         move_str = move_to_algebraic(from_cell, to_cell, height)
-        self._send_json({"type": MessageType.MOVE, "data": move_str})
+        self._send_json(MoveMessage(data=move_str))
 
     def send_jump(self, cell: Cell) -> None:
         height = self.current_snapshot.board.height if self.current_snapshot else 8
         cell_str = cell_to_algebraic(cell, height)
-        self._send_json({"type": MessageType.JUMP, "data": cell_str})
+        self._send_json(JumpMessage(data=cell_str))
+
