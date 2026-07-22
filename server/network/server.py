@@ -38,7 +38,7 @@ class GameServer:
             MessageType.LEAVE_MATCHMAKING: self._handle_leave_matchmaking,
             MessageType.CREATE_ROOM: self._handle_create_room,
             MessageType.JOIN_ROOM: self._handle_join_room,
-            MessageType.CLICK: self._handle_click,
+            MessageType.MOVE: self._handle_move,
             MessageType.JUMP: self._handle_jump,
             MessageType.LEAVE_ROOM: self._handle_leave_room,
             MessageType.GET_SNAPSHOT: self._handle_get_snapshot,
@@ -112,8 +112,9 @@ class GameServer:
             self.broadcast_room_state, self._start_game_session, self.send_snapshot_to
         )
 
-    async def _handle_click(self, player: ConnectedPlayer, data: dict) -> None:
-        await game_session_service.process_game_click(player, data.get(FIELD_DATA, ""), self.rooms, self.broadcast_snapshot)
+    async def _handle_move(self, player: ConnectedPlayer, data: dict) -> None:
+        await game_session_service.process_game_move(player, data.get(FIELD_DATA, ""), self.rooms, self.broadcast_snapshot)
+
 
     async def _handle_jump(self, player: ConnectedPlayer, data: dict) -> None:
         await game_session_service.process_game_jump(player, data.get(FIELD_DATA, ""), self.rooms, self.broadcast_snapshot)

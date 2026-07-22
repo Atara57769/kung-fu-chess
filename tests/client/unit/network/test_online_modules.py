@@ -235,3 +235,100 @@ def test_online_game_screen_history_tracker_update():
     
     # Verify history tracker is updated with current snapshot
     mock_history_tracker.update.assert_called_once_with(snapshot)
+
+def test_online_game_screen_local_selection_and_move():
+    from client.ui.screens.online_game_screen import OnlineGameScreen
+    from shared.models.cell import Cell
+    from shared.models.color import Color
+    from shared.models.game_snapshot import GameSnapshot, BoardSnapshot, PieceSnapshot
+    
+    screen_manager = MagicMock()
+    client = MagicMock()
+    client.game_over_result = None
+    client.your_color = Color.WHITE
+
+    # Create 8x8 grid snapshot with a white piece at Cell(6, 4)
+    grid = [[None for _ in range(8)] for _ in range(8)]
+    p = PieceSnapshot(color=Color.WHITE, kind="P", cell=Cell(6, 4))
+    grid[6][4] = p
+    board_snap = BoardSnapshot(grid=tuple(tuple(r) for r in grid), width=8, height=8)
+    snapshot = GameSnapshot(board=board_snap, selected_piece=None, game_over=False, clock=0, pending_moves=(), jumps=())
+    client.current_snapshot = snapshot
+
+    geometry = MagicMock()
+    geometry.pixel_to_cell.side_effect = lambda x, y: Cell(y // 60, x // 60)
+    renderer = MagicMock()
+    renderer.left_padding = 0
+    animation_manager = MagicMock()
+
+    screen = OnlineGameScreen(screen_manager, client, geometry, renderer, animation_manager)
+
+    # First click on white piece (cell (6, 4) -> x=240, y=360)
+    screen.handle_click(240, 360)
+    assert screen.selected_cell == Cell(6, 4)
+    assert client.send_move.call_count == 0
+
+    # Add second white piece at Cell(6, 0)
+    p2 = PieceSnapshot(color=Color.WHITE, kind="R", cell=Cell(6, 0))
+    grid[6][0] = p2
+    snapshot = GameSnapshot(board=BoardSnapshot(grid=tuple(tuple(r) for r in grid), width=8, height=8), selected_piece=None, game_over=False, clock=0, pending_moves=(), jumps=())
+    client.current_snapshot = snapshot
+
+    # Click on second white piece -> switches selection to Cell(6, 0) without sending move
+    screen.handle_click(0, 360)
+    assert screen.selected_cell == Cell(6, 0)
+    assert client.send_move.call_count == 0
+
+    # Click on empty cell (4, 0) (x=0, y=240) -> sends move from Cell(6, 0) to Cell(4, 0)
+    screen.handle_click(0, 240)
+    assert screen.selected_cell is None
+    client.send_move.assert_called_once_with(Cell(6, 0), Cell(4, 0))
+
+
+def test_online_game_screen_clears_selection_when_piece_captured():
+    import numpy as np
+    from client.ui.screens.online_game_screen import OnlineGameScreen
+    from shared.models.cell import Cell
+    from shared.models.color import Color
+    from shared.models.game_snapshot import GameSnapshot, BoardSnapshot, PieceSnapshot
+    from client.ui.rendering.img import Img
+    
+    screen_manager = MagicMock()
+    client = MagicMock()
+    client.game_over_result = None
+    client.countdown_seconds = 0
+    client.your_color = Color.WHITE
+
+    # White piece at Cell(6, 4)
+    grid = [[None for _ in range(8)] for _ in range(8)]
+    grid[6][4] = PieceSnapshot(color=Color.WHITE, kind="P", cell=Cell(6, 4))
+    snapshot1 = GameSnapshot(board=BoardSnapshot(grid=tuple(tuple(r) for r in grid), width=8, height=8), selected_piece=None, game_over=False, clock=0, pending_moves=(), jumps=())
+    client.current_snapshot = snapshot1
+
+    geometry = MagicMock()
+    geometry.pixel_to_cell.side_effect = lambda x, y: Cell(y // 60, x // 60)
+    renderer = MagicMock()
+    renderer.left_padding = 0
+    res_img = Img()
+    res_img.img = np.zeros((480, 800, 3), dtype=np.uint8)
+    renderer.render.return_value = res_img
+    animation_manager = MagicMock()
+
+    screen = OnlineGameScreen(screen_manager, client, geometry, renderer, animation_manager)
+
+    # Click on white piece -> selects Cell(6, 4)
+    screen.handle_click(240, 360)
+    assert screen.selected_cell == Cell(6, 4)
+
+    # Piece is captured: grid[6][4] becomes None in new snapshot
+    grid[6][4] = None
+    snapshot2 = GameSnapshot(board=BoardSnapshot(grid=tuple(tuple(r) for r in grid), width=8, height=8), selected_piece=None, game_over=False, clock=0, pending_moves=(), jumps=())
+    client.current_snapshot = snapshot2
+
+    # render() detects piece at selected_cell is missing and resets selection
+    canvas = Img()
+    screen.render(canvas)
+    assert screen.selected_cell is None
+
+
+

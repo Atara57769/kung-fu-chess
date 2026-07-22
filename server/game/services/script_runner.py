@@ -8,6 +8,8 @@ from server.game.engine.controller import Controller
 from shared.models.cell import Cell
 from shared.constants import CELL_SIZE
 
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -67,19 +69,41 @@ class ScriptRunner:
         game_engine = GameEngine()
         controller = Controller(state, game_engine, self.stdout)
 
+        selected_cell = None
+
         def handle_print(parts):
             if parts == ["print", "board"]:
                 controller.print_board()
 
         def handle_click(parts):
+            nonlocal selected_cell
             if len(parts) == 3:
                 try:
                     x = int(parts[1])
                     y = int(parts[2])
                     cell = self._pixel_to_cell(board, x, y)
-                    controller.click(cell)
+                    if cell is None:
+                        selected_cell = None
+                        return
+
+                    if selected_cell is None:
+                        piece = board.get_piece_at(cell)
+                        if piece is not None and not game_engine.is_piece_moving(state, cell):
+                            selected_cell = cell
+                    else:
+                        piece = board.get_piece_at(cell)
+                        sel_piece = board.get_piece_at(selected_cell)
+                        if piece is not None and sel_piece is not None and piece.color == sel_piece.color:
+                            if not game_engine.is_piece_moving(state, cell):
+                                selected_cell = cell
+                        else:
+                            if not game_engine.is_piece_moving(state, selected_cell):
+                                controller.move(selected_cell, cell)
+                            selected_cell = None
                 except ValueError:
                     logger.warning(f"Invalid click coordinates: {parts[1:]}")
+
+
 
         def handle_wait(parts):
             if len(parts) == 2:

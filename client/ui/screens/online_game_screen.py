@@ -1,3 +1,4 @@
+import dataclasses
 import cv2
 import numpy as np
 from client.ui.rendering.img import Img
@@ -6,6 +7,7 @@ from client.ui.components.button import Button
 from client.ui.ui_config import (
     BG_COLOR_BGR, GAMEOVER_FONT_SCALE, GAMEOVER_COLOR, GAMEOVER_THICKNESS
 )
+
 
 
 class OnlineGameScreen(Screen):
@@ -18,20 +20,67 @@ class OnlineGameScreen(Screen):
         self.renderer = renderer
         self.animation_manager = animation_manager
         self.history_tracker = history_tracker or getattr(renderer, "history_tracker", None)
+        self.selected_cell = None
 
     def _get_cell_from_coordinates(self, x: int, y: int) -> any:
         """Translates pixel coordinates to board cell taking left padding into account."""
         board_x = x - self.renderer.left_padding
         return self.geometry.pixel_to_cell(board_x, y)
 
+    def _handle_no_selection_state(self, cell, snapshot) -> None:
+        """Handles selection logic when no piece is currently selected."""
+        grid = snapshot.board.grid
+        piece = grid[cell.y][cell.x]
+        if piece is None:
+            return
+
+        player_color = self.client.your_color
+        if player_color is None or piece.color != player_color:
+            return
+
+        self.selected_cell = cell
+
+    def _handle_selected_state(self, cell, snapshot) -> None:
+        """Handles selection and move request logic when a piece is currently selected."""
+        grid = snapshot.board.grid
+        piece = grid[cell.y][cell.x]
+        sel_cell = self.selected_cell
+        if sel_cell is None:
+            return
+
+        sel_piece = grid[sel_cell.y][sel_cell.x]
+
+        if piece is not None and sel_piece is not None and piece.color == sel_piece.color:
+            self.selected_cell = cell
+            return
+
+        self.client.send_move(sel_cell, cell)
+        self.selected_cell = None
+
+    def _handle_local_selection(self, cell) -> None:
+        """Manages piece selections locally for the client color."""
+        snapshot = self.client.current_snapshot
+        if snapshot is None:
+            return
+
+        if not (0 <= cell.y < snapshot.board.height and 0 <= cell.x < snapshot.board.width):
+            self.selected_cell = None
+            return
+
+        if self.selected_cell is None:
+            self._handle_no_selection_state(cell, snapshot)
+        else:
+            self._handle_selected_state(cell, snapshot)
+
     def handle_click(self, x: int, y: int, is_right: bool = False) -> None:
-        """Translates mouse coordinates to cells and requests click/jump from the server."""
+        """Translates mouse coordinates to cells and requests move/jump from the server."""
         if self.client.game_over_result is not None:
             self._exit_to_home()
             return
             
         cell = self._get_cell_from_coordinates(x, y)
         if cell is None:
+            self.selected_cell = None
             return
 
         snapshot = self.client.current_snapshot
@@ -41,7 +90,10 @@ class OnlineGameScreen(Screen):
         if is_right:
             self.client.send_jump(cell)
         else:
-            self.client.send_click(cell)
+            self._handle_local_selection(cell)
+
+
+
 
     def _exit_to_home(self) -> None:
         """Returns the client to the Home Screen and clears room session."""
@@ -103,9 +155,21 @@ class OnlineGameScreen(Screen):
             canvas.put_text("Waiting for server state...", 100, 100, 0.6, (200, 200, 200), 2)
             return
 
+        if self.selected_cell is not None:
+            grid = snapshot.board.grid
+            if 0 <= self.selected_cell.y < snapshot.board.height and 0 <= self.selected_cell.x < snapshot.board.width:
+                sel_piece = grid[self.selected_cell.y][self.selected_cell.x]
+                if sel_piece is not None:
+                    snapshot = dataclasses.replace(snapshot, selected_piece=sel_piece)
+                else:
+                    self.selected_cell = None
+            else:
+                self.selected_cell = None
+
         rendered_canvas = self.renderer.render(snapshot, self.animation_manager.active_views)
         canvas.img = rendered_canvas.img
         
         h, w = canvas.img.shape[:2]
         self._draw_disconnect_countdown(canvas, w, h)
         self._draw_game_over_banner(canvas, w, h)
+

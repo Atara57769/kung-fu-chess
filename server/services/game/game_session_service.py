@@ -77,23 +77,24 @@ async def send_snapshot_to(player: ConnectedPlayer, room: GameRoom, send_json_fn
         FIELD_DATA: serialize_snapshot(snap)
     })
 
-async def process_game_click(player: ConnectedPlayer, cell_str: str, rooms: Dict[str, GameRoom], broadcast_snapshot_fn) -> None:
-    """Validates client click coordinate and executes authorized click on player's controller."""
+async def process_game_move(player: ConnectedPlayer, move_str: str, rooms: Dict[str, GameRoom], broadcast_snapshot_fn) -> None:
+    """Validates client move coordinates and executes authorized move on player's controller."""
     room = rooms.get(player.room_id) if player.room_id else None
     if not room or room.status != ROOM_STATUS_ACTIVE:
         return
         
     if player.color not in (Color.WHITE, Color.BLACK):
-        logger.warning(f"Unauthorized click attempt by spectator/non-player {player.username}")
+        logger.warning(f"Unauthorized move attempt by spectator/non-player {player.username}")
         return
 
     try:
-        cell = algebraic_to_cell(cell_str, room.board.height)
+        from_cell, to_cell = algebraic_to_move(move_str, room.board.height)
     except ValueError:
         return
 
-    room.controller.click(cell, player_color=player.color)
+    room.controller.move(from_cell, to_cell, player_color=player.color)
     await broadcast_snapshot_fn(room)
+
 
 async def process_game_jump(player: ConnectedPlayer, cell_str: str, rooms: Dict[str, GameRoom], broadcast_snapshot_fn) -> None:
     """Validates client jump coordinate and executes authorized jump on player's controller."""
