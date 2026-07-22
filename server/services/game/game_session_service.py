@@ -12,17 +12,20 @@ from shared.constants import (
 )
 from server.services.elo import elo_service
 
-logger = logging.getLogger(__name__)
 
 ATTR_WINNER = "winner"
 PIECE_KIND_KING = "K"
+RATING_CHANGE_FORMAT = " ({} -> {})"
+GAME_OVER_MESSAGE_FORMAT = "Game Over! Winner: {}"
+
+logger = logging.getLogger(__name__)
 
 async def start_game_session(room: GameRoom, broadcast_room_state_fn, broadcast_snapshot_fn, db, send_json_fn) -> None:
     """Transitions room status to active and starts tick task."""
     room.status = ROOM_STATUS_ACTIVE
     await broadcast_room_state_fn(room)
     room.tick_task = asyncio.create_task(room_tick_loop(room, broadcast_snapshot_fn, db, send_json_fn))
-
+ 
 async def room_tick_loop(room: GameRoom, broadcast_snapshot_fn, db, send_json_fn) -> None:
     """Authoritative real-time progression ticking game state."""
     tick_interval = TIME_STEP_MS / 1000.0
@@ -54,23 +57,23 @@ async def room_tick_loop(room: GameRoom, broadcast_snapshot_fn, db, send_json_fn
             await broadcast_snapshot_fn(room)
     except asyncio.CancelledError:
         pass
-
+ 
 async def broadcast_snapshot(room: GameRoom, send_json_fn) -> None:
     """Broadcasts a game snapshot directly to players and spectators."""
     clients = []
     if room.white_player: clients.append(room.white_player)
     if room.black_player: clients.append(room.black_player)
     clients.extend(room.spectators)
-
+ 
     for c in clients:
         snap = room.controller.get_snapshot(player_color=c.color)
         await send_json_fn(c.ws, SnapshotMessage(data=serialize_snapshot(snap)))
-
+ 
 async def send_snapshot_to(player: ConnectedPlayer, room: GameRoom, send_json_fn) -> None:
     """Sends current state snapshot to a specific player session."""
     snap = room.controller.get_snapshot(player_color=player.color)
     await send_json_fn(player.ws, SnapshotMessage(data=serialize_snapshot(snap)))
-
+ 
 async def process_game_move(player: ConnectedPlayer, move_str: str, rooms: Dict[str, GameRoom], broadcast_snapshot_fn) -> None:
     """Validates client move coordinates and executes authorized move on player's controller."""
     room = rooms.get(player.room_id) if player.room_id else None
@@ -80,43 +83,43 @@ async def process_game_move(player: ConnectedPlayer, move_str: str, rooms: Dict[
     if player.color not in (Color.WHITE, Color.BLACK):
         logger.warning(f"Unauthorized move attempt by spectator/non-player {player.username}")
         return
-
+ 
     try:
         from_cell, to_cell = algebraic_to_move(move_str, room.board.height)
     except ValueError:
         return
-
+ 
     room.controller.move(from_cell, to_cell, player_color=player.color)
     await broadcast_snapshot_fn(room)
-
-
+ 
+ 
 async def process_game_jump(player: ConnectedPlayer, cell_str: str, rooms: Dict[str, GameRoom], broadcast_snapshot_fn) -> None:
     """Validates client jump coordinate and executes authorized jump on player's controller."""
     room = rooms.get(player.room_id) if player.room_id else None
     if not room or room.status != ROOM_STATUS_ACTIVE:
         return
-
+ 
     if player.color not in (Color.WHITE, Color.BLACK):
         logger.warning(f"Unauthorized jump attempt by spectator/non-player {player.username}")
         return
-
+ 
     try:
         cell = algebraic_to_cell(cell_str, room.board.height)
     except ValueError:
         return
-
+ 
     room.controller.jump(cell, player_color=player.color)
     await broadcast_snapshot_fn(room)
-
+ 
 async def end_game(room: GameRoom, winner_color: str, db, send_json_fn, elo_calc_fn=None) -> None:
     """Resolves results, ELO updates, DB updates, and closes lobby tick loops."""
     if elo_calc_fn is None:
         elo_calc_fn = elo_service.calculate_elo
-
+ 
     room.status = ROOM_STATUS_ENDED
     if room.tick_task:
         room.tick_task.cancel()
-
+ 
     white_name = room.white_player.username if room.white_player else None
     black_name = room.black_player.username if room.black_player else None
     
@@ -135,16 +138,16 @@ async def end_game(room: GameRoom, winner_color: str, db, send_json_fn, elo_calc
         room.white_player.rating = new_w
         room.black_player.rating = new_b
         
-        elo_w_str = f" ({r_w} -> {new_w})"
-        elo_b_str = f" ({r_b} -> {new_b})"
+        elo_w_str = RATING_CHANGE_FORMAT.format(r_w, new_w)
+        elo_b_str = RATING_CHANGE_FORMAT.format(r_b, new_b)
         
     payload = GameOverMessage(
         winner=winner_color,
-        message=f"Game Over! Winner: {winner_color.upper()}",
+        message=GAME_OVER_MESSAGE_FORMAT.format(winner_color.upper()),
         white_rating_change=elo_w_str,
         black_rating_change=elo_b_str
     )
-
+ 
     clients = []
     if room.white_player: clients.append(room.white_player)
     if room.black_player: clients.append(room.black_player)
@@ -152,7 +155,8 @@ async def end_game(room: GameRoom, winner_color: str, db, send_json_fn, elo_calc
     
     for c in clients:
         await send_json_fn(c.ws, payload)
-
+ 
     logger.info(f"Game resolved in Room {room.room_id}. Winner={winner_color}")
+
 
 

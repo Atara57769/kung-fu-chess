@@ -20,6 +20,18 @@ from shared.constants import (
     MATCHMAKING_STATUS_TIMEOUT
 )
 
+EMPTY_PLAYER = "[Empty]"
+WHITE_SEAT_PREFIX = "White Seat: "
+BLACK_SEAT_PREFIX = "Black Seat: "
+SPECTATORS_PREFIX = "Spectators: "
+SPECTATORS_SEPARATOR = ", "
+SPECTATORS_NONE = "None"
+ERROR_DIALOG_TITLE = "Error"
+SERVER_ERROR_LOG_PREFIX = "Server error: "
+MATCHMAKING_TIMEOUT_TITLE = "Matchmaking Timeout"
+MATCHMAKING_TIMEOUT_MSG = "No opponent was found within 60 seconds."
+
+
 class OnlineCoordinator:
     def __init__(self, client: GameClient, screen_manager: ScreenManager, 
                  geometry: BoardGeometry, renderer: GameRenderer, 
@@ -71,7 +83,7 @@ class OnlineCoordinator:
         def handle_client_timeout():
             self.client.leave_matchmaking()
             self.screen_manager.switch_to(home)
-            show_warning_dialog("Matchmaking Timeout", "No opponent was found within 60 seconds.")
+            show_warning_dialog(MATCHMAKING_TIMEOUT_TITLE, MATCHMAKING_TIMEOUT_MSG)
 
         home = HomeScreen(self.screen_manager, total_w, total_h, self.client.username, self.client.rating, client=self.client)
         home.buttons[0].callback = trigger_quick_match
@@ -121,12 +133,13 @@ class OnlineCoordinator:
                 )
                 self.screen_manager.switch_to(room)
             else:
-                curr_screen.white_player = white_player or "[Empty]"
-                curr_screen.black_player = black_player or "[Empty]"
-                curr_screen.labels[1].text = f"White Seat: {curr_screen.white_player}"
-                curr_screen.labels[2].text = f"Black Seat: {curr_screen.black_player}"
+                curr_screen.white_player = white_player or EMPTY_PLAYER
+                curr_screen.black_player = black_player or EMPTY_PLAYER
+                curr_screen.labels[1].text = f"{WHITE_SEAT_PREFIX}{curr_screen.white_player}"
+                curr_screen.labels[2].text = f"{BLACK_SEAT_PREFIX}{curr_screen.black_player}"
                 curr_screen.spectators = spectators or []
-                curr_screen.labels[3].text = f"Spectators: {', '.join(curr_screen.spectators) if curr_screen.spectators else 'None'}"
+                specs_joined = SPECTATORS_SEPARATOR.join(curr_screen.spectators) if curr_screen.spectators else SPECTATORS_NONE
+                curr_screen.labels[3].text = f"{SPECTATORS_PREFIX}{specs_joined}"
         elif status == ROOM_STATUS_ACTIVE:
             if not isinstance(curr_screen, OnlineGameScreen):
                 online_game = OnlineGameScreen(
@@ -140,8 +153,8 @@ class OnlineCoordinator:
 
     def _handle_error_message(self, msg: ErrorMessage) -> None:
         if msg.message:
-            self.logger.error(f"Server error: {msg.message}")
-            show_error_dialog("Error", msg.message)
+            self.logger.error(f"{SERVER_ERROR_LOG_PREFIX}{msg.message}")
+            show_error_dialog(ERROR_DIALOG_TITLE, msg.message)
 
     def _handle_matchmaking_status(self, data: MatchmakingStatusMessage) -> None:
         status = data.status
@@ -150,7 +163,7 @@ class OnlineCoordinator:
             if isinstance(curr_screen, WaitingScreen):
                 home = self._create_online_home_screen()
                 self.screen_manager.switch_to(home)
-            show_warning_dialog("Matchmaking Timeout", "No opponent was found within 60 seconds.")
+            show_warning_dialog(MATCHMAKING_TIMEOUT_TITLE, MATCHMAKING_TIMEOUT_MSG)
 
 
     def update(self, dt: float) -> None:

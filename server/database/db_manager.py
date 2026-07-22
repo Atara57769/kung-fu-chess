@@ -12,8 +12,32 @@ class User:
 
 logger = logging.getLogger(__name__)
 
-DB_FILE = os.path.join(os.path.dirname(__file__), "kung_fu_chess.db")
+DB_NAME = "kung_fu_chess.db"
+DB_FILE = os.path.join(os.path.dirname(__file__), DB_NAME)
 DEFAULT_RATING = 1200
+ENCODING_UTF8 = "utf-8"
+
+# SQL Queries
+SQL_CREATE_TABLE = """
+    CREATE TABLE IF NOT EXISTS users (
+        username TEXT PRIMARY KEY,
+        password_hash TEXT NOT NULL,
+        rating INTEGER DEFAULT 1200
+    )
+"""
+SQL_SELECT_RATING = "SELECT rating FROM users WHERE username = ?"
+SQL_INSERT_USER = "INSERT INTO users (username, password_hash, rating) VALUES (?, ?, ?)"
+SQL_SELECT_AUTH = "SELECT password_hash, rating FROM users WHERE username = ?"
+SQL_UPDATE_RATING = "UPDATE users SET rating = ? WHERE username = ?"
+
+LOG_DB_INITIALIZED = "Database initialized successfully."
+LOG_REGISTRATION_SUCCESS = "User '%s' registered successfully."
+LOG_REGISTRATION_FAILED = "Registration failed: User '%s' already exists."
+LOG_AUTH_SUCCESS = "Authentication successful for '%s'"
+LOG_AUTH_FAILED = "Failed authentication for '%s': password mismatch."
+LOG_USER_NOT_FOUND = "User '%s' not found. Auto-registering user."
+LOG_RATING_UPDATED = "Updated rating for '%s' to %d."
+LOG_RATING_UPDATE_FAILED = "Could not update rating: User '%s' does not exist."
 
 class DBManager:
     """Manages SQLite database storage for users, authentication, and ELO ratings."""
@@ -30,25 +54,19 @@ class DBManager:
         """Creates the users table if it does not already exist."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    username TEXT PRIMARY KEY,
-                    password_hash TEXT NOT NULL,
-                    rating INTEGER DEFAULT 1200
-                )
-            """)
+            cursor.execute(SQL_CREATE_TABLE)
             conn.commit()
-            logger.info("Database initialized successfully.")
+            logger.info(LOG_DB_INITIALIZED)
 
     def _hash_password(self, password: str) -> str:
         """Computes a SHA-256 hash of the password."""
-        return hashlib.sha256(password.encode("utf-8")).hexdigest()
+        return hashlib.sha256(password.encode(ENCODING_UTF8)).hexdigest()
 
     def get_user_rating(self, username: str) -> int:
         """Retrieves the ELO rating for the specified user, returning 1200 if not found."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT rating FROM users WHERE username = ?", (username,))
+            cursor.execute(SQL_SELECT_RATING, (username,))
             row = cursor.fetchone()
             if row is not None:
                 return row[0]
@@ -60,15 +78,12 @@ class DBManager:
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    "INSERT INTO users (username, password_hash, rating) VALUES (?, ?, ?)",
-                    (username, p_hash, DEFAULT_RATING)
-                )
+                cursor.execute(SQL_INSERT_USER, (username, p_hash, DEFAULT_RATING))
                 conn.commit()
-                logger.info(f"User '{username}' registered successfully.")
+                logger.info(LOG_REGISTRATION_SUCCESS, username)
                 return True
         except sqlite3.IntegrityError:
-            logger.warning(f"Registration failed: User '{username}' already exists.")
+            logger.warning(LOG_REGISTRATION_FAILED, username)
             return False
 
     def authenticate_or_register(self, username: str, password_plain: str) -> Optional[User]:
@@ -81,22 +96,22 @@ class DBManager:
         
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT password_hash, rating FROM users WHERE username = ?", (username,))
+            cursor.execute(SQL_SELECT_AUTH, (username,))
             row = cursor.fetchone()
             
             if row is not None:
                 db_hash, rating = row
                 if db_hash == p_hash:
-                    logger.info(f"Authentication successful for '{username}'")
+                    logger.info(LOG_AUTH_SUCCESS, username)
                     return User(
                         username=username,
                         rating=rating
                     )
                 else:
-                    logger.warning(f"Failed authentication for '{username}': password mismatch.")
+                    logger.warning(LOG_AUTH_FAILED, username)
                     return None
 
-        logger.info(f"User '{username}' not found. Auto-registering user.")
+        logger.info(LOG_USER_NOT_FOUND, username)
         success = self.register_user(username, password_plain)
         if success:
             return User(
@@ -109,10 +124,10 @@ class DBManager:
         """Updates the ELO rating for the specified user."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE users SET rating = ? WHERE username = ?", (new_rating, username))
+            cursor.execute(SQL_UPDATE_RATING, (new_rating, username))
             conn.commit()
             if cursor.rowcount > 0:
-                logger.info(f"Updated rating for '{username}' to {new_rating}.")
+                logger.info(LOG_RATING_UPDATED, username, new_rating)
                 return True
-            logger.warning(f"Could not update rating: User '{username}' does not exist.")
+            logger.warning(LOG_RATING_UPDATE_FAILED, username)
             return False

@@ -7,6 +7,8 @@ from shared.constants import (
 )
 from shared.protocol import CountdownMessage
 
+DISCONNECT_COUNTDOWN_MSG_FORMAT = "Opponent disconnected. Autoresign in {}s."
+
 logger = logging.getLogger(__name__)
 
 async def handle_disconnect(player: ConnectedPlayer,
@@ -58,7 +60,7 @@ async def run_resign_countdown(
             if opponent:
                 await send_json_fn(opponent.ws, CountdownMessage(
                     seconds=room.countdown_seconds,
-                    message=f"Opponent disconnected. Autoresign in {room.countdown_seconds}s."
+                    message=DISCONNECT_COUNTDOWN_MSG_FORMAT.format(room.countdown_seconds)
                 ))
             await asyncio.sleep(1.0)
             room.countdown_seconds -= 1
@@ -68,5 +70,6 @@ async def run_resign_countdown(
         await end_game_fn(room, winner_color)
     except asyncio.CancelledError:
         logger.info(f"Resign countdown cancelled in Room {room.room_id} (player reconnected).")
+
 
 

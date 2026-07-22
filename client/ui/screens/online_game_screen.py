@@ -8,6 +8,13 @@ from client.ui.ui_config import (
     BG_COLOR_BGR, GAMEOVER_FONT_SCALE, GAMEOVER_COLOR, GAMEOVER_THICKNESS
 )
 
+DISCONNECT_COUNTDOWN_FORMAT = "Opponent disconnected. Autoresign in {}s"
+LABEL_DRAW = "DRAW"
+BANNER_WINS_FORMAT = "GAME OVER - {} WINS"
+BANNER_DRAW = "GAME OVER - DRAW"
+BANNER_DETAILS_FORMAT = "White: {}  |  Black: {}"
+BANNER_SUBTEXT = "Click anywhere to return to Home"
+STATUS_WAITING_FOR_SERVER = "Waiting for server state..."
 
 
 class OnlineGameScreen(Screen):
@@ -121,7 +128,7 @@ class OnlineGameScreen(Screen):
     def _draw_disconnect_countdown(self, canvas: Img, width: int, height: int) -> None:
         """Draws disconnect countdown text if the opponent dropped connection."""
         if self.client.countdown_seconds > 0:
-            msg = self.client.countdown_message or f"Opponent disconnected. Autoresign in {self.client.countdown_seconds}s"
+            msg = self.client.countdown_message or DISCONNECT_COUNTDOWN_FORMAT.format(self.client.countdown_seconds)
             cv2.rectangle(canvas.img, (0, 0), (width, 50), (0, 0, 100), thickness=-1)
             canvas.put_text(msg, 20, 32, font_size=0.55, color=(0, 255, 255), thickness=2)
 
@@ -135,15 +142,15 @@ class OnlineGameScreen(Screen):
             cv2.rectangle(canvas.img, (0, by), (width, by + banner_h), (80, 75, 70), thickness=2)
             
             winner = result.winner_name.upper()
-            announcement = f"GAME OVER - {winner} WINS" if winner != "DRAW" else "GAME OVER - DRAW"
+            announcement = BANNER_WINS_FORMAT.format(winner) if winner != LABEL_DRAW else BANNER_DRAW
             canvas.put_text(announcement, width // 2 - 200, by + 50, font_size=0.8, color=(0, 0, 255), thickness=3)
             
             change_w = result.white_rating_change
             change_b = result.black_rating_change
-            details = f"White: {change_w}  |  Black: {change_b}"
+            details = BANNER_DETAILS_FORMAT.format(change_w, change_b)
             canvas.put_text(details, width // 2 - 220, by + 95, font_size=0.5, color=(200, 200, 200), thickness=1)
             
-            canvas.put_text("Click anywhere to return to Home", width // 2 - 160, by + 135, font_size=0.45, color=(150, 240, 150), thickness=1)
+            canvas.put_text(BANNER_SUBTEXT, width // 2 - 160, by + 135, font_size=0.45, color=(150, 240, 150), thickness=1)
 
     def render(self, canvas: Img) -> None:
         """Overrides selection and renders server-snapshot on screen canvas."""
@@ -152,7 +159,7 @@ class OnlineGameScreen(Screen):
             if canvas.img is None:
                 canvas.img = np.zeros((self.geometry.cell_size * 8, self.geometry.cell_size * 8 + 500, 3), dtype=np.uint8)
             canvas.img[:] = BG_COLOR_BGR
-            canvas.put_text("Waiting for server state...", 100, 100, 0.6, (200, 200, 200), 2)
+            canvas.put_text(STATUS_WAITING_FOR_SERVER, 100, 100, 0.6, (200, 200, 200), 2)
             return
 
         if self.selected_cell is not None:
@@ -172,4 +179,5 @@ class OnlineGameScreen(Screen):
         h, w = canvas.img.shape[:2]
         self._draw_disconnect_countdown(canvas, w, h)
         self._draw_game_over_banner(canvas, w, h)
+
 
