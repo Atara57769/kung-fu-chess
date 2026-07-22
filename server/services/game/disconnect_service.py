@@ -15,7 +15,8 @@ async def handle_disconnect(player: ConnectedPlayer,
     matchmaking_queue: List[ConnectedPlayer],
     rooms: Dict[str, GameRoom],
     broadcast_room_state_fn,
-    start_resign_countdown_fn
+    send_json_fn,
+    end_game_fn
 ) -> None:
     """Starts countdown resignation timer if an active player disconnects."""
     if player in matchmaking_queue:
@@ -36,7 +37,7 @@ async def handle_disconnect(player: ConnectedPlayer,
         room.countdown_seconds = DISCONNECT_COUNTDOWN
         if room.countdown_task:
             room.countdown_task.cancel()
-        room.countdown_task = asyncio.create_task(start_resign_countdown_fn(room, player, opponent))
+        room.countdown_task = asyncio.create_task(run_resign_countdown(room, player, opponent, send_json_fn, end_game_fn))
     else:
         if room.white_player == player:
             room.white_player = None
