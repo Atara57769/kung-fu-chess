@@ -4,10 +4,7 @@ import logging
 import random
 import time
 from typing import Dict, List, Optional
-from shared.constants import (
-    ROOM_STATUS_ACTIVE, COLOR_NAME_WHITE, COLOR_NAME_BLACK,
-    MSG_UNAUTHORIZED, DISCONNECT_COUNTDOWN
-)
+from shared.constants import (ROOM_STATUS_ACTIVE, COLOR_NAME_WHITE, COLOR_NAME_BLACK,MSG_UNAUTHORIZED, DISCONNECT_COUNTDOWN)
 from server.database.db_manager import DBManager
 from shared.models.color import Color
 from server.network.models import ConnectedPlayer, GameRoom
@@ -15,15 +12,11 @@ from server.services.game.game_session_service import GameSessionService
 from server.services.matchmaking.room_service import RoomService, RoomJoinEvent
 from server.services.auth import auth_service
 from server.services.matchmaking import matchmaking_service
-from shared.protocol import (
-    MessageType, ErrorMessage, HeartbeatAckMessage, BaseMessage,
-    parse_message, CountdownMessage
-)
+from shared.protocol import (MessageType, ErrorMessage, HeartbeatAckMessage, BaseMessage,parse_message, CountdownMessage)
 
 logger = logging.getLogger(__name__)
 
 DISCONNECT_COUNTDOWN_MSG_FORMAT = "Opponent disconnected. Autoresign in {}s."
-
 
 class GameCoordinator:
     """Coordinates authentication, matchmaking, and authoritative game state routing."""

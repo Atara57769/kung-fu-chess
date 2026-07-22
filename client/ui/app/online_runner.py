@@ -7,7 +7,6 @@ from client.ui.ui_config import TIME_STEP_MS
 from client.ui.app.online_coordinator import OnlineCoordinator
 
 WINDOW_NAME_IMAGE = "Image"
-LOG_LOOP_START = "Starting online visual frame loop..."
 
 class OnlineUIRunner:
     def __init__(self, client, screen_manager: ScreenManager, window: Window,
@@ -36,7 +35,7 @@ class OnlineUIRunner:
         cv2.namedWindow(WINDOW_NAME_IMAGE)
         cv2.setMouseCallback(WINDOW_NAME_IMAGE, self._on_mouse_event)
         
-        self.logger.info(LOG_LOOP_START)
+        self.logger.info("Starting online visual frame loop...")
         while self.running:
             dt = self.time_step_ms / 1000.0
             
