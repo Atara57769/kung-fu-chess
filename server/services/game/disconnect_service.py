@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 async def handle_disconnect(player: ConnectedPlayer,
     matchmaking_queue: List[ConnectedPlayer],
     rooms: Dict[str, GameRoom],
-    pubsub,
     broadcast_room_state_fn,
     start_resign_countdown_fn
 ) -> None:
@@ -28,8 +27,6 @@ async def handle_disconnect(player: ConnectedPlayer,
     room = rooms.get(room_id)
     if not room:
         return
-
-    pubsub.unsubscribe(room_id, player)
 
     is_game_player = (room.white_player == player or room.black_player == player)
     

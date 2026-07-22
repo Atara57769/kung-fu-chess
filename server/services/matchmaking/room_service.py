@@ -2,7 +2,6 @@ import logging
 import random
 from typing import Dict, Optional
 from server.network.models import ConnectedPlayer, GameRoom
-from shared.protocol.pubsub import make_subscriber_callback
 from shared.protocol import MessageType
 from shared.models.color import Color
 from shared.constants import (
@@ -17,7 +16,6 @@ logger = logging.getLogger(__name__)
 async def create_custom_room(
     player: ConnectedPlayer,
     rooms: Dict[str, GameRoom],
-    pubsub,
     send_json_fn,
     broadcast_room_state_fn,
     room_id: Optional[str] = None
@@ -38,7 +36,6 @@ async def create_custom_room(
     player.color = Color.WHITE
     
     rooms[room_id] = room
-    pubsub.subscribe(room_id, player, make_subscriber_callback(player, send_json_fn))
     logger.info(f"Custom Room {room_id} created by {player.username}.")
     await broadcast_room_state_fn(room)
 
@@ -46,7 +43,6 @@ async def join_custom_room(
     player: ConnectedPlayer,
     room_id: str,
     rooms: Dict[str, GameRoom],
-    pubsub,
     send_json_fn,
     broadcast_room_state_fn,
     start_game_callback,
@@ -66,7 +62,6 @@ async def join_custom_room(
         if room.countdown_task:
             room.countdown_task.cancel()
             room.countdown_task = None
-        pubsub.subscribe(room_id, player, make_subscriber_callback(player, send_json_fn))
         logger.info(f"Player {player.username} reconnected to Room {room_id} as White.")
         await broadcast_room_state_fn(room)
         await send_snapshot_to_fn(player, room)
@@ -76,13 +71,10 @@ async def join_custom_room(
         if room.countdown_task:
             room.countdown_task.cancel()
             room.countdown_task = None
-        pubsub.subscribe(room_id, player, make_subscriber_callback(player, send_json_fn))
         logger.info(f"Player {player.username} reconnected to Room {room_id} as Black.")
         await broadcast_room_state_fn(room)
         await send_snapshot_to_fn(player, room)
     else:
-        # Normal joining flow
-        pubsub.subscribe(room_id, player, make_subscriber_callback(player, send_json_fn))
         if room.black_player is None and room.status == ROOM_STATUS_WAITING:
             room.black_player = player
             player.color = Color.BLACK
@@ -99,7 +91,6 @@ async def join_custom_room(
 async def handle_leave_room(
     player: ConnectedPlayer,
     rooms: Dict[str, GameRoom],
-    pubsub,
     send_json_fn,
     broadcast_room_state_fn
 ) -> None:
@@ -120,8 +111,6 @@ async def handle_leave_room(
 
     player.room_id = None
     player.color = None
-
-    pubsub.unsubscribe(room_id, player)
 
     await broadcast_room_state_fn(room)
     await send_json_fn(player.ws, {FIELD_TYPE: MessageType.ROOM_STATE, FIELD_ROOM_ID: None})

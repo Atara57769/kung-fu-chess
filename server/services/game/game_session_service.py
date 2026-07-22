@@ -55,15 +55,19 @@ async def room_tick_loop(room: GameRoom, broadcast_snapshot_fn, db, send_json_fn
     except asyncio.CancelledError:
         pass
 
-async def broadcast_snapshot(room: GameRoom, pubsub) -> None:
-    """Broadcasts a game snapshot directly to players and spectators via pubsub."""
-    def make_snapshot_message(player: ConnectedPlayer) -> dict:
-        snap = room.controller.get_snapshot(player_color=player.color)
-        return {
+async def broadcast_snapshot(room: GameRoom, send_json_fn) -> None:
+    """Broadcasts a game snapshot directly to players and spectators."""
+    clients = []
+    if room.white_player: clients.append(room.white_player)
+    if room.black_player: clients.append(room.black_player)
+    clients.extend(room.spectators)
+
+    for c in clients:
+        snap = room.controller.get_snapshot(player_color=c.color)
+        await send_json_fn(c.ws, {
             FIELD_TYPE: MessageType.SNAPSHOT,
             FIELD_DATA: serialize_snapshot(snap)
-        }
-    await pubsub.publish(room.room_id, make_snapshot_message)
+        })
 
 async def send_snapshot_to(player: ConnectedPlayer, room: GameRoom, send_json_fn) -> None:
     """Sends current state snapshot to a specific player session."""
