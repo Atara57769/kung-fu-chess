@@ -1,4 +1,7 @@
-from server.services.elo.elo_service import calculate_elo
+from server.services.game.game_session_service import GameSessionService
+
+calculate_elo = GameSessionService._calculate_elo
+
 
 def test_elo_white_wins():
     """Verify rating shifts when White (1500) beats Black (1500)."""
