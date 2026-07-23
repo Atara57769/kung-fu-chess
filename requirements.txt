@@ -1,0 +1,15 @@
+# Core dependencies
+bcrypt==5.0.0
+colorama==0.4.6
+numpy==2.5.1
+opencv-python==5.0.0.93
+websockets==16.1.1
+Pygments==2.20.0
+
+# Testing dependencies
+coverage==7.15.0
+iniconfig==2.3.0
+packaging==26.2
+pluggy==1.6.0
+pytest==9.1.1
+pytest-cov==7.1.0
