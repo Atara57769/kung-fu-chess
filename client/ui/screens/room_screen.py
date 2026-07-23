@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from client.ui.rendering.img import Img
-from client.ui.screens.base_screen import Screen
+from client.ui.screens.base_screen import Screen, ScreenType
 from client.ui.components.button import Button
 from client.ui.components.label import Label
 from client.ui.ui_config import BG_COLOR_BGR
@@ -16,6 +16,7 @@ BTN_LABEL_LEAVE_LOBBY = "Leave Lobby"
 
 class RoomScreen(Screen):
     """Lobby screen for custom chess rooms showing players, spectators, and start trigger."""
+    screen_type = ScreenType.ROOM
     
     def __init__(self, screen_manager, width: int, height: int, room_id: str, 
                  is_creator: bool = False, white_player: str = None, black_player: str = None, client=None) -> None:

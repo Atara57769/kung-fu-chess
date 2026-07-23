@@ -1,7 +1,7 @@
 import asyncio
 import time
 from typing import List, Optional
-from shared.constants import DEFAULT_BOARD_LAYOUT
+from shared.constants import DEFAULT_BOARD_LAYOUT, ROOM_STATUS_WAITING
 from server.game.engine.game_engine import GameEngine
 from shared.models.game_state import GameState
 from shared.models.color import Color
@@ -32,10 +32,9 @@ class GameRoom:
         
         from server.game.engine.game_engine import GameEngine
         from server.game.engine.controller import Controller
-        import sys
-        self.controller = Controller(self.state, GameEngine(), sys.stdout)
+        self.controller = Controller(self.state, GameEngine())
         
-        self.status: str = "waiting"  
+        self.status: str = ROOM_STATUS_WAITING
         self.countdown_task: Optional[asyncio.Task] = None
         self.countdown_seconds: int = 0
         self.tick_task: Optional[asyncio.Task] = None

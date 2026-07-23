@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from typing import Optional, Callable
 from client.ui.rendering.img import Img
-from client.ui.screens.base_screen import Screen
+from client.ui.screens.base_screen import Screen, ScreenType
 from client.ui.components.button import Button
 from client.ui.components.label import Label
 from client.ui.ui_config import BG_COLOR_BGR
@@ -15,6 +15,7 @@ BTN_LABEL_CANCEL = "Cancel"
 
 class WaitingScreen(Screen):
     """Presents a loading/waiting state while searching for an opponent."""
+    screen_type = ScreenType.WAITING
     
     def __init__(self, screen_manager, width: int, height: int, 
                  timeout_seconds: float = 60.0, on_timeout: Optional[Callable] = None) -> None:

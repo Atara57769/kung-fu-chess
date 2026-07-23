@@ -1,18 +1,15 @@
 import asyncio
 import logging
-from typing import Dict
+from typing import Dict, Optional, Callable
 from server.network.models import GameRoom, ConnectedPlayer
 from shared.protocol.protocol import serialize_snapshot, algebraic_to_move, algebraic_to_cell
 from shared.protocol import SnapshotMessage, GameOverMessage
 from shared.models.color import Color
-from client.ui.ui_config import TIME_STEP_MS
 from shared.constants import (
     ROOM_STATUS_ACTIVE, ROOM_STATUS_ENDED, COLOR_NAME_WHITE, COLOR_NAME_BLACK,
-    GAME_RESULT_DRAW
+    GAME_RESULT_DRAW, TICK_STEP_MS
 )
 
-ATTR_WINNER = "winner"
-PIECE_KIND_KING = "K"
 RATING_CHANGE_FORMAT = " ({} -> {})"
 GAME_OVER_MESSAGE_FORMAT = "Game Over! Winner: {}"
 
@@ -21,64 +18,56 @@ logger = logging.getLogger(__name__)
 class GameSessionService:
     """Manages authoritative game state: ticking, moves, snapshots, and end-game resolution."""
 
-    def __init__(self, db) -> None:
+    def __init__(self, db, send_json_fn: Optional[Callable] = None) -> None:
         self.db = db
+        self.send_json_fn = send_json_fn
 
-    async def start_game(self, room: GameRoom, send_json_fn) -> None:
+    async def start_game(self, room: GameRoom) -> None:
         """Transitions room status to active and starts the tick task."""
         room.status = ROOM_STATUS_ACTIVE
-        room.tick_task = asyncio.create_task(self._tick_loop(room, send_json_fn))
+        room.tick_task = asyncio.create_task(self._tick_loop(room))
 
-    async def _tick_loop(self, room: GameRoom, send_json_fn) -> None:
+    async def _tick_loop(self, room: GameRoom) -> None:
         """Authoritative real-time progression ticking game state."""
-        tick_interval = TIME_STEP_MS / 1000.0
+        tick_interval = TICK_STEP_MS / 1000.0
         try:
             while room.status == ROOM_STATUS_ACTIVE:
                 await asyncio.sleep(tick_interval)
-                room.controller.wait(TIME_STEP_MS)
+                room.controller.wait(TICK_STEP_MS)
 
                 if room.state.game_over:
-                    winner_token = room.state.winner if hasattr(room.state, ATTR_WINNER) else None
-                    if not winner_token:
-                        has_w_king = False
-                        has_b_king = False
-                        for row in room.state.board.grid:
-                            for p in row:
-                                if p is not None and p.kind == PIECE_KIND_KING:
-                                    if p.color == Color.WHITE: has_w_king = True
-                                    elif p.color == Color.BLACK: has_b_king = True
-                        if has_w_king and not has_b_king:
-                            winner_token = Color.WHITE
-                        elif has_b_king and not has_w_king:
-                            winner_token = Color.BLACK
-
+                    winner_token = room.state.winner
                     winner_color = (
                         COLOR_NAME_WHITE if winner_token == Color.WHITE
                         else (COLOR_NAME_BLACK if winner_token == Color.BLACK else GAME_RESULT_DRAW)
                     )
-                    await self.end_game(room, winner_color, send_json_fn)
+                    await self.end_game(room, winner_color)
                     break
 
-                await self.broadcast_snapshot(room, send_json_fn)
+                await self.broadcast_snapshot(room)
         except asyncio.CancelledError:
             pass
 
-    async def broadcast_snapshot(self, room: GameRoom, send_json_fn) -> None:
+    async def broadcast_snapshot(self, room: GameRoom) -> None:
         """Broadcasts a game snapshot directly to players and spectators."""
+        if not self.send_json_fn:
+            return
         clients = []
         if room.white_player: clients.append(room.white_player)
         if room.black_player: clients.append(room.black_player)
         clients.extend(room.spectators)
         for c in clients:
             snap = room.controller.get_snapshot(player_color=c.color)
-            await send_json_fn(c.ws, SnapshotMessage(data=serialize_snapshot(snap)))
+            await self.send_json_fn(c.ws, SnapshotMessage(data=serialize_snapshot(snap)))
 
-    async def send_snapshot(self, player: ConnectedPlayer, room: GameRoom, send_json_fn) -> None:
+    async def send_snapshot(self, player: ConnectedPlayer, room: GameRoom) -> None:
         """Sends current state snapshot to a specific player."""
+        if not self.send_json_fn:
+            return
         snap = room.controller.get_snapshot(player_color=player.color)
-        await send_json_fn(player.ws, SnapshotMessage(data=serialize_snapshot(snap)))
+        await self.send_json_fn(player.ws, SnapshotMessage(data=serialize_snapshot(snap)))
 
-    async def process_move(self, player: ConnectedPlayer, move_str: str, rooms: Dict[str, GameRoom], send_json_fn) -> None:
+    async def process_move(self, player: ConnectedPlayer, move_str: str, rooms: Dict[str, GameRoom]) -> None:
         """Validates and executes an authorized move on the player's controller."""
         room = rooms.get(player.room_id) if player.room_id else None
         if not room or room.status != ROOM_STATUS_ACTIVE:
@@ -91,9 +80,9 @@ class GameSessionService:
         except ValueError:
             return
         room.controller.move(from_cell, to_cell, player_color=player.color)
-        await self.broadcast_snapshot(room, send_json_fn)
+        await self.broadcast_snapshot(room)
 
-    async def process_jump(self, player: ConnectedPlayer, cell_str: str, rooms: Dict[str, GameRoom], send_json_fn) -> None:
+    async def process_jump(self, player: ConnectedPlayer, cell_str: str, rooms: Dict[str, GameRoom]) -> None:
         """Validates and executes an authorized jump on the player's controller."""
         room = rooms.get(player.room_id) if player.room_id else None
         if not room or room.status != ROOM_STATUS_ACTIVE:
@@ -106,9 +95,9 @@ class GameSessionService:
         except ValueError:
             return
         room.controller.jump(cell, player_color=player.color)
-        await self.broadcast_snapshot(room, send_json_fn)
+        await self.broadcast_snapshot(room)
 
-    async def end_game(self, room: GameRoom, winner_color: str, send_json_fn) -> None:
+    async def end_game(self, room: GameRoom, winner_color: str) -> None:
         """Resolves results, ELO updates, DB writes, and stops the tick loop."""
         room.status = ROOM_STATUS_ENDED
         if room.tick_task:
@@ -140,12 +129,13 @@ class GameSessionService:
             white_rating_change=elo_w_str,
             black_rating_change=elo_b_str
         )
-        clients = []
-        if room.white_player: clients.append(room.white_player)
-        if room.black_player: clients.append(room.black_player)
-        clients.extend(room.spectators)
-        for c in clients:
-            await send_json_fn(c.ws, payload)
+        if self.send_json_fn:
+            clients = []
+            if room.white_player: clients.append(room.white_player)
+            if room.black_player: clients.append(room.black_player)
+            clients.extend(room.spectators)
+            for c in clients:
+                await self.send_json_fn(c.ws, payload)
         logger.info(f"Game resolved in Room {room.room_id}. Winner={winner_color}")
 
     @staticmethod

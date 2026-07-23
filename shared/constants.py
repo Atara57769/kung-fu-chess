@@ -44,6 +44,8 @@ DEFAULT_PORT = 8765
 HEARTBEAT_INTERVAL = 5.0
 HEARTBEAT_TIMEOUT = 10.0
 DISCONNECT_COUNTDOWN = 20
+TICK_STEP_MS = 70                          # Server game-loop tick interval (ms)
+MSG_DISCONNECT_COUNTDOWN = "Opponent disconnected. Autoresign in {}s."
 
 ROOM_STATUS_WAITING = "waiting"
 ROOM_STATUS_ACTIVE = "active"

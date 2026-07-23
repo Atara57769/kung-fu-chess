@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from client.ui.rendering.img import Img
-from client.ui.screens.base_screen import Screen
+from client.ui.screens.base_screen import Screen, ScreenType
 from client.ui.components.button import Button
 from client.ui.components.label import Label
 from client.ui.ui_config import BG_COLOR_BGR
@@ -20,6 +20,7 @@ ACTION_JOIN = "join"
 
 class HomeScreen(Screen):
     """Presents the main home dashboard with matchmaking and room options."""
+    screen_type = ScreenType.HOME
     
     def __init__(self, screen_manager, width: int, height: int, username: str = DEFAULT_USERNAME, rating: int = 1200, client=None) -> None:
         self.screen_manager = screen_manager

@@ -2,6 +2,7 @@ import logging
 from typing import Optional, Any
 
 from client.ui.ui_config import LEFT_PADDING, RIGHT_PADDING
+from client.ui.screens.base_screen import ScreenType
 from client.ui.screens.screen_manager import ScreenManager
 from client.ui.screens.home_screen import HomeScreen
 from client.ui.screens.waiting_screen import WaitingScreen
@@ -102,7 +103,7 @@ class OnlineCoordinator:
         total_h = cell_size * 8
         
         if state is None:
-            if not isinstance(curr_screen, HomeScreen) and not isinstance(curr_screen, WaitingScreen) and not isinstance(curr_screen, OnlineGameScreen):
+            if curr_screen and curr_screen.screen_type not in (ScreenType.HOME, ScreenType.WAITING, ScreenType.ONLINE_GAME):
                 home = self._create_online_home_screen()
                 self.screen_manager.switch_to(home)
             return
@@ -111,7 +112,7 @@ class OnlineCoordinator:
         room_id = state.room_id
         
         if room_id is None:
-            if not isinstance(curr_screen, HomeScreen) and not isinstance(curr_screen, WaitingScreen):
+            if curr_screen and curr_screen.screen_type not in (ScreenType.HOME, ScreenType.WAITING):
                 home = self._create_online_home_screen()
                 self.screen_manager.switch_to(home)
         elif status == ROOM_STATUS_WAITING:
@@ -119,7 +120,7 @@ class OnlineCoordinator:
             black_player = state.black
             spectators = state.spectators
 
-            if not isinstance(curr_screen, RoomScreen):
+            if not curr_screen or curr_screen.screen_type != ScreenType.ROOM:
                 is_creator = (white_player == self.client.username)
                 room = RoomScreen(
                     self.screen_manager, 
@@ -141,7 +142,7 @@ class OnlineCoordinator:
                 specs_joined = SPECTATORS_SEPARATOR.join(curr_screen.spectators) if curr_screen.spectators else SPECTATORS_NONE
                 curr_screen.labels[3].text = f"{SPECTATORS_PREFIX}{specs_joined}"
         elif status == ROOM_STATUS_ACTIVE:
-            if not isinstance(curr_screen, OnlineGameScreen):
+            if not curr_screen or curr_screen.screen_type != ScreenType.ONLINE_GAME:
                 online_game = OnlineGameScreen(
                     self.screen_manager,
                     self.client,
@@ -160,7 +161,7 @@ class OnlineCoordinator:
         status = data.status
         if status == MATCHMAKING_STATUS_TIMEOUT:
             curr_screen = self.screen_manager.active_screen
-            if isinstance(curr_screen, WaitingScreen):
+            if curr_screen and curr_screen.screen_type == ScreenType.WAITING:
                 home = self._create_online_home_screen()
                 self.screen_manager.switch_to(home)
             show_warning_dialog(MATCHMAKING_TIMEOUT_TITLE, MATCHMAKING_TIMEOUT_MSG)

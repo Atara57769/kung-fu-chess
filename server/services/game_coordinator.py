@@ -3,8 +3,9 @@ import json
 import logging
 import random
 import time
+import uuid
 from typing import Dict, List, Optional
-from shared.constants import (ROOM_STATUS_ACTIVE, COLOR_NAME_WHITE, COLOR_NAME_BLACK,MSG_UNAUTHORIZED, DISCONNECT_COUNTDOWN)
+from shared.constants import (ROOM_STATUS_ACTIVE, COLOR_NAME_WHITE, COLOR_NAME_BLACK, MSG_UNAUTHORIZED, DISCONNECT_COUNTDOWN, MSG_DISCONNECT_COUNTDOWN)
 from server.database.db_manager import DBManager
 from shared.models.color import Color
 from server.network.models import ConnectedPlayer, GameRoom
@@ -16,7 +17,6 @@ from shared.protocol import (MessageType, ErrorMessage, HeartbeatAckMessage, Bas
 
 logger = logging.getLogger(__name__)
 
-DISCONNECT_COUNTDOWN_MSG_FORMAT = "Opponent disconnected. Autoresign in {}s."
 
 class GameCoordinator:
     """Coordinates authentication, matchmaking, and authoritative game state routing."""
@@ -42,6 +42,8 @@ class GameCoordinator:
 
     def set_send_json_fn(self, send_json_fn) -> None:
         self.send_json_fn = send_json_fn
+        self.room_service.send_json_fn = send_json_fn
+        self.game_session.send_json_fn = send_json_fn
 
     async def dispatch_message(self, player: ConnectedPlayer, raw_msg: str) -> None:
         """Decodes JSON message and dispatches it to the correct action handler."""
@@ -80,64 +82,45 @@ class GameCoordinator:
 
     async def _handle_create_room(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         custom_id = getattr(msg, "room_id", None)
-        await self.room_service.create_room(player, self.rooms, self.send_json_fn, custom_id)
+        await self.room_service.create_room(player, self.rooms, custom_id)
 
     async def _handle_join_room(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         room_id = getattr(msg, "room_id", "")
         event, room = await self.room_service.join_room(
-            player, room_id, self.rooms, self.send_json_fn
-        )
+            player, room_id, self.rooms)
         if event == RoomJoinEvent.GAME_CAN_START:
-            await self.game_session.start_game(room, self.send_json_fn)
-            await self.room_service.broadcast_room_state(room, self.send_json_fn)
+            await self.game_session.start_game(room)
+            await self.room_service.broadcast_room_state(room)
         elif event in (RoomJoinEvent.RECONNECTED, RoomJoinEvent.SPECTATOR_ACTIVE):
-            await self.game_session.send_snapshot(player, room, self.send_json_fn)
+            await self.game_session.send_snapshot(player, room)
 
     async def _handle_move(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         await self.game_session.process_move(
-            player, getattr(msg, "data", ""), self.rooms, self.send_json_fn
-        )
+            player, getattr(msg, "data", ""), self.rooms)
 
     async def _handle_jump(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         await self.game_session.process_jump(
-            player, getattr(msg, "data", ""), self.rooms, self.send_json_fn
-        )
+            player, getattr(msg, "data", ""), self.rooms)
 
     async def _handle_leave_room(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
-        await self.room_service.leave_room(player, self.rooms, self.send_json_fn)
+        await self.room_service.leave_room(player, self.rooms)
 
     async def _handle_get_snapshot(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         room = self.rooms.get(player.room_id) if player.room_id else None
         if room:
-            await self.game_session.send_snapshot(player, room, self.send_json_fn)
+            await self.game_session.send_snapshot(player, room)
 
     async def _handle_heartbeat(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         await self.send_json_fn(player.ws, HeartbeatAckMessage())
 
     async def _start_matched_game(self, p1: ConnectedPlayer, p2: ConnectedPlayer) -> None:
         """Pairs two matchmaking players into a new room and starts game."""
-        room_id = str(random.randint(1000, 9999))
-        while room_id in self.rooms:
-            room_id = str(random.randint(1000, 9999))
-
-        room = GameRoom(room_id)
-        self.rooms[room_id] = room
-
-        if random.choice([True, False]):
-            room.white_player, room.black_player = p1, p2
-        else:
-            room.white_player, room.black_player = p2, p1
-
-        room.white_player.room_id = room_id
-        room.white_player.color = Color.WHITE
-        room.black_player.room_id = room_id
-        room.black_player.color = Color.BLACK
-
-        logger.info(f"Matched game started in Room {room_id}: White={room.white_player.username}, Black={room.black_player.username}")
-        await self.game_session.start_game(room, self.send_json_fn)
-        await self.room_service.broadcast_room_state(room, self.send_json_fn)
-
-    # ── Disconnect handling (inlined — no separate module needed) ────────────
+        room_id = uuid.uuid4().hex[:8]
+        white, black = (p1, p2) if random.choice([True, False]) else (p2, p1)
+        room = self.room_service.build_room(room_id, self.rooms, white=white, black=black)
+        logger.info(f"Matched game started in Room {room_id}: White={white.username}, Black={black.username}.")
+        await self.game_session.start_game(room)
+        await self.room_service.broadcast_room_state(room)
 
     async def handle_disconnect(self, player: ConnectedPlayer) -> None:
         """Removes player from queue/room and starts auto-resign countdown if mid-game."""
@@ -168,7 +151,7 @@ class GameCoordinator:
                 room.black_player = None
             elif player in room.spectators:
                 room.spectators.remove(player)
-            await self.room_service.broadcast_room_state(room, self.send_json_fn)
+            await self.room_service.broadcast_room_state(room)
 
     async def _run_resign_countdown(
         self,
@@ -179,16 +162,16 @@ class GameCoordinator:
         """Waits up to DISCONNECT_COUNTDOWN seconds; auto-resigns if player doesn't return."""
         try:
             while room.countdown_seconds > 0:
-                if opponent:
+                if opponent and self.send_json_fn:
                     await self.send_json_fn(opponent.ws, CountdownMessage(
                         seconds=room.countdown_seconds,
-                        message=DISCONNECT_COUNTDOWN_MSG_FORMAT.format(room.countdown_seconds)
+                        message=MSG_DISCONNECT_COUNTDOWN.format(room.countdown_seconds)
                     ))
                 await asyncio.sleep(1.0)
                 room.countdown_seconds -= 1
 
             winner_color = COLOR_NAME_BLACK if room.white_player == disconnected else COLOR_NAME_WHITE
             logger.info(f"Countdown expired in Room {room.room_id}. {disconnected.username} resigned.")
-            await self.game_session.end_game(room, winner_color, self.send_json_fn)
+            await self.game_session.end_game(room, winner_color)
         except asyncio.CancelledError:
             logger.info(f"Resign countdown cancelled in Room {room.room_id} (player reconnected).")

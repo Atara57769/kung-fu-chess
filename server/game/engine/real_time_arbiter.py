@@ -93,6 +93,7 @@ class RealTimeArbiter:
         game_state.pending_moves = remaining
         if winner_color is not None:
             game_state.game_over = True
+            game_state.winner = winner_color
 
     def tick(self, game_state: GameState, ms: int) -> None:
         """Updates clock, processes pending moves, and checks game-over status."""

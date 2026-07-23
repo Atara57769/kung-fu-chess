@@ -2,7 +2,7 @@ import dataclasses
 import cv2
 import numpy as np
 from client.ui.rendering.img import Img
-from client.ui.screens.base_screen import Screen
+from client.ui.screens.base_screen import Screen, ScreenType
 from client.ui.components.button import Button
 from client.ui.ui_config import (
     BG_COLOR_BGR, GAMEOVER_FONT_SCALE, GAMEOVER_COLOR, GAMEOVER_THICKNESS
@@ -19,6 +19,7 @@ STATUS_WAITING_FOR_SERVER = "Waiting for server state..."
 
 class OnlineGameScreen(Screen):
     """Presents the active online game board, handles local selections, and replicates server snapshots."""
+    screen_type = ScreenType.ONLINE_GAME
     
     def __init__(self, screen_manager, client, geometry, renderer, animation_manager, history_tracker=None) -> None:
         self.screen_manager = screen_manager

@@ -16,7 +16,7 @@ class Controller:
     GameEngine calls. Manages piece selection in game_state.
     """
 
-    def __init__(self, state: GameState, game_engine: GameEngine, stdout):
+    def __init__(self, state: GameState, game_engine: GameEngine, stdout=None):
         self.state = state
         self.game_engine = game_engine
         self.stdout = stdout
