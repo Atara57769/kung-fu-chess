@@ -9,13 +9,13 @@ logger = logging.getLogger(__name__)
 ERROR_INVALID_FIELDS = "Invalid fields."
 ERROR_AUTH_FAILED = "Authentication failed."
 
-async def handle_auth(player: ConnectedPlayer, msg: AuthMessage, db, send_json_fn) -> None:
+async def handle_auth(player: ConnectedPlayer, msg: AuthMessage, db, send) -> None:
     """Authenticates an existing user or auto-registers a new one, then updates the player session."""
     username = msg.username.strip()
     password = msg.password.strip()
 
     if not username or not password:
-        await send_json_fn(player.ws, AuthResponseMessage(success=False, error=ERROR_INVALID_FIELDS))
+        await send(player.ws, AuthResponseMessage(success=False, error=ERROR_INVALID_FIELDS))
         return
 
     user_info = db.find_user(username)
@@ -29,21 +29,21 @@ async def handle_auth(player: ConnectedPlayer, msg: AuthMessage, db, send_json_f
             logger.warning("Auto-registration failed for '%s'.", username)
     elif not db.verify_password(username, password):
         logger.warning("Failed authentication for '%s': password mismatch.", username)
-        await send_json_fn(player.ws, AuthResponseMessage(success=False, error=ERROR_AUTH_FAILED))
+        await send(player.ws, AuthResponseMessage(success=False, error=ERROR_AUTH_FAILED))
         return
 
     if user_info:
         player.username = user_info.username
         player.rating = user_info.rating
         player.authenticated = True
-        await send_json_fn(player.ws, AuthResponseMessage(
+        await send(player.ws, AuthResponseMessage(
             success=True,
             username=player.username,
             rating=player.rating
         ))
         logger.info(f"Player {player.username} authenticated successfully.")
     else:
-        await send_json_fn(player.ws, AuthResponseMessage(success=False, error=ERROR_AUTH_FAILED))
+        await send(player.ws, AuthResponseMessage(success=False, error=ERROR_AUTH_FAILED))
 
 
 

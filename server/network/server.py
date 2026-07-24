@@ -20,7 +20,7 @@ class GameServer:
         self.host = host
         self.port = port
         self.coordinator = GameCoordinator(db_path)
-        self.coordinator.set_send_json_fn(self._send_json)
+        self.coordinator.set_send(self._send_json)
         self.players: Dict[any, ConnectedPlayer] = {}
         self._message_queue: asyncio.Queue[Tuple[ConnectedPlayer, str]] = asyncio.Queue()
 

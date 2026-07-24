@@ -26,8 +26,8 @@ class RoomService:
     Has no knowledge of game session logic — returns events for the coordinator to act on.
     """
 
-    def __init__(self, send_json_fn: Optional[Callable] = None) -> None:
-        self.send_json_fn = send_json_fn
+    def __init__(self, send: Optional[Callable] = None) -> None:
+        self.send = send
 
 
     def build_room(self, room_id: str, rooms: Dict[str, GameRoom],
@@ -49,8 +49,8 @@ class RoomService:
         if not room_id:
             room_id = uuid.uuid4().hex[:8]
         elif room_id in rooms:
-            if self.send_json_fn:
-                await self.send_json_fn(player.ws, ErrorMessage(message=MSG_ROOM_ALREADY_EXISTS))
+            if self.send:
+                await self.send(player.ws, ErrorMessage(message=MSG_ROOM_ALREADY_EXISTS))
             return
 
         room = self.build_room(room_id, rooms, white=player)
@@ -62,8 +62,8 @@ class RoomService:
         """Joins a lobby. Returns (RoomJoinEvent, room) so the coordinator decides game-level actions."""
         room = rooms.get(room_id)
         if not room:
-            if self.send_json_fn:
-                await self.send_json_fn(player.ws, ErrorMessage(message=MSG_ROOM_NOT_FOUND))
+            if self.send:
+                await self.send(player.ws, ErrorMessage(message=MSG_ROOM_NOT_FOUND))
             return RoomJoinEvent.NOT_FOUND, None
 
         player.room_id = room_id
@@ -121,12 +121,12 @@ class RoomService:
         player.room_id = None
         player.color = None
         await self.broadcast_room_state(room)
-        if self.send_json_fn:
-            await self.send_json_fn(player.ws, RoomStateMessage(room_id=None))
+        if self.send:
+            await self.send(player.ws, RoomStateMessage(room_id=None))
 
     async def broadcast_room_state(self, room: GameRoom) -> None:
         """Sends current lobby roster to all participants."""
-        if not self.send_json_fn:
+        if not self.send:
             return
         white_name = room.white_player.username if room.white_player else None
         black_name = room.black_player.username if room.black_player else None
@@ -146,4 +146,4 @@ class RoomService:
                 status=room.status,
                 your_color=c.color.value if c.color else None
             )
-            await self.send_json_fn(c.ws, msg)
+            await self.send(c.ws, msg)

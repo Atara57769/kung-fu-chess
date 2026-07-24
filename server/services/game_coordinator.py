@@ -25,7 +25,7 @@ class GameCoordinator:
         self.db = DBManager(db_path) if db_path else DBManager()
         self.rooms: Dict[str, GameRoom] = {}
         self.matchmaking_queue: List[ConnectedPlayer] = []
-        self.send_json_fn = None
+        self.send = None
         self.game_session = GameSessionService(self.db)
         self.room_service = RoomService()
         self.message_handlers = {
@@ -40,10 +40,10 @@ class GameCoordinator:
             MessageType.HEARTBEAT: self._handle_heartbeat,
         }
 
-    def set_send_json_fn(self, send_json_fn) -> None:
-        self.send_json_fn = send_json_fn
-        self.room_service.send_json_fn = send_json_fn
-        self.game_session.send_json_fn = send_json_fn
+    def set_send(self, send) -> None:
+        self.send = send
+        self.room_service.send = send
+        self.game_session.send = send
 
     async def dispatch_message(self, player: ConnectedPlayer, raw_msg: str) -> None:
         """Decodes JSON message and dispatches it to the correct action handler."""
@@ -56,9 +56,9 @@ class GameCoordinator:
             return
 
         if msg.type == MessageType.AUTH:
-            await auth_service.handle_auth(player, msg, self.db, self.send_json_fn)
+            await auth_service.handle_auth(player, msg, self.db, self.send)
         elif not player.authenticated:
-            await self.send_json_fn(player.ws, ErrorMessage(message=MSG_UNAUTHORIZED))
+            await self.send(player.ws, ErrorMessage(message=MSG_UNAUTHORIZED))
         else:
             await self._handle_authenticated_message(player, msg)
 
@@ -72,12 +72,12 @@ class GameCoordinator:
 
     async def _handle_matchmaking(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         await matchmaking_service.add_to_matchmaking(
-            player, self.matchmaking_queue, self.send_json_fn, self._start_matched_game
+            player, self.matchmaking_queue, self.send, self._start_matched_game
         )
 
     async def _handle_leave_matchmaking(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         await matchmaking_service.remove_from_matchmaking(
-            player, self.matchmaking_queue, self.send_json_fn
+            player, self.matchmaking_queue, self.send
         )
 
     async def _handle_create_room(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
@@ -111,7 +111,7 @@ class GameCoordinator:
             await self.game_session.send_snapshot(player, room)
 
     async def _handle_heartbeat(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
-        await self.send_json_fn(player.ws, HeartbeatAckMessage())
+        await self.send(player.ws, HeartbeatAckMessage())
 
     async def _start_matched_game(self, p1: ConnectedPlayer, p2: ConnectedPlayer) -> None:
         """Pairs two matchmaking players into a new room and starts game."""
@@ -162,8 +162,8 @@ class GameCoordinator:
         """Waits up to DISCONNECT_COUNTDOWN seconds; auto-resigns if player doesn't return."""
         try:
             while room.countdown_seconds > 0:
-                if opponent and self.send_json_fn:
-                    await self.send_json_fn(opponent.ws, CountdownMessage(
+                if opponent and self.send:
+                    await self.send(opponent.ws, CountdownMessage(
                         seconds=room.countdown_seconds,
                         message=MSG_DISCONNECT_COUNTDOWN.format(room.countdown_seconds)
                     ))

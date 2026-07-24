@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 class GameSessionService:
     """Manages authoritative game state: ticking, moves, snapshots, and end-game resolution."""
 
-    def __init__(self, db, send_json_fn: Optional[Callable] = None) -> None:
+    def __init__(self, db, send: Optional[Callable] = None) -> None:
         self.db = db
-        self.send_json_fn = send_json_fn
+        self.send = send
 
     async def start_game(self, room: GameRoom) -> None:
         """Transitions room status to active and starts the tick task."""
@@ -50,7 +50,7 @@ class GameSessionService:
 
     async def broadcast_snapshot(self, room: GameRoom) -> None:
         """Broadcasts a game snapshot directly to players and spectators."""
-        if not self.send_json_fn:
+        if not self.send:
             return
         clients = []
         if room.white_player: clients.append(room.white_player)
@@ -58,14 +58,14 @@ class GameSessionService:
         clients.extend(room.spectators)
         for c in clients:
             snap = room.controller.get_snapshot(player_color=c.color)
-            await self.send_json_fn(c.ws, SnapshotMessage(data=serialize_snapshot(snap)))
+            await self.send(c.ws, SnapshotMessage(data=serialize_snapshot(snap)))
 
     async def send_snapshot(self, player: ConnectedPlayer, room: GameRoom) -> None:
         """Sends current state snapshot to a specific player."""
-        if not self.send_json_fn:
+        if not self.send:
             return
         snap = room.controller.get_snapshot(player_color=player.color)
-        await self.send_json_fn(player.ws, SnapshotMessage(data=serialize_snapshot(snap)))
+        await self.send(player.ws, SnapshotMessage(data=serialize_snapshot(snap)))
 
     async def process_move(self, player: ConnectedPlayer, move_str: str, rooms: Dict[str, GameRoom]) -> None:
         """Validates and executes an authorized move on the player's controller."""
@@ -129,13 +129,13 @@ class GameSessionService:
             white_rating_change=elo_w_str,
             black_rating_change=elo_b_str
         )
-        if self.send_json_fn:
+        if self.send:
             clients = []
             if room.white_player: clients.append(room.white_player)
             if room.black_player: clients.append(room.black_player)
             clients.extend(room.spectators)
             for c in clients:
-                await self.send_json_fn(c.ws, payload)
+                await self.send(c.ws, payload)
         logger.info(f"Game resolved in Room {room.room_id}. Winner={winner_color}")
 
     @staticmethod

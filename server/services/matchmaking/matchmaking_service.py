@@ -9,28 +9,28 @@ from shared.constants import (
 
 logger = logging.getLogger(__name__)
 
-async def add_to_matchmaking(player: ConnectedPlayer, matchmaking_queue: List[ConnectedPlayer], send_json_fn, pair_callback) -> None:
+async def add_to_matchmaking(player: ConnectedPlayer, matchmaking_queue: List[ConnectedPlayer], send, pair_callback) -> None:
     """Adds player to matchmaking queue and attempts to pair them."""
     if player in matchmaking_queue:
         return
     matchmaking_queue.append(player)
     logger.info(f"Player {player.username} ({player.rating}) entered matchmaking queue.")
-    await send_json_fn(player.ws, MatchmakingStatusMessage(status=MATCHMAKING_STATUS_WAITING))
+    await send(player.ws, MatchmakingStatusMessage(status=MATCHMAKING_STATUS_WAITING))
     
-    asyncio.create_task(process_matchmaking_for_player(player, matchmaking_queue, send_json_fn, pair_callback))
+    asyncio.create_task(process_matchmaking_for_player(player, matchmaking_queue, send, pair_callback))
 
-async def remove_from_matchmaking(player: ConnectedPlayer, matchmaking_queue: List[ConnectedPlayer], send_json_fn) -> None:
+async def remove_from_matchmaking(player: ConnectedPlayer, matchmaking_queue: List[ConnectedPlayer], send) -> None:
     """Removes player from matchmaking queue."""
     if player in matchmaking_queue:
         matchmaking_queue.remove(player)
         logger.info(f"Player {player.username} left matchmaking queue.")
-        await send_json_fn(player.ws, MatchmakingStatusMessage(status=MATCHMAKING_STATUS_IDLE))
+        await send(player.ws, MatchmakingStatusMessage(status=MATCHMAKING_STATUS_IDLE))
 
 
 async def process_matchmaking_for_player(
     player: ConnectedPlayer,
     matchmaking_queue: List[ConnectedPlayer],
-    send_json_fn,
+    send,
     pair_callback
 ) -> None:
     """Polls matchmaking queue seeking ELO partner until player leaves queue."""
