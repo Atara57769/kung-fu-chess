@@ -44,6 +44,8 @@ DEFAULT_PORT = 8765
 HEARTBEAT_INTERVAL = 5.0
 HEARTBEAT_TIMEOUT = 10.0
 DISCONNECT_COUNTDOWN = 20
+TICK_STEP_MS = 70                          # Server game-loop tick interval (ms)
+MSG_DISCONNECT_COUNTDOWN = "Opponent disconnected. Autoresign in {}s."
 
 ROOM_STATUS_WAITING = "waiting"
 ROOM_STATUS_ACTIVE = "active"
@@ -57,23 +59,9 @@ COLOR_NAME_WHITE = "white"
 COLOR_NAME_BLACK = "black"
 GAME_RESULT_DRAW = "draw"
 
-FIELD_TYPE = "type"
-FIELD_MESSAGE = "message"
-FIELD_ROOM_ID = "room_id"
-FIELD_DATA = "data"
-FIELD_STATUS = "status"
-FIELD_SUCCESS = "success"
-FIELD_ERROR = "error"
-FIELD_USERNAME = "username"
-FIELD_PASSWORD = "password"
-FIELD_RATING = "rating"
-FIELD_WHITE = "white"
-FIELD_BLACK = "black"
-FIELD_SPECTATORS = "spectators"
-FIELD_YOUR_COLOR = "your_color"
-
 MSG_UNAUTHORIZED = "Unauthorized client."
 MSG_ROOM_ALREADY_EXISTS = "Room already exists."
 MSG_ROOM_NOT_FOUND = "Room not found."
+
 
 

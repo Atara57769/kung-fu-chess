@@ -16,7 +16,7 @@ class MessageType(str, Enum):
     LEAVE_ROOM = "leave_room"
     ROOM_STATE = "room_state"
 
-    CLICK = "click"
+    MOVE = "move"
     JUMP = "jump"
     GET_SNAPSHOT = "get_snapshot"
     SNAPSHOT = "snapshot"

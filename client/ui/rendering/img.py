@@ -5,6 +5,10 @@ import pathlib
 import cv2
 import numpy as np
 
+
+DEFAULT_WINDOW_NAME = "Image"
+
+
 class Img:
     def __init__(self):
         self.img = None
@@ -89,7 +93,7 @@ class Img:
     def show(self) -> None:
         if self.img is None:
             raise ValueError("Image not loaded.")
-        cv2.imshow("Image", self.img)
+        cv2.imshow(DEFAULT_WINDOW_NAME, self.img)
 
     def refresh(self, delay: int) -> None:
         """Displays the image and refreshes the window using waitKey."""
@@ -99,4 +103,5 @@ class Img:
     @staticmethod
     def close_window() -> None:
         cv2.destroyAllWindows()
+
 

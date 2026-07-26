@@ -5,32 +5,45 @@ from shared.models.game_snapshot import GameSnapshot
 from client.services.score_tracker import ScoreTracker
 from shared.models.color import Color
 
+FORMAT_TIME_TEMPLATE = "{:02d}:{:02d}.{:03d}"
+FORMAT_ALGEBRAIC_TEMPLATE = "{}{}"
+PIECE_KING_CHAR = "K"
+PIECE_PAWN_CHAR = "P"
+NOTATION_CASTLE_SHORT = "O-O"
+NOTATION_CASTLE_LONG = "O-O-O"
+PANEL_TITLE_WHITE = "WHITE MOVES"
+PANEL_TITLE_BLACK = "BLACK MOVES"
+PANEL_SCORE_WHITE_PREFIX = "White"
+PANEL_SCORE_BLACK_PREFIX = "Black"
+HEADER_TIME = "Time"
+HEADER_MOVE = "Move"
+
 def format_time(ms: int) -> str:
     total_seconds = ms // 1000
     minutes = total_seconds // 60
     seconds = total_seconds % 60
     milliseconds = ms % 1000
-    return f"{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
+    return FORMAT_TIME_TEMPLATE.format(minutes, seconds, milliseconds)
 
 def format_move_notation(record, board_height: int) -> str:
     def cell_to_alg(cell) -> str:
         file_char = chr(ord('a') + cell.x)
         rank_num = board_height - cell.y
-        return f"{file_char}{rank_num}"
+        return FORMAT_ALGEBRAIC_TEMPLATE.format(file_char, rank_num)
 
     if 'to_pos' not in record:
         return ""
     to_str = cell_to_alg(record['to_pos'])
     kind = record['kind']
     
-    if kind == 'K' and 'from_pos' in record and record['from_pos'] is not None:
+    if kind == PIECE_KING_CHAR and 'from_pos' in record and record['from_pos'] is not None:
         if abs(record['from_pos'].x - record['to_pos'].x) == 2:
             if record['to_pos'].x > record['from_pos'].x:
-                return "O-O"
+                return NOTATION_CASTLE_SHORT
             else:
-                return "O-O-O"
+                return NOTATION_CASTLE_LONG
 
-    if kind == 'P':
+    if kind == PIECE_PAWN_CHAR:
         if record.get('is_capture', False) and 'from_pos' in record and record['from_pos'] is not None:
             dep_file = chr(ord('a') + record['from_pos'].x)
             return f"{dep_file}x{to_str}"
@@ -55,10 +68,10 @@ class HistoryRenderer:
             self.score_tracker.update(snapshot)
 
         if self.left_padding > 0 and self.history_tracker:
-            self._draw_history_panel(canvas, "WHITE MOVES", Color.WHITE, cfg.HIST_PANEL_PADDING, self.left_padding - cfg.HIST_PANEL_PADDING, board_h, snapshot)
+            self._draw_history_panel(canvas, PANEL_TITLE_WHITE, Color.WHITE, cfg.HIST_PANEL_PADDING, self.left_padding - cfg.HIST_PANEL_PADDING, board_h, snapshot)
         
         if self.right_padding > 0 and self.history_tracker:
-            self._draw_history_panel(canvas, "BLACK MOVES", Color.BLACK, self.left_padding + board_w + cfg.HIST_PANEL_PADDING, total_w - cfg.HIST_PANEL_PADDING, board_h, snapshot)
+            self._draw_history_panel(canvas, PANEL_TITLE_BLACK, Color.BLACK, self.left_padding + board_w + cfg.HIST_PANEL_PADDING, total_w - cfg.HIST_PANEL_PADDING, board_h, snapshot)
 
     def _draw_history_panel(self, canvas: Img, title: str, color: str, x_start: int, x_end: int, board_h: int, snapshot: GameSnapshot) -> None:
         cv2.rectangle(canvas.img, (x_start, cfg.HIST_PANEL_Y_MARGIN), (x_end, board_h - cfg.HIST_PANEL_Y_MARGIN), cfg.BG_COLOR_BGR, -1)
@@ -73,7 +86,7 @@ class HistoryRenderer:
         cv2.rectangle(canvas.img, (title_x_start, title_y_start), (title_x_end, title_y_end), (200, 200, 200), 1)
         
         score = self.score_tracker.get_score(color)
-        display_title = f"{'White' if color == Color.WHITE else 'Black'} ({score})"
+        display_title = f"{PANEL_SCORE_WHITE_PREFIX if color == Color.WHITE else PANEL_SCORE_BLACK_PREFIX} ({score})"
         
         (w, h), _ = cv2.getTextSize(display_title, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
         title_x = title_x_start + (title_x_end - title_x_start - w) // 2
@@ -100,13 +113,13 @@ class HistoryRenderer:
         left_col_w = sep_x - table_x_start
         right_col_w = table_x_end - sep_x
 
-        (tw, th), _ = cv2.getTextSize("Time", cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
+        (tw, th), _ = cv2.getTextSize(HEADER_TIME, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
         time_x = table_x_start + (left_col_w - tw) // 2
-        canvas.put_text("Time", time_x, table_y_start + 17, 0.4, (80, 80, 80), 1)
+        canvas.put_text(HEADER_TIME, time_x, table_y_start + 17, 0.4, (80, 80, 80), 1)
 
-        (mw, mh), _ = cv2.getTextSize("Move", cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
+        (mw, mh), _ = cv2.getTextSize(HEADER_MOVE, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
         move_x = sep_x + (right_col_w - mw) // 2
-        canvas.put_text("Move", move_x, table_y_start + 17, 0.4, (80, 80, 80), 1)
+        canvas.put_text(HEADER_MOVE, move_x, table_y_start + 17, 0.4, (80, 80, 80), 1)
 
         moves = [m for m in self.history_tracker.history if m['color'] == color]
         row_height = 25
@@ -130,5 +143,6 @@ class HistoryRenderer:
             (mw, mh), _ = cv2.getTextSize(move_str, cv2.FONT_HERSHEY_SIMPLEX, 0.38, 1)
             mx = sep_x + (right_col_w - mw) // 2
             canvas.put_text(move_str, mx, curr_row_y + 17, 0.38, (50, 50, 50), 1)
+
 
 

@@ -1,57 +1,76 @@
 import cv2
 import numpy as np
+from typing import Optional, Callable
 from client.ui.rendering.img import Img
-from client.ui.screens.base_screen import Screen
+from client.ui.screens.base_screen import Screen, ScreenType
 from client.ui.components.button import Button
 from client.ui.components.label import Label
 from client.ui.ui_config import BG_COLOR_BGR
 
+TITLE_MATCHMAKING = "MATCHMAKING"
+STATUS_SEARCHING = "Searching for an opponent..."
+LABEL_WAITING_TIME_FORMAT = "Waiting time: {}s"
+BTN_LABEL_CANCEL = "Cancel"
+
+
 class WaitingScreen(Screen):
     """Presents a loading/waiting state while searching for an opponent."""
+    screen_type = ScreenType.WAITING
     
-    def __init__(self, screen_manager, width: int, height: int) -> None:
+    def __init__(self, screen_manager, width: int, height: int, 
+                 timeout_seconds: float = 60.0, on_timeout: Optional[Callable] = None) -> None:
         self.screen_manager = screen_manager
         self.width = width
         self.height = height
+        self.timeout_seconds = timeout_seconds
+        self.on_timeout = on_timeout
+        self._has_timed_out = False
         
         self.buttons: list[Button] = []
         self.labels: list[Label] = []
+        self.elapsed_time = 0.0
         
         self._setup_components()
-
+ 
     def _setup_components(self) -> None:
         """Initializes labels and cancel button on the waiting screen."""
         cx = self.width // 2
         
-        self.labels.append(Label(cx, 120, "MATCHMAKING", centered=True))
-        self.labels.append(Label(cx, 180, "Searching for an opponent...", centered=True))
-        self.labels.append(Label(cx, 220, "Waiting time: 0s", centered=True))
+        self.labels.append(Label(cx, 120, TITLE_MATCHMAKING, centered=True))
+        self.labels.append(Label(cx, 180, STATUS_SEARCHING, centered=True))
+        self.labels.append(Label(cx, 220, LABEL_WAITING_TIME_FORMAT.format(0), centered=True))
         
-        self.buttons.append(Button(cx - 100, 280, 200, 45, "Cancel", self._on_cancel))
-        self.elapsed_time = 0.0
-
+        self.buttons.append(Button(cx - 100, 280, 200, 45, BTN_LABEL_CANCEL, self._on_cancel))
+ 
     def _on_cancel(self) -> None:
         """Cancels matchmaking and returns to the home screen."""
         from client.ui.screens.home_screen import HomeScreen
         home_screen = HomeScreen(self.screen_manager, self.width, self.height)
         self.screen_manager.switch_to(home_screen)
-
+ 
     def handle_click(self, x: int, y: int, is_right: bool = False) -> None:
         """Handles click events on the cancel button."""
         for btn in self.buttons:
             btn.handle_click(x, y)
-
+ 
     def handle_mouse_move(self, x: int, y: int) -> None:
         """Updates hover states on button elements."""
         for btn in self.buttons:
             btn.update_hover(x, y)
-
+ 
     def update(self, dt: float) -> None:
         """Ticks the elapsed matchmaking time and updates the duration label."""
+        if self._has_timed_out:
+            return
+ 
         self.elapsed_time += dt
-        # Update the time label text
-        self.labels[2].text = f"Waiting time: {int(self.elapsed_time)}s"
-
+        self.labels[2].text = LABEL_WAITING_TIME_FORMAT.format(int(self.elapsed_time))
+        
+        if self.elapsed_time >= self.timeout_seconds:
+            self._has_timed_out = True
+            if self.on_timeout:
+                self.on_timeout()
+ 
     def _draw_gradient_background(self, canvas: Img) -> None:
         """Fills canvas with a sleek dark radial-like vertical gradient."""
         c1 = np.array([25, 23, 21], dtype=np.float32)
@@ -61,7 +80,7 @@ class WaitingScreen(Screen):
             factor = y / self.height
             color = (1.0 - factor) * c1 + factor * c2
             canvas.img[y, :] = color.astype(np.uint8)
-
+ 
     def render(self, canvas: Img) -> None:
         """Renders the loading indicators, label text, and buttons."""
         if canvas.img is None:
@@ -74,3 +93,4 @@ class WaitingScreen(Screen):
             
         for btn in self.buttons:
             btn.render(canvas)
+

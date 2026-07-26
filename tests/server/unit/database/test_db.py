@@ -15,8 +15,8 @@ def db():
             
     manager = DBManager(TEST_DB)
     yield manager
-    
-    # Teardown: clear connections and remove DB
+
+    # Teardown: remove DB file
     if os.path.exists(TEST_DB):
         try:
             os.remove(TEST_DB)
@@ -28,20 +28,25 @@ def test_db_initialization(db):
     assert os.path.exists(TEST_DB)
 
 def test_register_and_authenticate(db):
-    """Verify that a user can register and authenticate."""
-    res = db.authenticate_or_register("alice_test", "pass123")
-    assert res is not None
-    assert res.username == "alice_test"
-    assert res.rating == 1200
+    """Verify that a user can register and authenticate via the current DBManager API."""
+    # New user should not exist yet
+    assert db.find_user("alice_test") is None
 
-    # Test authentication with correct credentials
-    auth_ok = db.authenticate_or_register("alice_test", "pass123")
-    assert auth_ok is not None
-    assert auth_ok.username == "alice_test"
+    # Register the user
+    registered = db.register_user("alice_test", "pass123")
+    assert registered is True
 
-    # Test authentication with incorrect credentials
-    auth_bad = db.authenticate_or_register("alice_test", "wrong_pass")
-    assert auth_bad is None
+    # User should now be found
+    user = db.find_user("alice_test")
+    assert user is not None
+    assert user.username == "alice_test"
+    assert user.rating == 1200
+
+    # Correct password should verify
+    assert db.verify_password("alice_test", "pass123") is True
+
+    # Wrong password should not verify
+    assert db.verify_password("alice_test", "wrong_pass") is False
 
 def test_duplicate_registration(db):
     """Verify that duplicate registrations fail integrity checks."""
