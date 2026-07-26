@@ -3,16 +3,15 @@ import logging
 from typing import Dict, Optional, Callable
 from server.network.models import GameRoom, ConnectedPlayer
 from server.database.base_db_manager import BaseDBManager
-from shared.protocol.protocol import serialize_snapshot, algebraic_to_move, algebraic_to_cell
-from shared.protocol import SnapshotMessage, GameOverMessage
+from shared.protocol.protocol import serialize_snapshot
+from shared.protocol import SnapshotMessage, GameOverMessage, MoveMessage, JumpMessage
+
 from shared.models.color import Color
 from shared.constants import (
     ROOM_STATUS_ACTIVE, ROOM_STATUS_ENDED, COLOR_NAME_WHITE, COLOR_NAME_BLACK,
-    GAME_RESULT_DRAW, TICK_STEP_MS
+    GAME_RESULT_DRAW, TICK_STEP_MS, ELO_K_FACTOR, ELO_SCALE_FACTOR, ELO_BASE,
+    ELO_OUTCOME_WIN, ELO_OUTCOME_LOSS, ELO_OUTCOME_DRAW
 )
-
-RATING_CHANGE_FORMAT = " ({} -> {})"
-GAME_OVER_MESSAGE_FORMAT = "Game Over! Winner: {}"
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +67,7 @@ class GameSessionService:
         snap = room.controller.get_snapshot(player_color=player.color)
         await self.send(player.ws, SnapshotMessage(data=serialize_snapshot(snap)))
 
-    async def process_move(self, player: ConnectedPlayer, move_str: str, rooms: Dict[str, GameRoom]) -> None:
+    async def process_move(self, player: ConnectedPlayer, msg: MoveMessage, rooms: Dict[str, GameRoom]) -> None:
         """Validates and executes an authorized move on the player's controller."""
         room = rooms.get(player.room_id) if player.room_id else None
         if not room or room.status != ROOM_STATUS_ACTIVE:
@@ -76,14 +75,12 @@ class GameSessionService:
         if player.color not in (Color.WHITE, Color.BLACK):
             logger.warning(f"Unauthorized move attempt by spectator/non-player {player.username}")
             return
-        try:
-            from_cell, to_cell = algebraic_to_move(move_str, room.board.height)
-        except ValueError:
+        if not msg.from_cell or not msg.to_cell:
             return
-        room.controller.move(from_cell, to_cell, player_color=player.color)
+        room.controller.move(msg.from_cell, msg.to_cell, player_color=player.color)
         await self.broadcast_snapshot(room)
 
-    async def process_jump(self, player: ConnectedPlayer, cell_str: str, rooms: Dict[str, GameRoom]) -> None:
+    async def process_jump(self, player: ConnectedPlayer, msg: JumpMessage, rooms: Dict[str, GameRoom]) -> None:
         """Validates and executes an authorized jump on the player's controller."""
         room = rooms.get(player.room_id) if player.room_id else None
         if not room or room.status != ROOM_STATUS_ACTIVE:
@@ -91,12 +88,11 @@ class GameSessionService:
         if player.color not in (Color.WHITE, Color.BLACK):
             logger.warning(f"Unauthorized jump attempt by spectator/non-player {player.username}")
             return
-        try:
-            cell = algebraic_to_cell(cell_str, room.board.height)
-        except ValueError:
+        if not msg.cell:
             return
-        room.controller.jump(cell, player_color=player.color)
+        room.controller.jump(msg.cell, player_color=player.color)
         await self.broadcast_snapshot(room)
+
 
     async def end_game(self, room: GameRoom, winner_color: str) -> None:
         """Resolves results, ELO updates, DB writes, and stops the tick loop."""
@@ -107,28 +103,25 @@ class GameSessionService:
         white_name = room.white_player.username if room.white_player else None
         black_name = room.black_player.username if room.black_player else None
 
-        elo_w_str = ""
-        elo_b_str = ""
+        new_w = None
+        new_b = None
         if room.white_player and room.black_player:
             r_w = room.white_player.rating
             r_b = room.black_player.rating
             outcome = (
-                1.0 if winner_color == COLOR_NAME_WHITE
-                else (0.0 if winner_color == COLOR_NAME_BLACK else 0.5)
+                ELO_OUTCOME_WIN if winner_color == COLOR_NAME_WHITE
+                else (ELO_OUTCOME_LOSS if winner_color == COLOR_NAME_BLACK else ELO_OUTCOME_DRAW)
             )
             new_w, new_b = self._calculate_elo(r_w, r_b, outcome)
             self.db.update_user_rating(white_name, new_w)
             self.db.update_user_rating(black_name, new_b)
             room.white_player.rating = new_w
             room.black_player.rating = new_b
-            elo_w_str = RATING_CHANGE_FORMAT.format(r_w, new_w)
-            elo_b_str = RATING_CHANGE_FORMAT.format(r_b, new_b)
 
         payload = GameOverMessage(
             winner=winner_color,
-            message=GAME_OVER_MESSAGE_FORMAT.format(winner_color.upper()),
-            white_rating_change=elo_w_str,
-            black_rating_change=elo_b_str
+            white_rating=new_w,
+            black_rating=new_b
         )
         if self.send:
             clients = []
@@ -141,12 +134,9 @@ class GameSessionService:
 
     @staticmethod
     def _calculate_elo(rating_w: int, rating_b: int, outcome: float) -> tuple[int, int]:
-        """Standard ELO rating shift formula.
-        outcome: 1.0 = White win, 0.0 = Black win, 0.5 = Draw.
-        """
-        k = 32
-        expected_w = 1.0 / (1.0 + 10 ** ((rating_b - rating_w) / 400.0))
-        expected_b = 1.0 - expected_w
-        new_w = int(rating_w + k * (outcome - expected_w))
-        new_b = int(rating_b + k * ((1.0 - outcome) - expected_b))
+        """Standard ELO rating shift formula using configured Elo constants."""
+        expected_w = ELO_OUTCOME_WIN / (ELO_OUTCOME_WIN + ELO_BASE ** ((rating_b - rating_w) / ELO_SCALE_FACTOR))
+        expected_b = ELO_OUTCOME_WIN - expected_w
+        new_w = int(rating_w + ELO_K_FACTOR * (outcome - expected_w))
+        new_b = int(rating_b + ELO_K_FACTOR * ((ELO_OUTCOME_WIN - outcome) - expected_b))
         return new_w, new_b

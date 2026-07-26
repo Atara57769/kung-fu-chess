@@ -1,11 +1,10 @@
-from dataclasses import is_dataclass, asdict
 import asyncio
-import json
 import logging
 from typing import Dict, Tuple, Optional
 import websockets
 from websockets.exceptions import ConnectionClosed
 from shared.constants import DEFAULT_HOST, DEFAULT_PORT
+from shared.protocol import serialize_message
 from server.network.models import ConnectedPlayer
 from server.services.game_coordinator import GameCoordinator
 from server.database.base_db_manager import BaseDBManager
@@ -79,10 +78,9 @@ class GameServer:
                 del self.players[websocket]
 
     async def _send_json(self, ws, data: any) -> None:
-        """Utility to safely send a JSON string to a WebSocket client."""
-        if is_dataclass(data):
-            data = asdict(data)
+        """Utility to safely send a serialized message string to a WebSocket client."""
         try:
-            await ws.send(json.dumps(data))
+            await ws.send(serialize_message(data))
         except ConnectionClosed:
             pass
+

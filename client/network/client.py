@@ -8,14 +8,14 @@ from typing import Optional, Callable
 import websockets
 
 from shared.constants import DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_INTERVAL
-from shared.protocol.protocol import deserialize_snapshot, cell_to_algebraic, move_to_algebraic
+from shared.protocol.protocol import deserialize_snapshot
 from shared.models.color import Color
 from shared.models.cell import Cell
-from shared.models.game_over_result import GameOverResult
 from shared.protocol import (
     MessageType, AuthMessage, AuthResponseMessage, HeartbeatMessage, MatchmakingMessage,
     LeaveMatchmakingMessage, MatchmakingStatusMessage, CreateRoomMessage, JoinRoomMessage,
-    LeaveRoomMessage, RoomStateMessage, MoveMessage, JumpMessage, SnapshotMessage, CountdownMessage, GameOverMessage, ErrorMessage, parse_message,
+    LeaveRoomMessage, RoomStateMessage, MoveMessage, JumpMessage, SnapshotMessage, CountdownMessage, GameOverMessage, ErrorMessage,
+    serialize_message, deserialize_message
 )
 
 from client.services.client_pubsub import ClientPubSub
@@ -119,11 +119,10 @@ class GameClient:
             pass
 
     async def _handle_incoming_message(self, raw_msg: str) -> None:
-        """Parses server JSON message types and updates state attributes."""
+        """Parses server message types and updates state attributes."""
         try:
-            data = json.loads(raw_msg)
-            msg = parse_message(data)
-        except (json.JSONDecodeError, ValueError, KeyError):
+            msg = deserialize_message(raw_msg)
+        except (ValueError, KeyError):
             return
 
         handler = self.message_handlers.get(msg.type)
@@ -158,11 +157,11 @@ class GameClient:
         self.countdown_message = msg.message
 
     def _handle_game_over(self, msg: GameOverMessage) -> None:
-        self.game_over_result = GameOverResult.from_message(msg)
-        if self.your_color == Color.WHITE and msg.white_rating_change:
-            self._update_elo_from_change(msg.white_rating_change)
-        elif self.your_color == Color.BLACK and msg.black_rating_change:
-            self._update_elo_from_change(msg.black_rating_change)
+        self.game_over_result = msg
+        if self.your_color == Color.WHITE and msg.white_rating is not None:
+            self.rating = msg.white_rating
+        elif self.your_color == Color.BLACK and msg.black_rating is not None:
+            self.rating = msg.black_rating
 
 
     def _handle_error(self, msg: ErrorMessage) -> None:
@@ -174,27 +173,16 @@ class GameClient:
         self.pubsub.publish(MessageType.MATCHMAKING_STATUS, msg)
 
 
-    def _update_elo_from_change(self, change_str: str) -> None:
-        """Helper to parse updated ELO value from rating change suffix (e.g. ' (1200 -> 1216)')."""
-        try:
-            parts = change_str.split("->")
-            if len(parts) == 2:
-                self.rating = int(parts[1].replace(")", "").strip())
-        except Exception:
-            pass
-
     def _send_json(self, data: any) -> None:
         """Invokes raw socket write from external threads using loop scheduling."""
         if self.loop is not None and self.ws is not None:
             asyncio.run_coroutine_threadsafe(self._send_json_async(data), self.loop)
 
     async def _send_json_async(self, data: any) -> None:
-        """Asynchronously writes json payload to raw websocket."""
-        if is_dataclass(data):
-            data = asdict(data)
+        """Asynchronously writes payload to raw websocket using message serializer."""
         if self.ws is not None:
             try:
-                await self.ws.send(json.dumps(data))
+                await self.ws.send(serialize_message(data))
             except websockets.exceptions.ConnectionClosed:
                 pass
 
@@ -219,12 +207,9 @@ class GameClient:
         self._send_json(LeaveRoomMessage())
 
     def send_move(self, from_cell: Cell, to_cell: Cell) -> None:
-        height = self.current_snapshot.board.height if self.current_snapshot else 8
-        move_str = move_to_algebraic(from_cell, to_cell, height)
-        self._send_json(MoveMessage(data=move_str))
+        self._send_json(MoveMessage(from_cell=from_cell, to_cell=to_cell))
 
     def send_jump(self, cell: Cell) -> None:
-        height = self.current_snapshot.board.height if self.current_snapshot else 8
-        cell_str = cell_to_algebraic(cell, height)
-        self._send_json(JumpMessage(data=cell_str))
+        self._send_json(JumpMessage(cell=cell))
+
 

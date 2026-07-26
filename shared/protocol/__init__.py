@@ -19,7 +19,8 @@ from shared.protocol.messages import (
     SnapshotMessage,
     CountdownMessage,
     GameOverMessage,
-    parse_message,
+    serialize_message,
+    deserialize_message,
 )
 
 __all__ = [
@@ -43,6 +44,9 @@ __all__ = [
     "SnapshotMessage",
     "CountdownMessage",
     "GameOverMessage",
-    "parse_message",
+    "serialize_message",
+    "deserialize_message",
 ]
+
+
 

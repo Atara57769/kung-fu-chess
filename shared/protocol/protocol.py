@@ -1,7 +1,7 @@
-import re
 from typing import Any, Optional, Tuple
 from shared.models.cell import Cell
 from shared.models.game_snapshot import GameSnapshot, BoardSnapshot, PieceSnapshot, PendingMoveSnapshot, JumpSnapshot
+
 
 def cell_to_dict(cell: Optional[Cell]) -> Optional[dict]:
     """Serializes a Cell object to a dictionary."""
@@ -131,31 +131,3 @@ def deserialize_snapshot(d: dict) -> GameSnapshot:
         jumps=tuple(dict_to_jump(j) for j in d["jumps"])
     )
 
-def cell_to_algebraic(cell: Cell, board_height: int) -> str:
-    """Converts Cell coordinates to algebraic notation (e.g. Cell(y=6, x=4) -> 'e2' on 8x8 board)."""
-    file_char = chr(ord('a') + cell.x)
-    rank_char = str(board_height - cell.y)
-    return file_char + rank_char
-
-def algebraic_to_cell(alg: str, board_height: int) -> Cell:
-    """Converts algebraic notation to a Cell coordinate."""
-    m = re.match(r"^([a-z])(\d+)$", alg)
-    if not m:
-        raise ValueError(f"Invalid algebraic cell coordinate: {alg}")
-    file_idx = ord(m.group(1)) - ord('a')
-    rank_idx = board_height - int(m.group(2))
-    return Cell(y=rank_idx, x=file_idx)
-
-def move_to_algebraic(from_cell: Cell, to_cell: Cell, board_height: int) -> str:
-    """Converts a move to algebraic format (e.g., 'e2e4')."""
-    return cell_to_algebraic(from_cell, board_height) + cell_to_algebraic(to_cell, board_height)
-
-def algebraic_to_move(move_str: str, board_height: int) -> Tuple[Cell, Cell]:
-    """Parses a move in algebraic notation (e.g., 'e2e4' or 'e10e12') to a pair of Cells."""
-    m = re.match(r"^([a-z])(\d+)([a-z])(\d+)$", move_str)
-    if not m:
-        raise ValueError(f"Invalid algebraic move format: {move_str}")
-    f1, r1, f2, r2 = m.groups()
-    from_cell = Cell(y=board_height - int(r1), x=ord(f1) - ord('a'))
-    to_cell = Cell(y=board_height - int(r2), x=ord(f2) - ord('a'))
-    return from_cell, to_cell

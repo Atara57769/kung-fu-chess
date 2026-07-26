@@ -63,5 +63,14 @@ MSG_UNAUTHORIZED = "Unauthorized client."
 MSG_ROOM_ALREADY_EXISTS = "Room already exists."
 MSG_ROOM_NOT_FOUND = "Room not found."
 
+# ELO Rating Constants
+ELO_K_FACTOR = 32
+ELO_SCALE_FACTOR = 400.0
+ELO_BASE = 10.0
+ELO_OUTCOME_WIN = 1.0
+ELO_OUTCOME_LOSS = 0.0
+ELO_OUTCOME_DRAW = 0.5
+
+
 
 

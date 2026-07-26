@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import random
 import time
@@ -14,7 +13,7 @@ from server.services.game_session_service import GameSessionService
 from server.services.room_service import RoomService, RoomJoinEvent
 from server.services import auth_service
 from server.services import matchmaking_service
-from shared.protocol import (MessageType, ErrorMessage, HeartbeatAckMessage, BaseMessage,parse_message, CountdownMessage)
+from shared.protocol import (MessageType, ErrorMessage, HeartbeatAckMessage, BaseMessage, deserialize_message, CountdownMessage)
 
 logger = logging.getLogger(__name__)
 
@@ -47,14 +46,14 @@ class GameCoordinator:
         self.game_session.send = send
 
     async def dispatch_message(self, player: ConnectedPlayer, raw_msg: str) -> None:
-        """Decodes JSON message and dispatches it to the correct action handler."""
+        """Decodes raw message string and dispatches it to the correct action handler."""
         player.last_heartbeat = time.time()
         try:
-            data = json.loads(raw_msg)
-            msg = parse_message(data)
-        except (json.JSONDecodeError, ValueError, KeyError):
+            msg = deserialize_message(raw_msg)
+        except (ValueError, KeyError):
             logger.warning("Received invalid or unparseable message.")
             return
+
 
         if msg.type == MessageType.AUTH:
             await auth_service.handle_auth(player, msg, self.db, self.send)
@@ -96,12 +95,11 @@ class GameCoordinator:
             await self.game_session.send_snapshot(player, room)
 
     async def _handle_move(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
-        await self.game_session.process_move(
-            player, getattr(msg, "data", ""), self.rooms)
+        await self.game_session.process_move(player, msg, self.rooms)
 
     async def _handle_jump(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
-        await self.game_session.process_jump(
-            player, getattr(msg, "data", ""), self.rooms)
+        await self.game_session.process_jump(player, msg, self.rooms)
+
 
     async def _handle_leave_room(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         await self.room_service.leave_room(player, self.rooms)

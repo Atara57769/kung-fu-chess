@@ -135,22 +135,22 @@ class OnlineGameScreen(Screen):
 
     def _draw_game_over_banner(self, canvas: Img, width: int, height: int) -> None:
         """Draws ELO result banner on game completion."""
-        result = self.client.game_over_result
-        if result is not None:
+        msg = self.client.game_over_result
+        if msg is not None:
             banner_h = 160
             by = (height - banner_h) // 2
             cv2.rectangle(canvas.img, (0, by), (width, by + banner_h), (25, 22, 20), thickness=-1)
             cv2.rectangle(canvas.img, (0, by), (width, by + banner_h), (80, 75, 70), thickness=2)
             
-            winner = result.winner_name.upper()
+            winner = str(msg.winner or LABEL_DRAW).upper()
             announcement = BANNER_WINS_FORMAT.format(winner) if winner != LABEL_DRAW else BANNER_DRAW
             canvas.put_text(announcement, width // 2 - 200, by + 50, font_size=0.8, color=(0, 0, 255), thickness=3)
             
-            change_w = result.white_rating_change
-            change_b = result.black_rating_change
-            details = BANNER_DETAILS_FORMAT.format(change_w, change_b)
+            rating_w = msg.white_rating if msg.white_rating is not None else ""
+            rating_b = msg.black_rating if msg.black_rating is not None else ""
+            details = BANNER_DETAILS_FORMAT.format(rating_w, rating_b)
             canvas.put_text(details, width // 2 - 220, by + 95, font_size=0.5, color=(200, 200, 200), thickness=1)
-            
+
             canvas.put_text(BANNER_SUBTEXT, width // 2 - 160, by + 135, font_size=0.45, color=(150, 240, 150), thickness=1)
 
     def render(self, canvas: Img) -> None:

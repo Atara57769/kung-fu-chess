@@ -2,42 +2,9 @@ import pytest
 from shared.models.cell import Cell
 from shared.models.game_snapshot import GameSnapshot, BoardSnapshot, PieceSnapshot
 from shared.protocol.protocol import (
-    cell_to_algebraic, algebraic_to_cell,
-    move_to_algebraic, algebraic_to_move,
     serialize_snapshot, deserialize_snapshot
 )
 
-def test_algebraic_cell_conversions():
-    """Verify Cell objects convert to and from algebraic notation correctly."""
-    # 8x8 Board
-    # Cell(y=7, x=4) -> e1
-    cell = Cell(y=7, x=4)
-    assert cell_to_algebraic(cell, 8) == "e1"
-    assert algebraic_to_cell("e1", 8) == cell
-
-    # Cell(y=0, x=0) -> a8
-    cell2 = Cell(y=0, x=0)
-    assert cell_to_algebraic(cell2, 8) == "a8"
-    assert algebraic_to_cell("a8", 8) == cell2
-
-    # Custom board height: 10
-    # Cell(y=0, x=1) -> b10
-    cell3 = Cell(y=0, x=1)
-    assert cell_to_algebraic(cell3, 10) == "b10"
-    assert algebraic_to_cell("b10", 10) == cell3
-
-def test_algebraic_move_conversions():
-    """Verify moves convert to and from algebraic notation correctly."""
-    from_cell, to_cell = algebraic_to_move("e2e4", 8)
-    assert from_cell == Cell(y=6, x=4)
-    assert to_cell == Cell(y=4, x=4)
-    assert move_to_algebraic(from_cell, to_cell, 8) == "e2e4"
-
-    # Multi-digit rank
-    from_cell2, to_cell2 = algebraic_to_move("b10b12", 12)
-    assert from_cell2 == Cell(y=2, x=1)
-    assert to_cell2 == Cell(y=0, x=1)
-    assert move_to_algebraic(from_cell2, to_cell2, 12) == "b10b12"
 
 def test_snapshot_serialization():
     """Verify GameSnapshot objects serialize and deserialize correctly."""
@@ -88,44 +55,70 @@ def test_message_type_enum():
     assert deserialized["type"] == MessageType.ROOM_STATE
 
 def test_message_dataclasses():
-    """Verify message dataclasses serialize via asdict and deserialize via dataclass unpacking (**data) and parse_message."""
+    """Verify message dataclasses serialize via asdict/serialize_message and deserialize via deserialize_message."""
     from dataclasses import asdict
     from shared.protocol import (
-        AuthMessage, AuthResponseMessage, RoomStateMessage, MoveMessage,
-        ErrorMessage, GameOverMessage, parse_message
+        MessageType, AuthMessage, AuthResponseMessage, RoomStateMessage, MoveMessage,
+        ErrorMessage, GameOverMessage, serialize_message, deserialize_message
     )
+    from shared.models.color import Color
 
     auth = AuthMessage(username="alice", password="pwd")
+    assert auth.type == MessageType.AUTH
     auth_data = asdict(auth)
     assert auth_data == {"type": "auth", "username": "alice", "password": "pwd"}
 
-    parsed_auth = parse_message(auth_data)
-    assert isinstance(parsed_auth, AuthMessage)
-    assert parsed_auth.username == "alice"
-    assert parsed_auth.password == "pwd"
+    serialized_auth = serialize_message(auth)
+    deserialized_auth = deserialize_message(serialized_auth)
+    assert isinstance(deserialized_auth, AuthMessage)
+    assert deserialized_auth.username == "alice"
+    assert deserialized_auth.password == "pwd"
+    assert deserialized_auth.type == MessageType.AUTH
 
-    move = MoveMessage(data="e2e4")
-    move_data = asdict(move)
-    assert move_data == {"type": "move", "data": "e2e4"}
-    
-    # Direct unpacking: msg = MoveMessage(**data)
-    unpacked_move = MoveMessage(**move_data)
-    assert isinstance(unpacked_move, MoveMessage)
-    assert unpacked_move.data == "e2e4"
+    move = MoveMessage(from_cell=Cell(y=6, x=4), to_cell=Cell(y=4, x=4))
+    assert move.type == MessageType.MOVE
+    serialized_move = serialize_message(move)
+    deserialized_move = deserialize_message(serialized_move)
+    assert isinstance(deserialized_move, MoveMessage)
+    assert deserialized_move.from_cell == Cell(y=6, x=4)
+    assert deserialized_move.to_cell == Cell(y=4, x=4)
+    assert deserialized_move.type == MessageType.MOVE
+
+
+    room_state = RoomStateMessage(room_id="r1", your_color=Color.WHITE)
+    assert room_state.your_color == Color.WHITE
+    serialized_room = serialize_message(room_state)
+    deserialized_room = deserialize_message(serialized_room)
+    assert isinstance(deserialized_room, RoomStateMessage)
+    assert deserialized_room.your_color == "w"
+
+
 
     auth_resp = AuthResponseMessage(success=True, username="alice", rating=1300)
-    resp_data = asdict(auth_resp)
-    parsed_resp = parse_message(resp_data)
-    assert isinstance(parsed_resp, AuthResponseMessage)
-    assert parsed_resp.success is True
-    assert parsed_resp.username == "alice"
-    assert parsed_resp.rating == 1300
+    serialized_resp = serialize_message(auth_resp)
+    deserialized_resp = deserialize_message(serialized_resp)
+    assert isinstance(deserialized_resp, AuthResponseMessage)
+    assert deserialized_resp.success is True
+    assert deserialized_resp.username == "alice"
+    assert deserialized_resp.rating == 1300
 
     err = ErrorMessage(message="Error occurred")
-    err_data = asdict(err)
-    assert err_data == {"type": "error", "message": "Error occurred"}
-    parsed_err = parse_message(err_data)
+    serialized_err = serialize_message(err)
+    parsed_err = deserialize_message(serialized_err)
     assert isinstance(parsed_err, ErrorMessage)
     assert parsed_err.message == "Error occurred"
+    assert parsed_err.type == MessageType.ERROR
+
+    game_over = GameOverMessage(winner="white", white_rating=1216, black_rating=1184)
+    serialized_go = serialize_message(game_over)
+    parsed_go = deserialize_message(serialized_go)
+    assert isinstance(parsed_go, GameOverMessage)
+    assert parsed_go.winner == "white"
+    assert parsed_go.white_rating == 1216
+    assert parsed_go.black_rating == 1184
+
+
+
+
 
 
