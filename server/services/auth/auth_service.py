@@ -1,6 +1,6 @@
 import logging
 from server.network.models import ConnectedPlayer
-from server.database.db_manager import DEFAULT_RATING, User
+from server.database.base_db_manager import DEFAULT_RATING, User, BaseDBManager
 from shared.protocol import AuthMessage, AuthResponseMessage
 
 logger = logging.getLogger(__name__)
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 ERROR_INVALID_FIELDS = "Invalid fields."
 ERROR_AUTH_FAILED = "Authentication failed."
 
-async def handle_auth(player: ConnectedPlayer, msg: AuthMessage, db, send) -> None:
+async def handle_auth(player: ConnectedPlayer, msg: AuthMessage, db: BaseDBManager, send) -> None:
     """Authenticates an existing user or auto-registers a new one, then updates the player session."""
     username = msg.username.strip()
     password = msg.password.strip()

@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import logging
 from server.network.server import GameServer
+from server.database.sqlite_db_manager import SQLiteDBManager
 from shared.constants import DEFAULT_HOST, DEFAULT_PORT
 
 def parse_arguments() -> argparse.Namespace:
@@ -23,7 +24,8 @@ def main() -> None:
     configure_logging()
     args = parse_arguments()
     
-    server = GameServer(host=args.host, port=args.port)
+    db = SQLiteDBManager()
+    server = GameServer(host=args.host, port=args.port, db=db)
     try:
         asyncio.run(server.start())
     except KeyboardInterrupt:

@@ -1,6 +1,6 @@
 import os
 import pytest
-from server.database.db_manager import DBManager
+from server.database.sqlite_db_manager import SQLiteDBManager
 
 TEST_DB = os.path.join("tests", "server", "unit", "database", "test_kung_fu_chess.db")
 
@@ -13,7 +13,7 @@ def db():
         except Exception:
             pass
             
-    manager = DBManager(TEST_DB)
+    manager = SQLiteDBManager(TEST_DB)
     yield manager
 
     # Teardown: remove DB file

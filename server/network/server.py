@@ -2,12 +2,13 @@ from dataclasses import is_dataclass, asdict
 import asyncio
 import json
 import logging
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 import websockets
 from websockets.exceptions import ConnectionClosed
 from shared.constants import DEFAULT_HOST, DEFAULT_PORT
 from server.network.models import ConnectedPlayer
 from server.services.game_coordinator import GameCoordinator
+from server.database.base_db_manager import BaseDBManager
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +17,15 @@ class GameServer:
     """WebSocket server coordinating network connection sessions and message passing.
     """
 
-    def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, db_path: str = None) -> None:
+    def __init__(
+        self,
+        host: str = DEFAULT_HOST,
+        port: int = DEFAULT_PORT,
+        db: Optional[BaseDBManager] = None
+    ) -> None:
         self.host = host
         self.port = port
-        self.coordinator = GameCoordinator(db_path)
+        self.coordinator = GameCoordinator(db=db)
         self.coordinator.set_send(self._send_json)
         self.players: Dict[any, ConnectedPlayer] = {}
         self._message_queue: asyncio.Queue[Tuple[ConnectedPlayer, str]] = asyncio.Queue()

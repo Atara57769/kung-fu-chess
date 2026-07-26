@@ -1,22 +1,13 @@
 import sqlite3
 import hashlib
-import os
 import logging
-from typing import Optional, Dict
-from dataclasses import dataclass
+from typing import Optional
 
-@dataclass(frozen=True)
-class User:
-    username: str
-    rating: int
-
+from server.database.base_db_manager import (
+    BaseDBManager, User, DB_FILE, DEFAULT_RATING, ENCODING_UTF8
+)
 
 logger = logging.getLogger(__name__)
-
-DB_NAME = "kung_fu_chess.db"
-DB_FILE = os.path.join(os.path.dirname(__file__), DB_NAME)
-DEFAULT_RATING = 1200
-ENCODING_UTF8 = "utf-8"
 
 # SQL Queries
 SQL_CREATE_TABLE = """
@@ -32,8 +23,7 @@ SQL_SELECT_AUTH = "SELECT password_hash, rating FROM users WHERE username = ?"
 SQL_UPDATE_RATING = "UPDATE users SET rating = ? WHERE username = ?"
 
 
-
-class DBManager:
+class SQLiteDBManager(BaseDBManager):
     """Manages SQLite database storage for users, authentication, and ELO ratings."""
     
     def __init__(self, db_path: str = DB_FILE) -> None:

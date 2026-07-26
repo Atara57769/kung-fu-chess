@@ -3,6 +3,7 @@ import os
 import socket
 import pytest
 from server.network.server import GameServer
+from server.database.sqlite_db_manager import SQLiteDBManager
 from client.network.client import GameClient
 from shared.models.color import Color
 
@@ -33,7 +34,7 @@ def clean_db():
 async def _run_full_network_flow():
     port = get_free_port()
     
-    server = GameServer(host="127.0.0.1", port=port, db_path=TEST_DB)
+    server = GameServer(host="127.0.0.1", port=port, db=SQLiteDBManager(TEST_DB))
     
     server_task = asyncio.create_task(server.start())
     await asyncio.sleep(0.1)  # Allow boot

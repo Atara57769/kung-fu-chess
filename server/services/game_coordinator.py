@@ -6,7 +6,8 @@ import time
 import uuid
 from typing import Dict, List, Optional
 from shared.constants import (ROOM_STATUS_ACTIVE, COLOR_NAME_WHITE, COLOR_NAME_BLACK, MSG_UNAUTHORIZED, DISCONNECT_COUNTDOWN, MSG_DISCONNECT_COUNTDOWN)
-from server.database.db_manager import DBManager
+from server.database.base_db_manager import BaseDBManager
+from server.database.sqlite_db_manager import SQLiteDBManager
 from shared.models.color import Color
 from server.network.models import ConnectedPlayer, GameRoom
 from server.services.game.game_session_service import GameSessionService
@@ -21,8 +22,8 @@ logger = logging.getLogger(__name__)
 class GameCoordinator:
     """Coordinates authentication, matchmaking, and authoritative game state routing."""
 
-    def __init__(self, db_path: Optional[str] = None) -> None:
-        self.db = DBManager(db_path) if db_path else DBManager()
+    def __init__(self, db: Optional[BaseDBManager] = None) -> None:
+        self.db = db if db is not None else SQLiteDBManager()
         self.rooms: Dict[str, GameRoom] = {}
         self.matchmaking_queue: List[ConnectedPlayer] = []
         self.send = None

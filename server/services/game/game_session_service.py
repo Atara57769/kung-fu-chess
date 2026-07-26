@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import Dict, Optional, Callable
 from server.network.models import GameRoom, ConnectedPlayer
+from server.database.base_db_manager import BaseDBManager
 from shared.protocol.protocol import serialize_snapshot, algebraic_to_move, algebraic_to_cell
 from shared.protocol import SnapshotMessage, GameOverMessage
 from shared.models.color import Color
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 class GameSessionService:
     """Manages authoritative game state: ticking, moves, snapshots, and end-game resolution."""
 
-    def __init__(self, db, send: Optional[Callable] = None) -> None:
+    def __init__(self, db: BaseDBManager, send: Optional[Callable] = None) -> None:
         self.db = db
         self.send = send
 
