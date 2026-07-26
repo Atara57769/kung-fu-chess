@@ -44,6 +44,3 @@ async def handle_auth(player: ConnectedPlayer, msg: AuthMessage, db: BaseDBManag
         logger.info(f"Player {player.username} authenticated successfully.")
     else:
         await send(player.ws, AuthResponseMessage(success=False, error=ERROR_AUTH_FAILED))
-
-
-

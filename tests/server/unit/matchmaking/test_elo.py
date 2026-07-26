@@ -1,4 +1,4 @@
-from server.services.game.game_session_service import GameSessionService
+from server.services.game_session_service import GameSessionService
 
 calculate_elo = GameSessionService._calculate_elo
 

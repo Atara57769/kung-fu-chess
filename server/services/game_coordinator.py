@@ -10,10 +10,10 @@ from server.database.base_db_manager import BaseDBManager
 from server.database.sqlite_db_manager import SQLiteDBManager
 from shared.models.color import Color
 from server.network.models import ConnectedPlayer, GameRoom
-from server.services.game.game_session_service import GameSessionService
-from server.services.matchmaking.room_service import RoomService, RoomJoinEvent
-from server.services.auth import auth_service
-from server.services.matchmaking import matchmaking_service
+from server.services.game_session_service import GameSessionService
+from server.services.room_service import RoomService, RoomJoinEvent
+from server.services import auth_service
+from server.services import matchmaking_service
 from shared.protocol import (MessageType, ErrorMessage, HeartbeatAckMessage, BaseMessage,parse_message, CountdownMessage)
 
 logger = logging.getLogger(__name__)
