@@ -1,277 +1,231 @@
-# High-Scale Cloud Server Architecture: Kung-Fu Chess
+# High-Scale Server Architecture: Kung-Fu Chess
 
-## 1. Executive Summary & Overview
+## 1. Executive Summary & Core Architectural Principles
 
-Designing a cloud backend for **Kung-Fu Chess** capable of supporting **100 million registered users** and **10 million simultaneous active players (CCU)** requires a high-performance, distributed, horizontally scalable microservices system. Unlike traditional turn-based chess, Kung-Fu Chess is a real-time game where moves, cooldowns, and board state updates happen continuously.
+Designing a robust backend for **Kung-Fu Chess** requires handling real-time, non-turn-based chess gameplay where pieces have individual movement cooldowns and move continuously. To guarantee fairness, low latency, high availability, and seamless scalability, the system relies on a modular microservices architecture.
 
-Based on our architectural review, we utilize a **WebSocket Gateway Architecture (API & WebSocket Gateway Layer)** paired with a **Polyglot Persistence Layer**. Global clients establish persistent WebSocket connections to a distributed **WebSocket Gateway Cluster**. The Gateway cluster handles TLS termination, authentication, connection maintenance, and packet routing. Internal move commands are proxied over high-speed internal RPC/TCP to authoritative **Game Engine Worker Pods**, while **Redis** manages global session routing, player reconnection maps, matchmaking queues, and real-time state lookup.
+### Single Source of Truth Directive
+> [!IMPORTANT]
+> Neither the **client** nor the **Gateway** decides or validates game rules. 
+> The **`GameEngine`** running inside the **Game Server Shards** is the **single source of truth** for all game state calculations, move validations, board positions, and cooldown timings.
 
 ---
 
-## 2. High-Level Architecture Diagram
+## 2. Core Architecture Overview & System Components
+
+The system is decoupled into **6 main components**, each with specific responsibilities:
+
+1. **API Gateway**  
+   Handles all non-real-time REST HTTP operations: player login/authentication, user profiles, room creation and metadata browsing, leaderboards, and historical game lookups.
+2. **WebSocket Gateway**  
+   Manages persistent live WebSocket connections with clients, receives client input actions, and broadcasts real-time state updates back to players and spectators.
+3. **Matchmaker**  
+   Pairs waiting players based on skill ratings (ELO), game mode preferences, and queue time parameters.
+4. **Game Allocator**  
+   Monitors Game Server Shard cluster load and decides which specific Game Server Shard will host each newly created room/match.
+5. **Game Server Shards (Authoritative GameEngine)**  
+   Runs the live games themselves. Each shard hosts in-memory authoritative `GameEngine` instances that enforce chess rules, validate moves, track piece cooldowns, detect game-ending conditions, and produce state deltas.
+6. **Observability**  
+   Provides system-wide operational visibility through centralized logging, metrics collection, automated health checks (liveness/readiness probes), and synthetic load testing tools.
+
+---
+
+## 3. Architecture Diagram
 
 ```mermaid
 flowchart TB
-    subgraph Clients ["Global Clients (10M Concurrent CCU)"]
-        C1[Client Web / Mobile]
-        C2[Client Desktop]
+    subgraph Clients ["Client Layer"]
+        C1[Web / Desktop / Mobile Client]
     end
 
-    subgraph Edge ["Edge & Gateway Layer (Ingress & WebSocket Gateways)"]
-        DNS[Global Anycast DNS / CDN]
-        LB[Cloud Load Balancer L4/L7]
-        WSG["WebSocket Gateway Cluster (200-500 Pods)\n[TLS Termination, WS Socket Fleet & Rate Limiting]"]
+    subgraph ExternalGateways ["Ingress & Gateway Layer"]
+        APIGW["1. API Gateway\n(REST: Login, Rooms, History)"]
+        WSGW["2. WebSocket Gateway Cluster\n(Live WS Connections & State Broadcasts)"]
     end
 
-    subgraph CoreServices ["Core Control Plane"]
-        AuthService[Auth & Profile Service]
-        Matchmaker[Global Matchmaking Service Cluster]
-        RedisCluster[(Redis Cluster: Sessions, Gateways Map, Queues & Leaderboards)]
+    subgraph ControlPlane ["Matchmaking & Allocation Plane"]
+        MM["3. Matchmaker\n(Queue Pairing & ELO Matching)"]
+        ALLOC["4. Game Allocator\n(Room Assignment to Shards)"]
     end
 
-    subgraph InternalGamePods ["Game Engine Worker Cluster (Authoritative Game Loops)"]
-        GE1["Game Pod 1 (Internal IP: 10.0.1.10)\n[In-Memory Real-Time Game Loops]"]
-        GE2["Game Pod 2 (Internal IP: 10.0.1.11)\n[In-Memory Real-Time Game Loops]"]
-        GEN["Game Pod N (Internal IP: 10.0.1.XX)\n[In-Memory Real-Time Game Loops]"]
+    subgraph ExecutionLayer ["Game Execution Shards"]
+        SHARD1["5. Game Server Shard 1\n[Authoritative GameEngine]"]
+        SHARD2["5. Game Server Shard 2\n[Authoritative GameEngine]"]
+        SHARDN["5. Game Server Shard N\n[Authoritative GameEngine]"]
     end
 
-    subgraph DataLayer ["Data & Async Processing Layer"]
-        NATS[NATS / Kafka Event Bus]
-        DB_Write[(PostgreSQL Primary + Read Replicas)]
-        NoSQL[(ClickHouse / Cassandra Match Logs)]
-        AsyncWorkers[Async ELO & Match History Workers]
+    subgraph DataLayer ["Data & Messaging Bus"]
+        NATS["NATS / Redis PubSub\n(Internal Service Messaging)"]
+        REDIS[("(In-Memory) Redis\nSessions, Active Rooms, Reconnect, Match Queues")]
+        PG[("(Persistent) PostgreSQL\nUsers, Games, Results, Move History")]
     end
 
-    %% Client Connection Flow
-    C1 & C2 --> DNS --> LB --> WSG
+    subgraph ObservabilityLayer ["6. Observability & Monitoring"]
+        OBS["Logs, Metrics (Prometheus), Health Checks, Load Tests"]
+    end
 
-    %% Auth & Matchmaking Flow
-    WSG & C1 & C2 <--> AuthService & Matchmaker
-    AuthService <--> DB_Write
-    Matchmaker <--> RedisCluster
+    %% Client Connections
+    C1 -- "HTTP REST (Login, Rooms, History)" --> APIGW
+    C1 <== "WebSocket (Live Move Events & State Updates)" ==> WSGW
 
-    %% Match Assignment & Routing Flow
-    Matchmaker -- "Assigns Room & Game Pod IP to Redis" --> RedisCluster
-    WSG -- "1. Lookup Room Routing (Redis/Cache)" --> RedisCluster
-    WSG == "2. High-Speed Internal gRPC/TCP Proxying" ==> GE1 & GE2 & GEN
+    %% Non-real-time flows
+    APIGW <--> PG
+    APIGW <--> REDIS
 
-    %% Async Game Completion
-    GE1 & GE2 & GEN --> NATS
-    NATS --> AsyncWorkers
-    AsyncWorkers --> DB_Write & NoSQL
+    %% Matchmaking & Allocation flows
+    C1 -- "Join Matchmaking Queue" --> APIGW
+    APIGW --> MM
+    MM <--> REDIS
+    MM -- "Match Created" --> ALLOC
+    ALLOC -- "1. Allocate Room" --> SHARD1
+    ALLOC -- "2. Register Room Routing" --> REDIS
+
+    %% Live Gameplay Routing
+    WSGW <== "NATS / PubSub Internal Messages" ==> NATS
+    NATS <== "Move Action / State Delta" ==> SHARD1 & SHARD2 & SHARDN
+    SHARD1 & SHARD2 & SHARDN <--> REDIS
+
+    %% Async Persistence
+    SHARD1 -- "Game End Event & History" --> PG
+
+    %% Observability Taps
+    APIGW & WSGW & MM & ALLOC & SHARD1 & REDIS & PG -. "Telemetry & Health" .-> OBS
 ```
 
 ---
 
-## 3. Requirement 1: Database Architecture (100 Million Registered Users)
-
-### Is SQLite suitable?
-**No. SQLite is completely unsuitable for this scale.**
-
-#### Reasons why SQLite fails:
-1. **Write Concurrency Bottleneck**: SQLite uses file/database-level write locks (even in WAL mode, only one write transaction occurs at a time). With 10M active players generating rating updates, registrations, and game results, write lock contention would stall the system immediately.
-2. **Single-File Limits**: SQLite is a local file-based database. It cannot be natively sharded or horizontally distributed across cloud nodes or Kubernetes pods.
-3. **No Native High Availability**: Lacks multi-master clustering, failover mechanisms, connection pooling, and multi-region replication.
-
----
-
-### Recommended Polyglot Database Strategy
-
-To handle 100 million accounts efficiently, a **Polyglot Persistence** model is used:
+## 4. Recommended Technology Stack
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                             POLYGLOT DATA STORAGE                           │
+│                           TECHNOLOGY STACK SUMMARY                          │
 ├───────────────────────┬─────────────────────────────┬───────────────────────┤
-│ PostgreSQL (Relational)│ Redis Cluster (In-Memory)  │ Cassandra / ClickHouse│
+│ Layer / Role          │ Technology                  │ Purpose               │
 ├───────────────────────┼─────────────────────────────┼───────────────────────┤
-│ • User Credentials    │ • Gateway Session Directory │ • Completed Game Logs │
-│ • Account Profiles    │ • Room Routing Table        │ • Move Telemetry      │
-│ • Persistent ELO      │ • Active Player Presence    │ • Anti-cheat Logs     │
-│ • Account Metadata    │ • Matchmaking Queues        │ • Historical Analytics│
-│                       │ • Real-time Leaderboards    │                       │
+│ Internal Communication│ NATS / Redis PubSub         │ Fast inter-service    │
+│                       │                             │ event streaming & bus │
+├───────────────────────┼─────────────────────────────┼───────────────────────┤
+│ Temporary / Fast Data │ Redis                       │ Sessions, active rooms│
+│                       │                             │ reconnect, match queue│
+├───────────────────────┼─────────────────────────────┼───────────────────────┤
+│ Permanent Data        │ PostgreSQL                  │ Users, game outcomes, │
+│                       │                             │ results, move history │
+├───────────────────────┼─────────────────────────────┼───────────────────────┤
+│ Local Environment     │ Docker Compose              │ Small dev setup of all│
+│                       │                             │ microservices         │
+├───────────────────────┼─────────────────────────────┼───────────────────────┤
+│ Production Scaling    │ Kubernetes / K3s            │ Managed container     │
+│                       │                             │ orchestration & HPA   │
 └───────────────────────┴─────────────────────────────┴───────────────────────┘
 ```
 
-1. **User Accounts & ELO Ratings (PostgreSQL + Read Replicas)**:
-   - **Data Volume**: 100M user records @ ~1 KB/user = **~100 GB total storage**. This easily fits within a managed PostgreSQL cluster (e.g., AWS RDS / GCP Cloud SQL with PgBouncer connection pooling).
-   - **Scaling**: Primary node for writes; multiple Read Replicas for user login and profile fetches.
+### 1. Internal Communication: NATS / Redis PubSub
+- **Role**: Serves as the high-throughput, low-latency backbone for internal message passing between WebSocket Gateways and Game Server Shards.
+- **Function**: When a client sends a move packet to a WebSocket Gateway, the Gateway publishes a `MoveCommand` event over NATS/PubSub to the specific Game Server Shard hosting that room. Conversely, when the `GameEngine` updates board state, state broadcast events are published back to the appropriate WebSocket Gateways for client fanout.
 
-2. **Reconnection, Gateway Routing & Matchmaking (Redis Cluster)**:
-   - Ultra-fast memory store used for session tracking (`user_id -> gateway_pod_id`), room routing (`room_id -> game_engine_pod_ip`), matchmaking queue management, and instantaneous player reconnection mapping.
+### 2. Temporary Data Store: Redis
+- **Role**: In-memory database for ephemeral state requiring sub-millisecond access times.
+- **Stored Information**:
+  - **User Sessions & Tokens**: Active authentication state and user presence.
+  - **Active Rooms Routing Table**: Maps `room_id -> {shard_id, shard_ip, ws_gateway_id}`.
+  - **Reconnect Tokens**: Session recovery state allowing disconnected players to seamlessly reconnect to active matches.
+  - **Matchmaking Queue**: Redis Sorted Sets (`ZADD`) organized by ELO ratings for rapid player matching.
 
-3. **Game History & Telemetry (Cassandra / ClickHouse)**:
-   - Append-only NoSQL columnar store designed for high-throughput distributed writes for recording millions of finished matches per hour.
+### 3. Permanent Data Store: PostgreSQL
+- **Role**: Relational database providing ACID guarantees for long-term data durability.
+- **Stored Information**:
+  - **Users**: Account credentials, profiles, persistent ELO scores, statistics.
+  - **Games & Results**: Match outcomes, winner/loser IDs, rating adjustments.
+  - **Move History**: Complete move-by-move game logs (PGN/JSON format) for game playback and anti-cheat auditing.
+
+### 4. Local Environment: Docker Compose
+- **Role**: Defines and runs all microservices (API Gateway, WS Gateway, Matchmaker, Allocator, Game Shards, Redis, PostgreSQL, NATS) together in a lightweight local container environment.
+- **Purpose**: Enables developers to test the full system stack on a single machine without cloud dependencies.
+
+### 5. Production Infrastructure: Kubernetes / K3s
+- **Role**: Container orchestration system for production and staging environments.
+- **Capabilities**:
+  - **Horizontal Scaling**: Automatically scales WebSocket Gateway pods based on active connection load, and Game Server Shards based on room concurrency.
+  - **Self-Healing & Health Checks**: Automatically restarts failing pods using liveness and readiness probes.
+  - **Zero-Downtime Draining**: Gracefully drains Game Server Shards before shutting down nodes during scale-down operations.
 
 ---
 
-## 4. Requirement 2: 10 Million Concurrent Users (CCU) & Server Distribution
+## 5. Microservice Deep Dives & Workflow
 
-### Is one server enough?
-**No.** 10 million concurrent WebSocket connections require over 100 GB of RAM just for OS TCP socket buffers and kernel handles, far exceeding physical host limits for network cards (NICs), CPU cores, and memory.
+### 1. API Gateway (Non-Real-Time REST)
+- Handles HTTP requests for authentication (`/auth/login`, `/auth/register`), user profiles (`/user/profile`), historical game records (`/games/history`), and custom room creation metadata.
+- Validates JWT tokens and communicates with PostgreSQL for persistent lookups and Redis for session cache.
+
+### 2. WebSocket Gateway (Live Ingress & Egress)
+- Maintains persistent WSS (WebSocket Secure) connections with thousands of concurrent client apps.
+- Performs connection heartbeats (ping/pong), TLS termination, packet deserialization, and client rate limiting.
+- **Does not contain game logic**: Acts purely as a network routing layer, relaying player actions to the assigned Game Server Shard via NATS/PubSub and delivering broadcast state updates back to clients.
+
+### 3. Matchmaker (Player Pairing)
+- Runs asynchronously to match queued players.
+- Fetches waiting tickets from the Redis matchmaking queue based on ELO tolerance brackets.
+- Upon forming a valid match between two players, it generates a `room_id` and forwards the match creation request to the **Game Allocator**.
+
+### 4. Game Allocator (Shard Selection & Routing)
+- Maintains active health status and current room capacities of all registered **Game Server Shards**.
+- Selects the optimal shard to host the new match based on current memory and CPU metrics.
+- Registers the assignment mapping (`room_id -> shard_id`) in Redis so WebSocket Gateways know where to route move packets for that room.
+
+### 5. Game Server Shards & Authoritative GameEngine
+- **Authoritative Execution**: Each shard hosts multiple concurrent room instances running the core `GameEngine`.
+- **Validation**: When a move command arrives via NATS/PubSub:
+  1. The `GameEngine` verifies that the player owns the piece.
+  2. Verifies that the piece has completed its cooldown period.
+  3. Verifies that the target square is a legal move according to chess rules.
+- **State Update**: If valid, the move is applied, piece cooldown timers reset, and an updated `StateDelta` packet is published back via NATS/PubSub.
+- **Game Completion**: On checkmate, draw, or resignation, the `GameEngine` marks the match as finished, notifies players, and streams final match results and move history into PostgreSQL.
+
+### 6. Observability & System Monitoring
+- **Metrics**: Prometheus scrapers collect metrics from all services (e.g., active WebSocket sockets, move latency, matchmaker queue depth, shard CPU/memory usage) for visualization on Grafana dashboards.
+- **Logs**: Centralized logging via Loki or ELK stack for rapid troubleshooting.
+- **Health Checks**: Standardized `/healthz` endpoints checked by Kubernetes Liveness/Readiness probes.
+- **Load Testing**: Automated k6/Locust scripts to simulate thousands of simultaneous bots placing moves to test throughput and stability under peak stress.
 
 ---
 
-### WebSocket Gateway Architecture & Player Routing
-
-We implement a dedicated **WebSocket Gateway Layer**:
+## 6. Game Lifecycle & Message Flow Example
 
 ```
-1. Client connects ──> 2. Persistent WS connection maintained on Gateway Pod #12
-                                                │
-[Player 1] ═══ Public WS ═══════════════════════┼═══ Public WS ═══ [Player 2]
-                                                │
-                                    [Gateway Pod #12]
-                                                │
-                       3. Internal gRPC / High-Speed TCP (VPC)
-                                                │
-                                                ▼
-                                    [Game Engine Pod #42]
-                              (Authoritative Real-Time Loop)
+Player A                        WebSocket Gateway                 Matchmaker / Allocator               Game Server Shard
+   │                                   │                                    │                                  │
+   ├─ 1. HTTP Login ──────────────────>│ (API Gateway) ────────────────────>│ ──> Saves session in Redis        │
+   │                                   │                                    │                                  │
+   ├─ 2. Connect WebSocket ───────────>│ Holds persistent WS connection     │                                  │
+   │                                   │                                    │                                  │
+   ├─ 3. Request Matchmaking ─────────>│ ── Publishes ticket to Redis ─────>│ Matchmaker pairs Player A & B    │
+   │                                   │                                    │ Allocator picks Shard #3         │
+   │                                   │                                    │ Registers room_101 in Redis ────>│ Starts GameEngine
+   │                                   │<── Match Assigned Event ───────────┴──────────────────────────────────┤
+   │<── Match Started WS Notification ─┤                                                                       │
+   │                                   │                                                                       │
+   ├─ 4. Client Sends Move (e2 -> e4) ─>│                                                                       │
+   │                                   │── 5. Publish Move Command via NATS/PubSub ───────────────────────────>│ 6. GameEngine Validates Move
+   │                                   │                                                                       │    Updates Board & Cooldowns
+   │                                   │<── 7. Publish State Delta Event via NATS/PubSub ──────────────────────┤
+   │<── 8. WS Broadcasts New State ────┤                                                                       │
 ```
 
-1. **Persistent WebSocket Fleet**:
-   - Clients maintain a long-running WebSocket connection to a **WebSocket Gateway Pod** (e.g., `Gateway Pod #12`).
-   - The Gateway fleet handles TLS termination, heartbeats, authentication, rate limiting, and frame parsing.
-
-2. **Matchmaking & Internal Room Routing**:
-   - When the Global Matchmaker pairs two players, it assigns the match (`room_id`) to an available internal **Game Engine Pod** (e.g., `Game Engine Pod #42` at IP `10.0.1.10`) and registers the routing in Redis: `room_99 -> 10.0.1.10`.
-   - Players do **not** re-establish network sockets. Instead, their existing Gateway Pods route move packets internally to `Game Engine Pod #42` via high-speed internal TCP/gRPC.
-
-3. **Key Architectural Advantages of the Gateway Pattern**:
-   - **Socket Decoupling**: Game Engine Pods do not hold public TCP sockets or manage client disconnects, keeping them CPU-efficient for real-time game state computation.
-   - **Seamless Multi-Match Persistence**: Players remain connected to their Gateway node between matches. Starting a new match requires zero WebSocket reconnection overhead.
-   - **DDoS Insulation**: Internal Game Engine Pods have no public IP addresses and are protected behind the Gateway cluster.
-
 ---
 
-### What Redis Is (and Is NOT) Used For in This Architecture
+## 7. Summary & Architectural Compliance
 
-| Function | Uses Redis? | Description |
-| :--- | :---: | :--- |
-| **Active Live Game Moves** | ❌ **No** | Sent via WebSocket to Gateway, then proxied via internal TCP/gRPC directly to Game Engine Pod. |
-| **Gateway & Connection Directory** | ✅ **Yes** | Stores `user_id -> {gateway_pod_id, session_token}` for active WS connections. |
-| **Room Routing Directory** | ✅ **Yes** | Maps `room_id -> {game_engine_pod_ip, game_pod_id}` for instant Gateway packet proxying. |
-| **Reconnection & Crash Recovery** | ✅ **Yes** | Stores match state references so reconnected clients immediately bind back to their game. |
-| **Matchmaking Queue** | ✅ **Yes** | Redis Sorted Sets (`ZADD`) partitioned by ELO rating brackets. |
-| **Presence & Anti-Double Login** | ✅ **Yes** | Tracks active sessions across the Gateway fleet to prevent duplicate logins. |
-| **Spectating Lookup** | ✅ **Yes** | Maps a player's ID to their active room and Gateway/Game Engine Pod for live spectating. |
-| **Real-time Leaderboard** | ✅ **Yes** | Global ELO rankings queried in sub-milliseconds. |
-
----
-
-### Role Separation Across Docker Containers / Pods
-
-| Server / Pod Role | Primary Responsibility | Scaling Metric | Statefulness |
-| :--- | :--- | :--- | :--- |
-| **API & Auth Pods** | User login, JWT generation, profile management | HTTP Requests / CPU | **Stateless** |
-| **WebSocket Gateway Pods** | Client WS connection fleet (10M CCU), TLS termination, packet forwarding | Concurrent TCP Sockets / Network Bandwidth | **Stateful** (Client TCP Sockets) |
-| **Matchmaker Pods** | ELO-based player pairing, ticketing, room allocation | Queue Depth / CPU | **Stateless** |
-| **Game Engine Pods** | Authoritative real-time game loops, state validation, move cooldowns | Active Rooms / CPU | **Stateful** (In-Memory Room State) |
-| **Async Worker Pods** | Consuming game end events, updating PostgreSQL & ClickHouse | Event Queue Lag | **Stateless** |
-
----
-
-## 5. Requirement 3: Network Traffic & Bandwidth Analysis
-
-### Traffic Calculations
-
-- **Active Players**: $10,000,000$ (5,000,000 simultaneous 1v1 matches).
-- **Move Rate**: Average 1 move every 2 seconds per player ($0.5 \text{ moves/sec/player}$).
-- **Total System Move Frequency**:
-  $$\text{Moves/sec} = 10,000,000 \times 0.5 = 5,000,000 \text{ moves per second}$$
-
-#### Payload Sizes (Optimized Binary / Protocol Buffers):
-- **Client Move Request Packet**: $\sim 150 \text{ bytes}$ (Player ID, Game ID, Piece ID, Target Coordinates, Timestamp).
-- **Server Broadcast State Delta**: $\sim 150 \text{ bytes}$ sent to **both** players per move ($\approx 300 \text{ bytes total outbound}$).
-
-#### Bandwidth Estimation (External & Internal VPC):
-1. **Client-to-Gateway Inbound Traffic**:
-   $$5,000,000 \text{ moves/sec} \times 150 \text{ bytes} = 750,000,000 \text{ B/s} = 750 \text{ MB/s} \approx \mathbf{6.0 \text{ Gbps}}$$
-2. **Gateway-to-Game Engine Internal Inbound Traffic**:
-   $$5,000,000 \text{ moves/sec} \times 150 \text{ bytes} = \mathbf{6.0 \text{ Gbps}}$$
-3. **Game Engine-to-Gateway Internal Outbound Traffic**:
-   $$5,000,000 \text{ moves/sec} \times 300 \text{ bytes} = \mathbf{12.0 \text{ Gbps}}$$
-4. **Gateway-to-Client External Outbound Traffic**:
-   $$5,000,000 \text{ moves/sec} \times 300 \text{ bytes} = 1,500,000,000 \text{ B/s} = 1.5 \text{ GB/s} \approx \mathbf{12.0 \text{ Gbps}}$$
-5. **System Overhead & Heartbeats**:
-   - Add $\sim 25\%$ overhead for WebSocket framing, TCP ACKs, and keepalive pings.
-   - **Total Aggregate System Throughput** (Internal VPC + External Edge): $\mathbf{\sim 45.0 \text{ Gbps}}$.
-
----
-
-### Is this a lot or a little for an Internet network?
-
-- **For a Single Machine**: **Impossible.** Standard single-server NIC limits are typically 1 Gbps or 10 Gbps.
-- **For Cloud Infrastructure (AWS / GCP / Azure)**: **Completely manageable.**
-  - **Gateway Layer**: Distributed across **200–500 WebSocket Gateway Pods**, each container handling $\sim 20,000–50,000$ connections and $\sim 50–100 \text{ Mbps}$ egress/ingress.
-  - **Internal Network**: Modern cloud VPC backbones easily handle multi-gigabit internal East-West traffic (up to 100 Gbps network fabrics).
-
----
-
-## 6. Requirement 4: Game Duration (30–90 Seconds) & Docker Role Lifecycle
-
-### Impact of Short Game Lifespans on System Architecture
-
-With an average match duration of 60 seconds and 5,000,000 concurrent games:
-$$\text{Match Churn Rate} = \frac{5,000,000 \text{ games}}{60 \text{ seconds}} \approx \mathbf{83,333 \text{ games starting and finishing per second!}}$$
-
----
-
-### Critical Architectural Decisions for Docker Containers
-
-1. **NEVER Spawn a Container per Game**:
-   - Spawning and destroying 83,333 Docker containers per second would overwhelm cgroups and the container daemon.
-   - **Solution**: Docker containers operate as **Long-Running Persistent Worker Nodes**. Each Game Engine Pod hosts thousands of lightweight, concurrent game loops running inside async task runners (e.g., Python `asyncio`, Go `goroutines`, or Erlang actors).
-
-2. **WebSocket Connection Reuse Across Games**:
-   - Because clients connect to the **WebSocket Gateway Layer**, short match lifespans (30–90s) do not force clients to teardown and re-establish TLS/WebSocket connections. When a game ends, the player stays on the same Gateway connection and enters matchmaking again immediately.
-
-3. **Asynchronous Non-Blocking Game Completion**:
-   - When a match finishes, the Game Engine Pod emits a `MatchFinishedEvent` to an in-memory event bus (**NATS / Kafka**) and immediately frees the room memory ($<1 \text{ ms}$).
-   - Independent **Async Worker Containers** consume these events from the queue, batching updates into PostgreSQL and ClickHouse asynchronously.
-
-4. **Elastic Pod Autoscaling & Zero-Downtime Draining (K3s / K8s)**:
-   - Short match durations (30–90s) make autoscaling extremely responsive.
-   - When scaling down game engine nodes during off-peak hours, a pod is marked as `Draining`. It stops accepting new matches from the Matchmaker, waits at most **90 seconds** for active matches on that pod to finish naturally, and then shuts down cleanly without terminating any live player's game or socket.
-
----
-
-## 7. Container Orchestration & Deployment Architecture (Docker, K3s / Kubernetes)
-
-```
-                                ┌──────────────────────────────────────────┐
-                                │           KUBERNETES / K3S CLUSTER        │
-                                └──────────────────────────────────────────┘
-                                                     │
-        ┌──────────────────────────────┬─────────────┴────────────────┬──────────────────────────────┐
-        ▼                              ▼                              ▼                              ▼
-┌──────────────────┐        ┌─────────────────────┐        ┌─────────────────────┐        ┌─────────────────────┐
-│  API & Auth Pods │        │ WS Gateway Fleet    │        │ Matchmaking Pods    │        │ Game Engine Pods    │
-│  (Stateless)     │        │ (Deployment/HPA)    │        │ (Stateless)         │        │ (StatefulSet/Deploy)│
-└──────────────────┘        └─────────────────────┘        └─────────────────────┘        └─────────────────────┘
-        │                              │                              │                              │
-        └──────────────────────────────┴─────────────┬────────────────┴──────────────────────────────┘
-                                                     │
-                                                     ▼
-                                ┌──────────────────────────────────────────┐
-                                │   State & Queue Infrastructure (Managed)  │
-                                │   • Redis Cluster  • NATS / Kafka        │
-                                │   • PostgreSQL DB  • ClickHouse / NoSQL  │
-                                └──────────────────────────────────────────┘
-```
-
-### Kubernetes Architecture Highlights:
-- **WebSocket Gateway Deployment**: Scaled horizontally based on active concurrent TCP connections (`HPA`). Exposed via cloud load balancers.
-- **Game Engine StatefulSets / Deployments**: Internal-only worker pods handling authoritative game loops with stable internal routing identifiers registered in Redis.
-- **Horizontal Pod Autoscaler (HPA)**: Scales Pod replicas dynamically based on active room count, CPU utilization, and open WebSocket sockets.
-- **Node Affinity & Anti-Affinity**: Distributes gateway and game engine pods across availability zones for high availability and low ping latency.
-
----
-
-## 8. Summary of Key Architectural Answers
-
-1. **Database**: PostgreSQL (relational profiles & ratings) + Redis (Gateway session directory, room routing, queues, presence, leaderboards) + Cassandra (match logs). **SQLite is rejected** due to write locking and lack of horizontal scaling.
-2. **Servers & Distribution**: WebSocket Gateway Architecture. 10M concurrent players maintain persistent WebSocket connections with a distributed **WebSocket Gateway Layer**. Gateways proxy move packets to internal **Game Engine Worker Pods** over high-speed internal VPC networks.
-3. **Network Traffic**: $\sim 5 \text{ Million moves/sec}$, generating $\sim 18 \text{ Gbps}$ external traffic and $\sim 18 \text{ Gbps}$ internal VPC proxy traffic ($\sim 45 \text{ Gbps}$ total aggregate). Easily handled when distributed across Gateway and Engine pod fleets.
-4. **Game Duration**: High churn ($\sim 83 \text{k matches/sec}$) is handled smoothly because client WebSocket connections persist across games at the Gateway layer, while Game Engine Pods run lightweight, async game loops with 90-second Kubernetes node draining capabilities.
+| Requirement | Implementation Detail |
+| :--- | :--- |
+| **API Gateway** | Manages non-real-time REST routes (login, rooms, history). |
+| **WebSocket Gateway** | Manages live WS connections and broadcasts state updates. |
+| **Matchmaker** | Pairs players based on ELO queues in Redis. |
+| **Game Allocator** | Selects target Game Server Shard for each room. |
+| **Game Server Shards** | Hosts in-memory authoritative `GameEngine` loops. |
+| **Observability** | Centralized logs, metrics, health checks, and load testing. |
+| **NATS / Redis PubSub** | Internal inter-service messaging bus. |
+| **Redis** | Volatile data: Sessions, active rooms, reconnects, matchmaking queue. |
+| **PostgreSQL** | Durable data: Users, completed games, results, move history. |
+| **Docker Compose** | Local dev deployment for running full small-scale system. |
+| **Kubernetes / K3s** | Production container orchestration and auto-scaling. |
+| **Single Source of Truth** | **GameEngine** inside Game Server Shards exclusively determines game rules and valid moves. |
