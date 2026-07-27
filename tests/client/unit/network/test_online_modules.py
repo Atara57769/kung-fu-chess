@@ -23,6 +23,9 @@ class DummyClient:
     def authenticate(self, username, password):
         self.calls.append(('authenticate', username, password))
 
+    def join_matchmaking(self):
+        self.calls.append('join_matchmaking')
+
     def enter_matchmaking(self):
         self.calls.append('enter_matchmaking')
 
@@ -91,7 +94,7 @@ def test_online_coordinator_setup():
     quick_match_btn_callback = initial_screen.buttons[0].callback
     quick_match_btn_callback()
     
-    assert 'enter_matchmaking' in client.calls
+    assert 'join_matchmaking' in client.calls
     waiting_screen = screen_manager.switch_to.call_args[0][0]
     assert isinstance(waiting_screen, WaitingScreen)
 
@@ -333,6 +336,31 @@ def test_online_game_screen_clears_selection_when_piece_captured():
     canvas = Img()
     screen.render(canvas)
     assert screen.selected_cell is None
+
+
+def test_client_abc_inheritance():
+    from client.network import BaseGameClient, GameClient, DistributedGameClient
+    assert issubclass(GameClient, BaseGameClient)
+    assert issubclass(DistributedGameClient, BaseGameClient)
+
+
+def test_game_client_join_matchmaking():
+    from client.network.client import GameClient
+    client = GameClient()
+    client._send_json = MagicMock()
+    
+    client.join_matchmaking()
+    assert client._send_json.called
+
+
+def test_distributed_client_join_matchmaking():
+    from client.network.distributed_client import DistributedGameClient
+    client = DistributedGameClient()
+    client.api_join_matchmaking = MagicMock()
+    
+    client.join_matchmaking()
+    assert client.api_join_matchmaking.called
+
 
 
 

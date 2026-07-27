@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 class PostgresDBManager(SQLiteDBManager):
     """Database manager for PostgreSQL using SQLAlchemy ORM.
     Reads host, port, user, password, and database name from environment variables.
+    Falls back to local SQLite if PostgreSQL is unreachable.
     """
 
     def __init__(self, database_url: Optional[str] = None) -> None:
@@ -24,4 +25,8 @@ class PostgresDBManager(SQLiteDBManager):
                 database_url = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
         
         logger.info("Initializing PostgresDBManager with URL: %s", database_url)
-        super().__init__(db_path=database_url)
+        try:
+            super().__init__(db_path=database_url)
+        except Exception as e:
+            logger.warning("Failed to initialize PostgreSQL connection (%s). Falling back to SQLite.", e)
+            super().__init__(db_path="sqlite:///:memory:")

@@ -2,6 +2,7 @@ import logging
 from typing import Tuple, Optional
 from server.network.models import ConnectedPlayer
 from server.database.base_db_manager import DEFAULT_RATING, User, BaseDBManager
+from shared.constants import ResponseStatus
 from shared.protocol import AuthMessage, AuthResponseMessage
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ def authenticate_user(username: str, password_plain: str, db: BaseDBManager) -> 
         logger.warning("Failed authentication for '%s': password mismatch.", username)
         return False, None, ERROR_AUTH_FAILED
 
-    return True, user_info, "Success"
+    return True, user_info, ResponseStatus.SUCCESS
 
 
 async def handle_auth(player: ConnectedPlayer, msg: AuthMessage, db: BaseDBManager, send) -> None:

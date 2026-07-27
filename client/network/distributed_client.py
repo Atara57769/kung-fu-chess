@@ -25,15 +25,16 @@ from shared.protocol import (
 from shared.protocol.protocol import deserialize_snapshot
 from shared.message_contracts.contracts import (
     AuthLoginPayload, MatchmakingRequestPayload, AuthResponsePayload,
-    MatchmakingResponsePayload, UserProfilePayload, RoomListResponsePayload,
+    MatchmakingResponsePayload, RoomListResponsePayload,
     RoomInfoDTO, HealthStatusPayload
 )
+from client.network.base_client import BaseGameClient
 from client.services.client_pubsub import ClientPubSub
 
 logger = logging.getLogger(__name__)
 
 
-class DistributedGameClient:
+class DistributedGameClient(BaseGameClient):
     """Network client for Distributed Microservices Architecture.
     Interfaces with API Gateway (REST) and WebSocket Gateway (Real-Time WS) using DTO Dataclasses.
     """
@@ -84,13 +85,6 @@ class DistributedGameClient:
         res = self._http_get(url)
         return HealthStatusPayload(**res)
 
-    def api_register(self, username: str, password: str) -> AuthResponsePayload:
-        """Calls POST /auth/register endpoint on API Gateway returning AuthResponsePayload DTO."""
-        url = f"{self.api_url}/auth/register"
-        req_dto = AuthLoginPayload(username=username, password=password)
-        res = self._http_post(url, req_dto)
-        return AuthResponsePayload(**res)
-
     def api_login(self, username: str, password: str) -> AuthResponsePayload:
         """Calls POST /auth/login endpoint on API Gateway returning AuthResponsePayload DTO and saving session token."""
         url = f"{self.api_url}/auth/login"
@@ -102,13 +96,6 @@ class DistributedGameClient:
             self.token = auth_resp.token
             self.rating = auth_resp.rating
         return auth_resp
-
-    def api_get_profile(self, username: Optional[str] = None) -> UserProfilePayload:
-        """Calls GET /user/profile endpoint on API Gateway returning UserProfilePayload DTO."""
-        target_user = username or self.username or "anonymous"
-        url = f"{self.api_url}/user/profile?username={urllib.parse.quote(target_user)}"
-        res = self._http_get(url)
-        return UserProfilePayload(**res)
 
     def api_list_rooms(self) -> RoomListResponsePayload:
         """Calls GET /rooms endpoint on API Gateway returning RoomListResponsePayload DTO."""
@@ -270,21 +257,25 @@ class DistributedGameClient:
 
     # Real-Time Actions
     def authenticate(self, username: str, password_or_token: str) -> None:
-        """Sends AuthMessage over active WebSocket connection."""
+        """Authenticates user via REST API /auth/login (auto-registering if non-existent) to obtain token, then sends AuthMessage over WS."""
         self.error_message = None
+        if not self.token:
+            try:
+                auth_resp = self.api_login(username, password_or_token)
+                if auth_resp.status in (ResponseStatus.SUCCESS.value, ResponseStatus.SUCCESS):
+                    self.authenticated = True
+            except Exception as e:
+                logger.warning(f"REST /auth/login call in authenticate failed: {e}")
+
         self._send_json(AuthMessage(username=username, password=password_or_token, token=self.token))
 
-    def enter_matchmaking(self) -> None:
-        if self.token:
-            self.api_join_matchmaking()
-        else:
-            self._send_json(MatchmakingMessage())
+    def join_matchmaking(self) -> MatchmakingResponsePayload:
+        """Joins matchmaking by calling API Gateway REST endpoint POST /matchmaking/join."""
+        return self.api_join_matchmaking()
 
-    def leave_matchmaking(self) -> None:
-        if self.token:
-            self.api_leave_matchmaking()
-        else:
-            self._send_json(LeaveMatchmakingMessage())
+    def leave_matchmaking(self) -> MatchmakingResponsePayload:
+        """Leaves matchmaking by calling API Gateway REST endpoint POST /matchmaking/leave."""
+        return self.api_leave_matchmaking()
 
     def create_room(self, room_id: Optional[str] = None) -> None:
         self._send_json(CreateRoomMessage(room_id=room_id))

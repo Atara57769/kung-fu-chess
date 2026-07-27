@@ -83,22 +83,6 @@ services:
       - redis
     restart: unless-stopped
 
-  auth_service:
-    build:
-      context: .
-      dockerfile: services/auth_service/Dockerfile
-    container_name: kungfu_auth_service
-    environment:
-      - NATS_URL=nats://nats:4222
-      - POSTGRES_HOST=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=kung_fu_chess
-    depends_on:
-      - nats
-      - postgres
-    restart: unless-stopped
-
   rooms_service:
     build:
       context: .

@@ -41,6 +41,18 @@ def test_auth_service_auto_registration_and_login():
     assert err3 == "Authentication failed."
 
 
+def test_api_gateway_user_service_login_and_token():
+    from services.api_gateway.services import UserService
+    db_mgr = SQLiteDBManager(db_path="sqlite:///:memory:")
+    service = UserService(db_manager=db_mgr)
+
+    # Calling login for a brand new user -> Auto-registers and succeeds
+    success, user_info, err = service.login_user("auto_user", "pass123")
+    assert success is True
+    assert user_info.username == "auto_user"
+    assert user_info.rating == 1200
+
+
 def test_distributed_client_instantiation():
     client_mono = GameClient()
     client_dist = DistributedGameClient()
@@ -58,7 +70,6 @@ def test_distributed_client_parse_args():
 def test_microservice_entry_points():
     import services.api_gateway.main as api_main
     import services.websocket_gateway.main as ws_main
-    import services.auth_service.main as auth_main
     import services.rooms_service.main as rooms_main
     import services.matchmaking_service.main as match_main
     import services.game_allocator.main as alloc_main
@@ -66,7 +77,6 @@ def test_microservice_entry_points():
 
     assert callable(getattr(api_main, "main", None))
     assert callable(getattr(ws_main, "run_ws_gateway", None)) or hasattr(ws_main, "__name__")
-    assert callable(getattr(auth_main, "run_auth_service", None)) or hasattr(auth_main, "__name__")
     assert callable(getattr(rooms_main, "run_rooms_service", None)) or hasattr(rooms_main, "__name__")
     assert callable(getattr(match_main, "run_matchmaking_service", None)) or hasattr(match_main, "__name__")
     assert callable(getattr(alloc_main, "run_game_allocator", None)) or hasattr(alloc_main, "__name__")

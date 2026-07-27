@@ -145,15 +145,6 @@ class RoomListResponsePayload:
 
 
 @dataclass
-class UserProfilePayload:
-    username: str
-    rating: int
-
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass
 class HealthStatusPayload:
     status: str
     service: str

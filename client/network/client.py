@@ -18,12 +18,13 @@ from shared.protocol import (
     serialize_message, deserialize_message
 )
 
+from client.network.base_client import BaseGameClient
 from client.services.client_pubsub import ClientPubSub
 
 logger = logging.getLogger(__name__)
 
 
-class GameClient:
+class GameClient(BaseGameClient):
     """Handles network connection, heartbeat ping loops, and snapshot deserialization for Monolithic Server."""
 
     def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> None:
@@ -188,8 +189,11 @@ class GameClient:
         self.error_message = None
         self._send_json(AuthMessage(username=username, password=password_or_token))
 
-    def enter_matchmaking(self) -> None:
+    def join_matchmaking(self) -> None:
         self._send_json(MatchmakingMessage())
+
+    def enter_matchmaking(self) -> None:
+        self.join_matchmaking()
 
     def leave_matchmaking(self) -> None:
         self._send_json(LeaveMatchmakingMessage())

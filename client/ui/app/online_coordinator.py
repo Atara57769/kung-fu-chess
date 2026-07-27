@@ -12,7 +12,7 @@ from client.ui.board.board_geometry import BoardGeometry
 from client.ui.rendering.game_renderer import GameRenderer
 from client.ui.animation.animation_manager import AnimationManager
 from client.ui.components.popup_dialog import show_error_dialog, show_warning_dialog
-from client.network.client import GameClient
+from client.network.base_client import BaseGameClient
 from shared.protocol import (
     MessageType, BaseMessage, RoomStateMessage, ErrorMessage, MatchmakingStatusMessage
 )
@@ -34,7 +34,7 @@ MATCHMAKING_TIMEOUT_MSG = "No opponent was found within 60 seconds."
 
 
 class OnlineCoordinator:
-    def __init__(self, client: GameClient, screen_manager: ScreenManager, 
+    def __init__(self, client: BaseGameClient, screen_manager: ScreenManager, 
                  geometry: BoardGeometry, renderer: GameRenderer, 
                  animation_manager: AnimationManager) -> None:
         self.client = client
@@ -66,7 +66,7 @@ class OnlineCoordinator:
         total_h = cell_size * 8
         
         def trigger_quick_match():
-            self.client.enter_matchmaking()
+            self.client.join_matchmaking()
             waiting = WaitingScreen(
                 self.screen_manager, 
                 total_w, 
