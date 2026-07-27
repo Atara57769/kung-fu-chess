@@ -9,6 +9,24 @@ from shared.constants import DEFAULT_RATING
 
 
 @dataclass
+class AuthRequest:
+    username: str
+    password: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class MatchmakingRequest:
+    username: str
+    token: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class AuthLoginPayload:
     username: str
     password: Optional[str] = None

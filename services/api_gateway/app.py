@@ -4,11 +4,14 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Optional, Dict, Any
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 import redis.asyncio as aioredis
 from shared.constants import DEFAULT_RATING, ResponseStatus
 from shared.message_contracts.subjects import (AUTH_LOGIN, AUTH_REGISTER, MATCHMAKING_REQUEST, ROOM_CREATE)
-from shared.message_contracts.contracts import (AuthLoginPayload, MatchmakingRequestPayload, AuthResponsePayload,MatchmakingResponsePayload, UserProfilePayload, RoomListResponsePayload,RoomInfoDTO, HealthStatusPayload)
+from shared.message_contracts.contracts import (
+    AuthLoginPayload, MatchmakingRequestPayload, AuthResponsePayload, MatchmakingResponsePayload,
+    UserProfilePayload, RoomListResponsePayload, RoomInfoDTO, HealthStatusPayload,
+    AuthRequest, MatchmakingRequest
+)
 from shared.message_contracts.nats_client import NatsBus
 from server.database.sqlite_db_manager import SQLiteDBManager
 from server.database.postgres_db_manager import PostgresDBManager
@@ -41,16 +44,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Kung-Fu Chess API Gateway", version="2.0.0", lifespan=lifespan)
-
-
-class AuthRequest(BaseModel):
-    username: str
-    password: str
-
-
-class MatchmakingRequest(BaseModel):
-    username: str
-    token: str
 
 
 @app.get("/healthz", response_model=None)
