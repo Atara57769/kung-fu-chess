@@ -7,7 +7,7 @@ import time
 from typing import Optional, Callable
 import websockets
 
-from shared.constants import DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_INTERVAL
+from shared.constants import DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_INTERVAL, DEFAULT_RATING
 from shared.protocol.protocol import deserialize_snapshot
 from shared.models.color import Color
 from shared.models.cell import Cell
@@ -20,35 +20,36 @@ from shared.protocol import (
 
 from client.services.client_pubsub import ClientPubSub
 
-
 logger = logging.getLogger(__name__)
 
+
 class GameClient:
-    """Handles network connection, heartbeat ping loops, and snapshot deserialization."""
-    
+    """Handles network connection, heartbeat ping loops, and snapshot deserialization for Monolithic Server."""
+
     def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> None:
         self.host = host
         self.port = port
-        
+
         self.username: Optional[str] = None
-        self.rating: int = 1200
+        self.rating: int = DEFAULT_RATING
         self.authenticated: bool = False
-        
+
         self.room_state: Optional[dict] = None
-        self.your_color: Optional[Color] = None  
+        self.your_color: Optional[Color] = None
         self.current_snapshot = None
         self.countdown_seconds: int = 0
         self.countdown_message: Optional[str] = None
-        self.game_over_result: Optional[GameOverResult] = None
+        self.game_over_result: Optional[Any] = None
         self.error_message: Optional[str] = None
-        
+
+        self.pubsub = ClientPubSub()
+        self.on_update: Optional[Callable] = None
+
         self.loop: Optional[asyncio.AbstractEventLoop] = None
         self.ws = None
         self.thread: Optional[threading.Thread] = None
         self.running: bool = False
-        
-        self.pubsub = ClientPubSub()
-        self.on_update: Optional[Callable] = None
+
         self.message_handlers = {
             MessageType.AUTH_RESPONSE: self._handle_auth_response,
             MessageType.ROOM_STATE: self._handle_room_state,
@@ -64,7 +65,6 @@ class GameClient:
         self.running = True
         self.thread = threading.Thread(target=self._run_network_loop, daemon=True)
         self.thread.start()
-        
         time.sleep(0.2)
 
     def stop(self) -> None:
@@ -93,9 +93,9 @@ class GameClient:
             async with websockets.connect(uri) as ws:
                 self.ws = ws
                 logger.info(f"Connected to Game Server at {uri}")
-                
+
                 ping_task = asyncio.create_task(self._ping_loop())
-                
+
                 while self.running:
                     try:
                         raw_msg = await ws.recv()
@@ -103,7 +103,7 @@ class GameClient:
                     except websockets.exceptions.ConnectionClosed:
                         logger.warning("Connection lost to server.")
                         break
-                        
+
                 ping_task.cancel()
         except Exception as e:
             logger.error(f"Failed connection to {uri}: {e}")
@@ -138,9 +138,10 @@ class GameClient:
         self.authenticated = msg.success
         if self.authenticated:
             self.username = msg.username
-            self.rating = msg.rating or 1200
+            self.rating = msg.rating or DEFAULT_RATING
         else:
-            self.error_message = msg.error 
+            self.error_message = msg.error
+
     def _handle_room_state(self, msg: RoomStateMessage) -> None:
         self.room_state = msg
         self.your_color = Color(msg.your_color) if msg.your_color else None
@@ -163,15 +164,12 @@ class GameClient:
         elif self.your_color == Color.BLACK and msg.black_rating is not None:
             self.rating = msg.black_rating
 
-
     def _handle_error(self, msg: ErrorMessage) -> None:
         self.error_message = msg.message
         self.pubsub.publish(MessageType.ERROR, msg)
 
-
     def _handle_matchmaking_status(self, msg: MatchmakingStatusMessage) -> None:
         self.pubsub.publish(MessageType.MATCHMAKING_STATUS, msg)
-
 
     def _send_json(self, data: any) -> None:
         """Invokes raw socket write from external threads using loop scheduling."""
@@ -186,10 +184,9 @@ class GameClient:
             except websockets.exceptions.ConnectionClosed:
                 pass
 
-
-    def authenticate(self, username, password) -> None:
+    def authenticate(self, username: str, password_or_token: str) -> None:
         self.error_message = None
-        self._send_json(AuthMessage(username=username, password=password))
+        self._send_json(AuthMessage(username=username, password=password_or_token))
 
     def enter_matchmaking(self) -> None:
         self._send_json(MatchmakingMessage())
@@ -211,5 +208,3 @@ class GameClient:
 
     def send_jump(self, cell: Cell) -> None:
         self._send_json(JumpMessage(cell=cell))
-
-

@@ -1,7 +1,7 @@
 import asyncio
 import time
 from typing import List, Optional
-from shared.constants import DEFAULT_BOARD_LAYOUT, ROOM_STATUS_WAITING
+from shared.constants import DEFAULT_BOARD_LAYOUT, ROOM_STATUS_WAITING, DEFAULT_RATING
 from server.game.engine.game_engine import GameEngine
 from shared.models.game_state import GameState
 from shared.models.color import Color
@@ -13,7 +13,7 @@ class ConnectedPlayer:
         self.ws = ws
         self.ip_address = ip_address
         self.username: Optional[str] = None
-        self.rating: int = 1200
+        self.rating: int = DEFAULT_RATING
         self.authenticated: bool = False
         self.room_id: Optional[str] = None
         self.color: Optional[Color] = None  

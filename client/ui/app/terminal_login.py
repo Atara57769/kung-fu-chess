@@ -1,9 +1,11 @@
 import sys
 import time
+from typing import Tuple
 from client.network.client import GameClient
 
-def run_terminal_login(client: GameClient) -> None:
-    """Prompts for user credentials in terminal and authenticates with WebSocket server."""
+
+def prompt_terminal_credentials() -> Tuple[str, str]:
+    """Prompts for user credentials in terminal and returns (username, password)."""
     print("\n==============================")
     print("    KUNG-FU CHESS ONLINE LOGIN  ")
     print("==============================\n")
@@ -15,6 +17,12 @@ def run_terminal_login(client: GameClient) -> None:
         print("Error: Username and Password cannot be empty.")
         sys.exit(1)
         
+    return username, password
+
+
+def run_terminal_login(client: GameClient) -> None:
+    """Prompts for user credentials in terminal and authenticates with WebSocket server."""
+    username, password = prompt_terminal_credentials()
     client.authenticate(username, password)
     
     start_t = time.time()

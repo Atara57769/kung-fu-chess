@@ -1,4 +1,5 @@
 import logging
+from typing import Tuple, Optional
 from server.network.models import ConnectedPlayer
 from server.database.base_db_manager import DEFAULT_RATING, User, BaseDBManager
 from shared.protocol import AuthMessage, AuthResponseMessage
@@ -9,14 +10,17 @@ logger = logging.getLogger(__name__)
 ERROR_INVALID_FIELDS = "Invalid fields."
 ERROR_AUTH_FAILED = "Authentication failed."
 
-async def handle_auth(player: ConnectedPlayer, msg: AuthMessage, db: BaseDBManager, send) -> None:
-    """Authenticates an existing user or auto-registers a new one, then updates the player session."""
-    username = msg.username.strip()
-    password = msg.password.strip()
+
+def authenticate_user(username: str, password_plain: str, db: BaseDBManager) -> Tuple[bool, Optional[User], str]:
+    """Core auth function: Checks if user exists.
+    - If user exists: verifies password.
+    - If user does not exist: auto-registers new user.
+    """
+    username = username.strip()
+    password = password_plain.strip()
 
     if not username or not password:
-        await send(player.ws, AuthResponseMessage(success=False, error=ERROR_INVALID_FIELDS))
-        return
+        return False, None, ERROR_INVALID_FIELDS
 
     user_info = db.find_user(username)
 
@@ -27,20 +31,27 @@ async def handle_auth(player: ConnectedPlayer, msg: AuthMessage, db: BaseDBManag
             user_info = User(username=username, rating=DEFAULT_RATING)
         else:
             logger.warning("Auto-registration failed for '%s'.", username)
+            return False, None, ERROR_AUTH_FAILED
     elif not db.verify_password(username, password):
         logger.warning("Failed authentication for '%s': password mismatch.", username)
-        await send(player.ws, AuthResponseMessage(success=False, error=ERROR_AUTH_FAILED))
+        return False, None, ERROR_AUTH_FAILED
+
+    return True, user_info, "Success"
+
+
+async def handle_auth(player: ConnectedPlayer, msg: AuthMessage, db: BaseDBManager, send) -> None:
+    """Authenticates an existing user or auto-registers a new one, then updates the player session."""
+    success, user_info, err_msg = authenticate_user(msg.username, msg.password, db)
+    if not success or not user_info:
+        await send(player.ws, AuthResponseMessage(success=False, error=err_msg))
         return
 
-    if user_info:
-        player.username = user_info.username
-        player.rating = user_info.rating
-        player.authenticated = True
-        await send(player.ws, AuthResponseMessage(
-            success=True,
-            username=player.username,
-            rating=player.rating
-        ))
-        logger.info(f"Player {player.username} authenticated successfully.")
-    else:
-        await send(player.ws, AuthResponseMessage(success=False, error=ERROR_AUTH_FAILED))
+    player.username = user_info.username
+    player.rating = user_info.rating
+    player.authenticated = True
+    await send(player.ws, AuthResponseMessage(
+        success=True,
+        username=player.username,
+        rating=player.rating
+    ))
+    logger.info(f"Player {player.username} authenticated successfully.")

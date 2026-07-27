@@ -1,0 +1,160 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # Message Bus & Data Stores
+  # ---------------------------------------------------------------------------
+  nats:
+    image: nats:2.10-alpine
+    container_name: kungfu_nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: kungfu_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: kung_fu_chess
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: kungfu_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Gateways & Microservices
+  # ---------------------------------------------------------------------------
+  api_gateway:
+    build:
+      context: .
+      dockerfile: services/api_gateway/Dockerfile
+    container_name: kungfu_api_gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - NATS_URL=nats://nats:4222
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=kung_fu_chess
+      - PORT=8000
+    depends_on:
+      - nats
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  websocket_gateway:
+    build:
+      context: .
+      dockerfile: services/websocket_gateway/Dockerfile
+    container_name: kungfu_ws_gateway
+    ports:
+      - "8001:8001"
+    environment:
+      - NATS_URL=nats://nats:4222
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - GATEWAY_ID=ws_gw_1
+      - PORT=8001
+    depends_on:
+      - nats
+      - redis
+    restart: unless-stopped
+
+  auth_service:
+    build:
+      context: .
+      dockerfile: services/auth_service/Dockerfile
+    container_name: kungfu_auth_service
+    environment:
+      - NATS_URL=nats://nats:4222
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=kung_fu_chess
+    depends_on:
+      - nats
+      - postgres
+    restart: unless-stopped
+
+  rooms_service:
+    build:
+      context: .
+      dockerfile: services/rooms_service/Dockerfile
+    container_name: kungfu_rooms_service
+    environment:
+      - NATS_URL=nats://nats:4222
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - nats
+      - redis
+    restart: unless-stopped
+
+  matchmaking_service:
+    build:
+      context: .
+      dockerfile: services/matchmaking_service/Dockerfile
+    container_name: kungfu_matchmaking_service
+    environment:
+      - NATS_URL=nats://nats:4222
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - nats
+      - redis
+    restart: unless-stopped
+
+  game_allocator:
+    build:
+      context: .
+      dockerfile: services/game_allocator/Dockerfile
+    container_name: kungfu_game_allocator
+    environment:
+      - NATS_URL=nats://nats:4222
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - GAME_SERVERS=game_server_1,game_server_2
+    depends_on:
+      - nats
+      - redis
+    restart: unless-stopped
+
+  game_server:
+    build:
+      context: .
+      dockerfile: services/game_server/Dockerfile
+    container_name: kungfu_game_server_1
+    environment:
+      - NATS_URL=nats://nats:4222
+      - SERVER_ID=game_server_1
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=kung_fu_chess
+    depends_on:
+      - nats
+      - postgres
+    restart: unless-stopped

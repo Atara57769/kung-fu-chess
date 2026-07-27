@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import os
 from typing import Optional
 from dataclasses import dataclass
+from shared.constants import DEFAULT_RATING
 
 
 @dataclass(frozen=True)
@@ -12,7 +13,6 @@ class User:
 
 DB_NAME = "kung_fu_chess.db"
 DB_FILE = os.path.join(os.path.dirname(__file__), DB_NAME)
-DEFAULT_RATING = 1200
 ENCODING_UTF8 = "utf-8"
 
 
