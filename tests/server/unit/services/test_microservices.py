@@ -131,3 +131,66 @@ def test_handle_room_join_triggers_game_allocate():
 
     asyncio.run(run_test())
 
+
+def test_handle_matchmaking_request_pairs_players():
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+    from services.matchmaking_service.app import handle_matchmaking_request, nats_bus, matchmaking_queue, player_registry
+
+    async def run_test():
+        matchmaking_queue.clear()
+        player_registry.clear()
+
+        with patch.object(nats_bus, "publish", new_callable=AsyncMock) as mock_publish:
+            # 1. Player 1 joins matchmaking
+            res1 = await handle_matchmaking_request({"action": "join", "username": "alice", "rating": 1200}, reply_to=None)
+            assert res1.status == "queued"
+
+            # 2. Player 2 joins matchmaking
+            res2 = await handle_matchmaking_request({"action": "join", "username": "bob", "rating": 1200}, reply_to=None)
+            assert res2.status == "queued"
+
+            await asyncio.sleep(0.1)
+
+            # Verify MATCHMAKING_MATCH_FOUND was published
+            published_subjects = [call.args[0] for call in mock_publish.call_args_list]
+            assert "matchmaking.match_found" in published_subjects
+
+    asyncio.run(run_test())
+
+
+def test_handle_game_command_move_and_jump():
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+    from services.game_server.app import handle_game_assigned, handle_game_command, coordinator, nats_bus
+
+    async def run_test():
+        coordinator.rooms.clear()
+        with patch.object(nats_bus, "publish", new_callable=AsyncMock):
+            await handle_game_assigned({
+                "game_server_id": "game_server_1",
+                "room_id": "room_cmd_test",
+                "player1": "alice",
+                "player2": "bob"
+            }, reply_to=None)
+
+            room = coordinator.rooms["room_cmd_test"]
+            assert room.white_player.username == "alice"
+            assert room.black_player.username == "bob"
+
+            # Execute a move command for alice (White pawn e2 -> e4)
+            move_cmd = {
+                "room_id": "room_cmd_test",
+                "username": "alice",
+                "data": {
+                    "type": "move",
+                    "from_cell": {"x": 4, "y": 6},
+                    "to_cell": {"x": 4, "y": 4}
+                }
+            }
+            await handle_game_command(move_cmd, reply_to=None)
+
+    asyncio.run(run_test())
+
+
+

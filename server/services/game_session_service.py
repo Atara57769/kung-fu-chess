@@ -58,14 +58,14 @@ class GameSessionService:
         clients.extend(room.spectators)
         for c in clients:
             snap = room.controller.get_snapshot(player_color=c.color)
-            await self.send(c.ws, SnapshotMessage(data=serialize_snapshot(snap)))
+            await self.send(c.ws or c, SnapshotMessage(data=serialize_snapshot(snap)))
 
     async def send_snapshot(self, player: ConnectedPlayer, room: GameRoom) -> None:
         """Sends current state snapshot to a specific player."""
         if not self.send:
             return
         snap = room.controller.get_snapshot(player_color=player.color)
-        await self.send(player.ws, SnapshotMessage(data=serialize_snapshot(snap)))
+        await self.send(player.ws or player, SnapshotMessage(data=serialize_snapshot(snap)))
 
     async def process_move(self, player: ConnectedPlayer, msg: MoveMessage, rooms: Dict[str, GameRoom]) -> None:
         """Validates and executes an authorized move on the player's controller."""
@@ -129,7 +129,7 @@ class GameSessionService:
             if room.black_player: clients.append(room.black_player)
             clients.extend(room.spectators)
             for c in clients:
-                await self.send(c.ws, payload)
+                await self.send(c.ws or c, payload)
         logger.info(f"Game resolved in Room {room.room_id}. Winner={winner_color}")
 
     @staticmethod

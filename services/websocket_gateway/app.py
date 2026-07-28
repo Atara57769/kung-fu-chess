@@ -54,19 +54,28 @@ async def handle_nats_game_state(msg_data: Dict[str, Any], reply_to: Optional[st
 
     serialized = json.dumps(payload) if isinstance(payload, dict) else str(payload)
 
-    if room_id and room_id in room_subscriptions:
-        for ws in list(room_subscriptions[room_id]):
-            try:
-                await ws.send(serialized)
-            except Exception:
-                pass
-    elif target_username:
+    # Automatically map active WS socket for target_username to room_id
+    if room_id and target_username:
+        for ws, info in list(active_sockets.items()):
+            if info.get("username") == target_username:
+                info["room_id"] = room_id
+                if room_id not in room_subscriptions:
+                    room_subscriptions[room_id] = set()
+                room_subscriptions[room_id].add(ws)
+
+    if target_username:
         for ws, info in list(active_sockets.items()):
             if info.get("username") == target_username:
                 try:
                     await ws.send(serialized)
                 except Exception:
                     pass
+    elif room_id and room_id in room_subscriptions:
+        for ws in list(room_subscriptions[room_id]):
+            try:
+                await ws.send(serialized)
+            except Exception:
+                pass
 
 
 async def handle_client_message(ws: Any, raw_msg: str) -> None:

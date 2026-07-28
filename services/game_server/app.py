@@ -4,12 +4,14 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional
 
-from shared.constants import ResponseStatus
+from shared.constants import ResponseStatus, ROOM_STATUS_ACTIVE
 from shared.protocol import (
     MessageType,
     deserialize_message,
-    serialize_message
+    serialize_message,
+    RoomStateMessage
 )
+from shared.models.color import Color
 from shared.message_contracts.subjects import (
     GAME_ASSIGNED, GAME_COMMAND, GAME_STATE, GAME_FINISHED, GAME_EVENTS
 )
@@ -76,13 +78,17 @@ async def handle_game_assigned(data: Dict[str, Any], reply_to: Optional[str]) ->
     logger.info("Initializing game session for room '%s' (%s vs %s)", room_id, player1, player2)
 
     room = GameRoom(room_id=room_id)
-    p1_obj = ConnectedPlayer(ws=None, ip="remote")
+    p1_obj = ConnectedPlayer(ws=None, ip_address="remote")
     p1_obj.username = player1
     p1_obj.authenticated = True
+    p1_obj.color = Color.WHITE
+    p1_obj.room_id = room_id
 
-    p2_obj = ConnectedPlayer(ws=None, ip="remote")
+    p2_obj = ConnectedPlayer(ws=None, ip_address="remote")
     p2_obj.username = player2
     p2_obj.authenticated = True
+    p2_obj.color = Color.BLACK
+    p2_obj.room_id = room_id
 
     room.white_player = p1_obj
     room.black_player = p2_obj
@@ -91,6 +97,34 @@ async def handle_game_assigned(data: Dict[str, Any], reply_to: Optional[str]) ->
     # Start authoritative game engine loop for this session
     await coordinator.game_session.start_game(room)
     logger.info("Game engine loop active for room '%s'", room_id)
+
+    # Broadcast initial ACTIVE room state to both players so client UIs switch to OnlineGameScreen
+    p1_state_msg = RoomStateMessage(
+        room_id=room_id,
+        status=ROOM_STATUS_ACTIVE,
+        white=player1,
+        black=player2,
+        your_color=Color.WHITE.value
+    )
+    p2_state_msg = RoomStateMessage(
+        room_id=room_id,
+        status=ROOM_STATUS_ACTIVE,
+        white=player1,
+        black=player2,
+        your_color=Color.BLACK.value
+    )
+
+    await nats_bus.publish(GAME_STATE, GameStatePayload(
+        room_id=room_id,
+        state=json.loads(serialize_message(p1_state_msg)),
+        target_username=player1
+    ))
+    await nats_bus.publish(GAME_STATE, GameStatePayload(
+        room_id=room_id,
+        state=json.loads(serialize_message(p2_state_msg)),
+        target_username=player2
+    ))
+
     return {"status": ResponseStatus.STARTED.value, "room_id": room_id, "server_id": SERVER_ID}
 
 
@@ -112,15 +146,23 @@ async def handle_game_command(data: Dict[str, Any], reply_to: Optional[str]) -> 
     if not room:
         return None
 
-    player = ConnectedPlayer(ws=None, ip="remote")
+    player = ConnectedPlayer(ws=None, ip_address="remote")
     player.username = username
     player.authenticated = True
     player.room_id = room_id
 
-    if msg_type in (MessageType.MOVE, MessageType.JUMP):
+    if room.white_player and room.white_player.username == username:
+        player.color = Color.WHITE
+    elif room.black_player and room.black_player.username == username:
+        player.color = Color.BLACK
+
+    if msg_type in (MessageType.MOVE, MessageType.MOVE.value, "move"):
         raw_str = json.dumps(cmd_data)
         await coordinator.game_session.process_move(player, deserialize_message(raw_str), coordinator.rooms)
-    elif msg_type == MessageType.GET_SNAPSHOT:
+    elif msg_type in (MessageType.JUMP, MessageType.JUMP.value, "jump"):
+        raw_str = json.dumps(cmd_data)
+        await coordinator.game_session.process_jump(player, deserialize_message(raw_str), coordinator.rooms)
+    elif msg_type in (MessageType.GET_SNAPSHOT, MessageType.GET_SNAPSHOT.value, "get_snapshot"):
         await coordinator.game_session.send_snapshot(player, room)
 
     return None

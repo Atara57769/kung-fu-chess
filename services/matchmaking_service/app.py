@@ -51,7 +51,7 @@ async def handle_matchmaking_request(data: Dict[str, Any], reply_to: Optional[st
     if action == "join":
         player = player_registry.get(username)
         if not player:
-            player = ConnectedPlayer(ws=None, ip="remote")
+            player = ConnectedPlayer(ws=None, ip_address="remote")
             player.username = username
             player.rating = rating
             player.authenticated = True
