@@ -40,7 +40,7 @@ def main() -> None:
 
     username, password = prompt_terminal_credentials()
     print("\nAuthenticating via API Gateway REST Endpoint...")
-    res = client.api_login(username, password)
+    res = client.login(username, password)
     if res.status == ResponseStatus.SUCCESS.value:
         print(f"Authentication success! Welcome {client.username} (ELO: {client.rating})\n")
     else:

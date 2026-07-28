@@ -5,7 +5,7 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional
 import redis.asyncio as aioredis
-from shared.constants import ResponseStatus
+from shared.constants import ResponseStatus, ROOM_STATUS_ACTIVE
 from shared.message_contracts.subjects import (ROOM_CREATE, ROOM_CREATED, ROOM_JOIN, ROOM_JOINED, ROOM_LEAVE, ROOM_UPDATED, GAME_ALLOCATE)
 from shared.message_contracts.contracts import (RoomCreatedPayload, RoomJoinPayload, RoomLeavePayload, GameAllocatePayload)
 from shared.message_contracts.nats_client import NatsBus
@@ -91,7 +91,11 @@ async def handle_room_join(data: Dict[str, Any], reply_to: Optional[str]) -> Opt
 
     if username not in meta.get("players", []):
         meta.setdefault("players", []).append(username)
-        await redis.set(f"room_meta:{room_id}", json.dumps(meta))
+    
+    if event == RoomJoinEvent.GAME_CAN_START:
+        meta["status"] = ROOM_STATUS_ACTIVE
+        
+    await redis.set(f"room_meta:{room_id}", json.dumps(meta))
 
     logger.info("User '%s' joined room '%s' (Event: %s)", username, room_id, event.name)
 

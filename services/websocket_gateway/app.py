@@ -7,16 +7,17 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 import redis.asyncio as aioredis
 
-from shared.constants import DEFAULT_RATING
+from shared.constants import DEFAULT_RATING, ROOM_STATUS_WAITING
 from shared.protocol import (
     MessageType,
     serialize_message,
     ErrorMessage,
-    AuthResponseMessage
+    AuthResponseMessage,
+    RoomStateMessage
 )
 from shared.message_contracts.subjects import (
     AUTH_LOGIN, GAME_COMMAND, GAME_STATE, GAME_FINISHED, GAME_EVENTS,
-    PLAYER_CONNECTED, PLAYER_DISCONNECTED
+    PLAYER_CONNECTED, PLAYER_DISCONNECTED, ROOM_CREATED, ROOM_JOINED, ROOM_UPDATED
 )
 from shared.message_contracts.contracts import (
     AuthLoginPayload, GameCommandPayload, PlayerConnectedPayload, PlayerDisconnectedPayload
@@ -70,8 +71,63 @@ async def handle_nats_game_state(msg_data: Dict[str, Any], reply_to: Optional[st
                     await ws.send(serialized)
                 except Exception:
                     pass
-    elif room_id and room_id in room_subscriptions:
+async def handle_nats_room_event(msg_data: Dict[str, Any], reply_to: Optional[str]) -> None:
+    room_id = msg_data.get("room_id")
+    host = msg_data.get("host")
+    username = msg_data.get("username")
+
+    if not room_id:
+        return
+
+    # Associate host socket with room_id on room creation
+    if host:
+        for ws, info in list(active_sockets.items()):
+            if info.get("username") == host:
+                info["room_id"] = room_id
+                if room_id not in room_subscriptions:
+                    room_subscriptions[room_id] = set()
+                room_subscriptions[room_id].add(ws)
+
+    # Associate joining user socket with room_id on room join
+    if username:
+        for ws, info in list(active_sockets.items()):
+            if info.get("username") == username:
+                info["room_id"] = room_id
+                if room_id not in room_subscriptions:
+                    room_subscriptions[room_id] = set()
+                room_subscriptions[room_id].add(ws)
+
+    # Fetch room metadata from Redis
+    white_player = host or username
+    black_player = None
+    spectators: List[str] = []
+
+    if redis_client:
+        raw_meta = await redis_client.get(f"room_meta:{room_id}")
+        if raw_meta:
+            try:
+                meta = json.loads(raw_meta)
+                players = meta.get("players", [])
+                white_player = players[0] if len(players) > 0 else (host or username)
+                black_player = players[1] if len(players) > 1 else None
+            except Exception:
+                pass
+
+    if room_id in room_subscriptions:
         for ws in list(room_subscriptions[room_id]):
+            info = active_sockets.get(ws, {})
+            u = info.get("username")
+            your_color = "w" if u == white_player else ("b" if u == black_player else None)
+
+            state_msg = RoomStateMessage(
+                room_id=room_id,
+                status=ROOM_STATUS_WAITING,
+                white=white_player,
+                black=black_player,
+                spectators=spectators,
+                your_color=your_color
+            )
+            serialized = serialize_message(state_msg)
             try:
                 await ws.send(serialized)
             except Exception:
@@ -187,6 +243,9 @@ async def main() -> None:
     await nats_bus.subscribe(GAME_STATE, handle_nats_game_state)
     await nats_bus.subscribe(GAME_FINISHED, handle_nats_game_state)
     await nats_bus.subscribe(GAME_EVENTS, handle_nats_game_state)
+    await nats_bus.subscribe(ROOM_CREATED, handle_nats_room_event)
+    await nats_bus.subscribe(ROOM_JOINED, handle_nats_room_event)
+    await nats_bus.subscribe(ROOM_UPDATED, handle_nats_room_event)
 
     logger.info("Starting WebSocket Gateway on ws://0.0.0.0:%d...", PORT)
     async with websockets.serve(handle_connection, "0.0.0.0", PORT):

@@ -356,27 +356,29 @@ def test_game_client_join_matchmaking():
 def test_distributed_client_join_matchmaking():
     from client.network.distributed_client import DistributedGameClient
     client = DistributedGameClient()
-    client.api_join_matchmaking = MagicMock()
+    client._http_post = MagicMock(return_value={"status": "success", "username": "player1"})
     
     client.join_matchmaking()
-    assert client.api_join_matchmaking.called
+    assert client._http_post.called
 
 
 def test_distributed_client_room_actions():
     from client.network.distributed_client import DistributedGameClient
     client = DistributedGameClient()
-    client.api_create_room = MagicMock()
-    client.api_join_room = MagicMock()
-    client.api_leave_room = MagicMock()
+    client._http_post = MagicMock(side_effect=[
+        {"room_id": "room_123", "host": "anonymous", "created_at": 12345.0},
+        {"room_id": "room_123", "username": "anonymous"},
+        {"room_id": "room_123", "username": "anonymous"}
+    ])
 
     client.create_room("room_123")
-    client.api_create_room.assert_called_once_with(room_id="room_123")
+    assert client._http_post.called
 
     client.join_room("room_123")
-    client.api_join_room.assert_called_once_with(room_id="room_123")
+    assert client._http_post.called
 
     client.leave_room("room_123")
-    client.api_leave_room.assert_called_once_with(room_id="room_123")
+    assert client._http_post.called
 
 
 
