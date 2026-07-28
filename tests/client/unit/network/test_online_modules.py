@@ -362,5 +362,23 @@ def test_distributed_client_join_matchmaking():
     assert client.api_join_matchmaking.called
 
 
+def test_distributed_client_room_actions():
+    from client.network.distributed_client import DistributedGameClient
+    client = DistributedGameClient()
+    client.api_create_room = MagicMock()
+    client.api_join_room = MagicMock()
+    client.api_leave_room = MagicMock()
+
+    client.create_room("room_123")
+    client.api_create_room.assert_called_once_with(room_id="room_123")
+
+    client.join_room("room_123")
+    client.api_join_room.assert_called_once_with(room_id="room_123")
+
+    client.leave_room("room_123")
+    client.api_leave_room.assert_called_once_with(room_id="room_123")
+
+
+
 
 

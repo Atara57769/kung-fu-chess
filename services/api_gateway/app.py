@@ -1,5 +1,6 @@
 import os
 import uuid
+import time
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional, Dict, Any
@@ -7,11 +8,12 @@ from fastapi import FastAPI, HTTPException
 import redis.asyncio as aioredis
 
 from shared.constants import DEFAULT_RATING, ResponseStatus
-from shared.message_contracts.subjects import (MATCHMAKING_REQUEST, ROOM_CREATE)
+from shared.message_contracts.subjects import (MATCHMAKING_REQUEST, ROOM_CREATE, ROOM_JOIN, ROOM_LEAVE)
 from shared.message_contracts.contracts import (
     MatchmakingRequestPayload, AuthResponsePayload, MatchmakingResponsePayload,
     RoomListResponsePayload, RoomInfoDTO, HealthStatusPayload,
-    AuthRequest, MatchmakingRequest
+    AuthRequest, MatchmakingRequest, RoomCreatePayload, RoomCreatedPayload,
+    RoomJoinPayload, RoomLeavePayload
 )
 from shared.message_contracts.nats_client import NatsBus
 from services.api_gateway.services import UserService
@@ -75,6 +77,35 @@ async def list_rooms() -> RoomListResponsePayload:
     routes = await redis_client.hgetall("room_routes")
     room_dtos = [RoomInfoDTO(room_id=r_id, shard_id=s_id) for r_id, s_id in routes.items()]
     return RoomListResponsePayload(rooms=room_dtos)
+
+
+@app.post("/rooms/create", response_model=None)
+async def create_room(req: RoomCreatePayload) -> RoomCreatedPayload:
+    room_id = req.room_id or f"room_{uuid.uuid4().hex[:8]}"
+    created_payload = RoomCreatedPayload(room_id=room_id, host=req.host, created_at=time.time())
+    try:
+        await nats_bus.publish(ROOM_CREATE, req)
+    except Exception as e:
+        logger.error("Failed to publish room create: %s", e)
+    return created_payload
+
+
+@app.post("/rooms/join", response_model=None)
+async def join_room(req: RoomJoinPayload) -> RoomJoinPayload:
+    try:
+        await nats_bus.publish(ROOM_JOIN, req)
+    except Exception as e:
+        logger.error("Failed to publish room join: %s", e)
+    return req
+
+
+@app.post("/rooms/leave", response_model=None)
+async def leave_room(req: RoomLeavePayload) -> RoomLeavePayload:
+    try:
+        await nats_bus.publish(ROOM_LEAVE, req)
+    except Exception as e:
+        logger.error("Failed to publish room leave: %s", e)
+    return req
 
 
 @app.post("/matchmaking/join", response_model=None)

@@ -26,7 +26,8 @@ from shared.protocol.protocol import deserialize_snapshot
 from shared.message_contracts.contracts import (
     AuthLoginPayload, MatchmakingRequestPayload, AuthResponsePayload,
     MatchmakingResponsePayload, RoomListResponsePayload,
-    RoomInfoDTO, HealthStatusPayload
+    RoomInfoDTO, HealthStatusPayload, RoomCreatePayload,
+    RoomCreatedPayload, RoomJoinPayload, RoomLeavePayload
 )
 from client.network.base_client import BaseGameClient
 from client.services.client_pubsub import ClientPubSub
@@ -117,6 +118,27 @@ class DistributedGameClient(BaseGameClient):
         req_dto = MatchmakingRequestPayload(action="leave", username=self.username or "", token=self.token)
         res = self._http_post(url, req_dto)
         return MatchmakingResponsePayload(**res)
+
+    def api_create_room(self, room_id: Optional[str] = None) -> RoomCreatedPayload:
+        """Calls POST /rooms/create endpoint on API Gateway returning RoomCreatedPayload DTO."""
+        url = f"{self.api_url}/rooms/create"
+        req_dto = RoomCreatePayload(room_id=room_id or "", host=self.username or "anonymous")
+        res = self._http_post(url, req_dto)
+        return RoomCreatedPayload(**res)
+
+    def api_join_room(self, room_id: str) -> RoomJoinPayload:
+        """Calls POST /rooms/join endpoint on API Gateway returning RoomJoinPayload DTO."""
+        url = f"{self.api_url}/rooms/join"
+        req_dto = RoomJoinPayload(room_id=room_id, username=self.username or "anonymous")
+        res = self._http_post(url, req_dto)
+        return RoomJoinPayload(**res)
+
+    def api_leave_room(self, room_id: str = "") -> RoomLeavePayload:
+        """Calls POST /rooms/leave endpoint on API Gateway returning RoomLeavePayload DTO."""
+        url = f"{self.api_url}/rooms/leave"
+        req_dto = RoomLeavePayload(room_id=room_id, username=self.username or "anonymous")
+        res = self._http_post(url, req_dto)
+        return RoomLeavePayload(**res)
 
     def api_get_history(self) -> Dict[str, Any]:
         """Calls GET /history endpoint on API Gateway."""
@@ -255,7 +277,6 @@ class DistributedGameClient(BaseGameClient):
             except websockets.exceptions.ConnectionClosed:
                 pass
 
-    # Real-Time Actions
     def authenticate(self, username: str, password_or_token: str) -> None:
         """Authenticates user via REST API /auth/login (auto-registering if non-existent) to obtain token, then sends AuthMessage over WS."""
         self.error_message = None
@@ -277,14 +298,17 @@ class DistributedGameClient(BaseGameClient):
         """Leaves matchmaking by calling API Gateway REST endpoint POST /matchmaking/leave."""
         return self.api_leave_matchmaking()
 
-    def create_room(self, room_id: Optional[str] = None) -> None:
-        self._send_json(CreateRoomMessage(room_id=room_id))
+    def create_room(self, room_id: Optional[str] = None) -> RoomCreatedPayload:
+        """Creates a room by calling API Gateway REST endpoint POST /rooms/create."""
+        return self.api_create_room(room_id=room_id)
 
-    def join_room(self, room_id: str) -> None:
-        self._send_json(JoinRoomMessage(room_id=room_id))
+    def join_room(self, room_id: str) -> RoomJoinPayload:
+        """Joins a room by calling API Gateway REST endpoint POST /rooms/join."""
+        return self.api_join_room(room_id=room_id)
 
-    def leave_room(self) -> None:
-        self._send_json(LeaveRoomMessage())
+    def leave_room(self, room_id: str = "") -> RoomLeavePayload:
+        """Leaves room by calling API Gateway REST endpoint POST /rooms/leave."""
+        return self.api_leave_room(room_id=room_id)
 
     def send_move(self, from_cell: Cell, to_cell: Cell) -> None:
         self._send_json(MoveMessage(from_cell=from_cell, to_cell=to_cell))

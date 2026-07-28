@@ -21,7 +21,6 @@ nats_bus = NatsBus(url=NATS_URL)
 matchmaking_queue: List[ConnectedPlayer] = []
 player_registry: Dict[str, ConnectedPlayer] = {}
 
-
 async def _on_pair_matched(p1: ConnectedPlayer, p2: ConnectedPlayer) -> None:
     match_id = f"match_{uuid.uuid4().hex[:8]}"
     room_id = f"room_{uuid.uuid4().hex[:8]}"
