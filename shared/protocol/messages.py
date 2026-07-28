@@ -20,6 +20,7 @@ class BaseMessage:
 class AuthMessage(BaseMessage):
     username: str = ""
     password: str = ""
+    token: Optional[str] = None
     type: MessageType = MessageType.AUTH
 
 

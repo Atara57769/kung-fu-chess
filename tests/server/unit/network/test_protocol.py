@@ -66,7 +66,7 @@ def test_message_dataclasses():
     auth = AuthMessage(username="alice", password="pwd")
     assert auth.type == MessageType.AUTH
     auth_data = asdict(auth)
-    assert auth_data == {"type": "auth", "username": "alice", "password": "pwd"}
+    assert auth_data == {"type": "auth", "username": "alice", "password": "pwd", "token": None}
 
     serialized_auth = serialize_message(auth)
     deserialized_auth = deserialize_message(serialized_auth)
