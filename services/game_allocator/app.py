@@ -8,7 +8,7 @@ import redis.asyncio as aioredis
 from shared.message_contracts.subjects import (
     MATCHMAKING_MATCH_FOUND, GAME_ALLOCATE, GAME_ASSIGNED
 )
-from shared.message_contracts.contracts import GameAssignedPayload
+from shared.message_contracts.contracts import GameAssignedPayload, GameAllocatePayload
 from shared.message_contracts.nats_client import NatsBus
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] Game Allocator: %(message)s")
@@ -38,10 +38,10 @@ def select_next_game_server() -> str:
     return target
 
 
-async def handle_match_found_or_allocate(data: Dict[str, Any], reply_to: Optional[str]) -> Optional[GameAssignedPayload]:
-    room_id = data.get("room_id")
-    player1 = data.get("player1")
-    player2 = data.get("player2")
+async def handle_match_found_or_allocate(data: GameAllocatePayload, reply_to: Optional[str]) -> Optional[GameAssignedPayload]:
+    room_id = data.room_id
+    player1 = data.player1
+    player2 = data.player2
 
     if not room_id or not player1 or not player2:
         logger.warning("Received invalid allocation payload: %s", data)
@@ -67,8 +67,8 @@ async def handle_match_found_or_allocate(data: Dict[str, Any], reply_to: Optiona
 async def main():
     await nats_bus.connect()
     logger.info("Game Allocator active. Managing servers: %s", GAME_SERVERS)
-    await nats_bus.subscribe(MATCHMAKING_MATCH_FOUND, handle_match_found_or_allocate)
-    await nats_bus.subscribe(GAME_ALLOCATE, handle_match_found_or_allocate)
+    await nats_bus.subscribe(MATCHMAKING_MATCH_FOUND, handle_match_found_or_allocate, dto_class=GameAllocatePayload)
+    await nats_bus.subscribe(GAME_ALLOCATE, handle_match_found_or_allocate, dto_class=GameAllocatePayload)
 
     await asyncio.Event().wait()
 

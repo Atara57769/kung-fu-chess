@@ -20,7 +20,8 @@ from shared.message_contracts.subjects import (
     PLAYER_CONNECTED, PLAYER_DISCONNECTED, ROOM_CREATED, ROOM_JOINED, ROOM_UPDATED
 )
 from shared.message_contracts.contracts import (
-    AuthLoginPayload, GameCommandPayload, PlayerConnectedPayload, PlayerDisconnectedPayload
+    AuthLoginPayload, GameCommandPayload, PlayerConnectedPayload, PlayerDisconnectedPayload,
+    GameStatePayload, RoomCreatedPayload
 )
 from shared.message_contracts.nats_client import NatsBus
 from server.database.sqlite_db_manager import SQLiteDBManager
@@ -45,10 +46,10 @@ active_sockets: Dict[Any, Dict[str, Any]] = {}
 room_subscriptions: Dict[str, Set[Any]] = {}
 
 
-async def handle_nats_game_state(msg_data: Dict[str, Any], reply_to: Optional[str]) -> None:
-    room_id = msg_data.get("room_id")
-    target_username = msg_data.get("target_username")
-    payload = msg_data.get("state") or msg_data.get("payload")
+async def handle_nats_game_state(data: GameStatePayload, reply_to: Optional[str]) -> None:
+    room_id = getattr(data, "room_id", None)
+    target_username = getattr(data, "target_username", None)
+    payload = getattr(data, "state", None)
 
     if not payload:
         return
@@ -71,10 +72,12 @@ async def handle_nats_game_state(msg_data: Dict[str, Any], reply_to: Optional[st
                     await ws.send(serialized)
                 except Exception:
                     pass
-async def handle_nats_room_event(msg_data: Dict[str, Any], reply_to: Optional[str]) -> None:
-    room_id = msg_data.get("room_id")
-    host = msg_data.get("host")
-    username = msg_data.get("username")
+
+
+async def handle_nats_room_event(data: RoomCreatedPayload, reply_to: Optional[str]) -> None:
+    room_id = getattr(data, "room_id", None)
+    host = getattr(data, "host", None)
+    username = getattr(data, "username", None)
 
     if not room_id:
         return
@@ -240,12 +243,12 @@ async def main() -> None:
 
     await nats_bus.connect()
     logger.info("WS Gateway subscribing to NATS game state subjects...")
-    await nats_bus.subscribe(GAME_STATE, handle_nats_game_state)
-    await nats_bus.subscribe(GAME_FINISHED, handle_nats_game_state)
-    await nats_bus.subscribe(GAME_EVENTS, handle_nats_game_state)
-    await nats_bus.subscribe(ROOM_CREATED, handle_nats_room_event)
-    await nats_bus.subscribe(ROOM_JOINED, handle_nats_room_event)
-    await nats_bus.subscribe(ROOM_UPDATED, handle_nats_room_event)
+    await nats_bus.subscribe(GAME_STATE, handle_nats_game_state, dto_class=GameStatePayload)
+    await nats_bus.subscribe(GAME_FINISHED, handle_nats_game_state, dto_class=GameStatePayload)
+    await nats_bus.subscribe(GAME_EVENTS, handle_nats_game_state, dto_class=GameStatePayload)
+    await nats_bus.subscribe(ROOM_CREATED, handle_nats_room_event, dto_class=RoomCreatedPayload)
+    await nats_bus.subscribe(ROOM_JOINED, handle_nats_room_event, dto_class=RoomCreatedPayload)
+    await nats_bus.subscribe(ROOM_UPDATED, handle_nats_room_event, dto_class=RoomCreatedPayload)
 
     logger.info("Starting WebSocket Gateway on ws://0.0.0.0:%d...", PORT)
     async with websockets.serve(handle_connection, "0.0.0.0", PORT):

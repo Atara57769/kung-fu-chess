@@ -7,7 +7,9 @@ from typing import Dict, Any, Optional
 import redis.asyncio as aioredis
 from shared.constants import ResponseStatus, ROOM_STATUS_ACTIVE
 from shared.message_contracts.subjects import (ROOM_CREATE, ROOM_CREATED, ROOM_JOIN, ROOM_JOINED, ROOM_LEAVE, ROOM_UPDATED, GAME_ALLOCATE)
-from shared.message_contracts.contracts import (RoomCreatedPayload, RoomJoinPayload, RoomLeavePayload, GameAllocatePayload)
+from shared.message_contracts.contracts import (
+    RoomCreatePayload, RoomCreatedPayload, RoomJoinPayload, RoomLeavePayload, GameAllocatePayload
+)
 from shared.message_contracts.nats_client import NatsBus
 from server.network.models import GameRoom, ConnectedPlayer
 from server.services.room_service import RoomService, RoomJoinEvent
@@ -33,9 +35,10 @@ async def get_redis() -> aioredis.Redis:
     return redis_client
 
 
-async def handle_room_create(data: Dict[str, Any], reply_to: Optional[str]) -> Optional[RoomCreatedPayload]:
-    room_id = data.get("room_id")
-    host_name = data.get("host") or data.get("username") or "anonymous"
+async def handle_room_create(data: RoomCreatePayload, reply_to: Optional[str]) -> Optional[RoomCreatedPayload]:
+    room_id = data.room_id
+    host_name = data.host or data.username or "anonymous"
+    shard_id = data.shard_id or "unassigned"
 
     host_player = ConnectedPlayer(ws=None, ip_address="remote")
     host_player.username = host_name
@@ -52,7 +55,7 @@ async def handle_room_create(data: Dict[str, Any], reply_to: Optional[str]) -> O
         "created_at": time.time(),
         "status": ResponseStatus.CREATED.value
     }
-    await redis.hset("room_routes", created_room_id, data.get("shard_id", "unassigned"))
+    await redis.hset("room_routes", created_room_id, shard_id)
     await redis.set(f"room_meta:{created_room_id}", json.dumps(room_meta))
 
     logger.info("Room '%s' created by '%s' via RoomService", created_room_id, host_name)
@@ -66,9 +69,9 @@ async def handle_room_create(data: Dict[str, Any], reply_to: Optional[str]) -> O
     return created_dto
 
 
-async def handle_room_join(data: Dict[str, Any], reply_to: Optional[str]) -> Optional[RoomJoinPayload]:
-    room_id = data.get("room_id")
-    username = data.get("username")
+async def handle_room_join(data: RoomJoinPayload, reply_to: Optional[str]) -> Optional[RoomJoinPayload]:
+    room_id = data.room_id
+    username = data.username
 
     if not room_id or not username:
         return None
@@ -116,9 +119,9 @@ async def handle_room_join(data: Dict[str, Any], reply_to: Optional[str]) -> Opt
     return join_dto
 
 
-async def handle_room_leave(data: Dict[str, Any], reply_to: Optional[str]) -> Optional[RoomLeavePayload]:
-    room_id = data.get("room_id")
-    username = data.get("username")
+async def handle_room_leave(data: RoomLeavePayload, reply_to: Optional[str]) -> Optional[RoomLeavePayload]:
+    room_id = data.room_id
+    username = data.username
 
     if not room_id or not username:
         return None
@@ -148,9 +151,9 @@ async def handle_room_leave(data: Dict[str, Any], reply_to: Optional[str]) -> Op
 async def main():
     await nats_bus.connect()
     logger.info("Rooms Service initialized. Subscribing to room subjects...")
-    await nats_bus.subscribe(ROOM_CREATE, handle_room_create)
-    await nats_bus.subscribe(ROOM_JOIN, handle_room_join)
-    await nats_bus.subscribe(ROOM_LEAVE, handle_room_leave)
+    await nats_bus.subscribe(ROOM_CREATE, handle_room_create, dto_class=RoomCreatePayload)
+    await nats_bus.subscribe(ROOM_JOIN, handle_room_join, dto_class=RoomJoinPayload)
+    await nats_bus.subscribe(ROOM_LEAVE, handle_room_leave, dto_class=RoomLeavePayload)
 
     await asyncio.Event().wait()
 

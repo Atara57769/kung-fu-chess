@@ -3,9 +3,22 @@ Data Transfer Objects (DTOs) and Message Contracts for NATS Event Bus and API Re
 """
 
 import json
-from dataclasses import dataclass, asdict
-from typing import Dict, Any, Optional, List
+from dataclasses import dataclass, asdict, fields, is_dataclass
+from typing import Dict, Any, Optional, List, Type, TypeVar
 from shared.constants import DEFAULT_RATING
+
+T = TypeVar("T")
+
+
+def dict_to_dataclass(cls: Type[T], data: Any) -> Any:
+    """Converts a dictionary to an instance of dataclass cls if data is a dict."""
+    if isinstance(data, cls):
+        return data
+    if is_dataclass(cls) and isinstance(data, dict):
+        field_names = {f.name for f in fields(cls)}
+        filtered = {k: v for k, v in data.items() if k in field_names}
+        return cls(**filtered)
+    return data
 
 
 @dataclass
@@ -93,7 +106,9 @@ class MatchFoundPayload:
 @dataclass
 class RoomCreatePayload:
     room_id: str
-    host: str
+    host: str = "anonymous"
+    username: Optional[str] = None
+    shard_id: Optional[str] = "unassigned"
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

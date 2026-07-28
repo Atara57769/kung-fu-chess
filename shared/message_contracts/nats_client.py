@@ -7,10 +7,11 @@ import logging
 import os
 import asyncio
 from dataclasses import is_dataclass, asdict
-from typing import Dict, Any, Callable, Awaitable, Optional, Union
+from typing import Dict, Any, Callable, Awaitable, Optional, Union, Type
 import nats
 from nats.aio.client import Client as NATSClient
 from nats.aio.msg import Msg
+from shared.message_contracts.contracts import dict_to_dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -72,14 +73,15 @@ class NatsBus:
         msg: Msg = await self.nc.request(subject, payload, timeout=timeout)
         return json.loads(msg.data.decode("utf-8"))
 
-    async def subscribe(self, subject: str, cb: Callable[[Dict[str, Any], Optional[str]], Awaitable[Optional[Any]]]) -> Any:
-        """Subscribes to NATS subject and invokes handler for received messages."""
+    async def subscribe(self, subject: str, cb: Callable[[Any, Optional[str]], Awaitable[Optional[Any]]], dto_class: Optional[Type] = None) -> Any:
+        """Subscribes to NATS subject and invokes handler for received messages, converting payloads to DTO dataclasses when requested."""
         if self.nc is None or not self.nc.is_connected:
             await self.connect()
 
         async def msg_handler(msg: Msg) -> None:
             try:
-                data = json.loads(msg.data.decode("utf-8"))
+                raw_data = json.loads(msg.data.decode("utf-8"))
+                data = dict_to_dataclass(dto_class, raw_data) if dto_class else raw_data
                 reply_to = msg.reply if msg.reply else None
                 response = await cb(data, reply_to)
                 if reply_to and response is not None:

@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional
 
 from shared.constants import DEFAULT_RATING, ResponseStatus
 from shared.message_contracts.subjects import MATCHMAKING_REQUEST, MATCHMAKING_MATCH_FOUND
-from shared.message_contracts.contracts import MatchFoundPayload, MatchmakingResponsePayload
+from shared.message_contracts.contracts import MatchFoundPayload, MatchmakingResponsePayload, MatchmakingRequestPayload
 from shared.message_contracts.nats_client import NatsBus
 from server.network.models import ConnectedPlayer
 from server.services.matchmaking_service import add_to_matchmaking, remove_from_matchmaking
@@ -40,10 +40,10 @@ async def _noop_send(ws: Any, msg: Any) -> None:
     pass
 
 
-async def handle_matchmaking_request(data: Dict[str, Any], reply_to: Optional[str]) -> Optional[MatchmakingResponsePayload]:
-    action = data.get("action", "join")
-    username = data.get("username")
-    rating = data.get("rating", DEFAULT_RATING)
+async def handle_matchmaking_request(data: MatchmakingRequestPayload, reply_to: Optional[str]) -> Optional[MatchmakingResponsePayload]:
+    action = data.action or "join"
+    username = data.username
+    rating = data.rating if data.rating is not None else DEFAULT_RATING
 
     if not username:
         return MatchmakingResponsePayload(status=ResponseStatus.FAILED.value, username="unknown")
@@ -72,7 +72,7 @@ async def handle_matchmaking_request(data: Dict[str, Any], reply_to: Optional[st
 async def main():
     await nats_bus.connect()
     logger.info("Matchmaking Service started. Subscribing to '%s'...", MATCHMAKING_REQUEST)
-    await nats_bus.subscribe(MATCHMAKING_REQUEST, handle_matchmaking_request)
+    await nats_bus.subscribe(MATCHMAKING_REQUEST, handle_matchmaking_request, dto_class=MatchmakingRequestPayload)
 
     await asyncio.Event().wait()
 

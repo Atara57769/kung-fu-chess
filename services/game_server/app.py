@@ -16,7 +16,7 @@ from shared.message_contracts.subjects import (
     GAME_ASSIGNED, GAME_COMMAND, GAME_STATE, GAME_FINISHED, GAME_EVENTS
 )
 from shared.message_contracts.contracts import (
-    GameStatePayload, GameAssignedPayload, GameFinishedPayload
+    GameStatePayload, GameAssignedPayload, GameFinishedPayload, GameCommandPayload
 )
 from shared.message_contracts.nats_client import NatsBus
 from server.network.models import GameRoom, ConnectedPlayer
@@ -63,14 +63,14 @@ class NatsGameCoordinator(GameCoordinator):
 coordinator = NatsGameCoordinator(db=db_manager)
 
 
-async def handle_game_assigned(data: Dict[str, Any], reply_to: Optional[str]) -> Optional[Dict[str, Any]]:
-    target_server = data.get("game_server_id")
+async def handle_game_assigned(data: GameAssignedPayload, reply_to: Optional[str]) -> Optional[Dict[str, Any]]:
+    target_server = data.game_server_id
     if target_server and target_server != SERVER_ID:
         return None
 
-    room_id = data.get("room_id")
-    player1 = data.get("player1")
-    player2 = data.get("player2")
+    room_id = data.room_id
+    player1 = data.player1
+    player2 = data.player2
 
     if not room_id or not player1 or not player2:
         return None
@@ -94,11 +94,9 @@ async def handle_game_assigned(data: Dict[str, Any], reply_to: Optional[str]) ->
     room.black_player = p2_obj
     coordinator.rooms[room_id] = room
 
-    # Start authoritative game engine loop for this session
     await coordinator.game_session.start_game(room)
     logger.info("Game engine loop active for room '%s'", room_id)
 
-    # Broadcast initial ACTIVE room state to both players so client UIs switch to OnlineGameScreen
     p1_state_msg = RoomStateMessage(
         room_id=room_id,
         status=ROOM_STATUS_ACTIVE,
@@ -114,25 +112,17 @@ async def handle_game_assigned(data: Dict[str, Any], reply_to: Optional[str]) ->
         your_color=Color.BLACK.value
     )
 
-    await nats_bus.publish(GAME_STATE, GameStatePayload(
-        room_id=room_id,
-        state=json.loads(serialize_message(p1_state_msg)),
-        target_username=player1
-    ))
-    await nats_bus.publish(GAME_STATE, GameStatePayload(
-        room_id=room_id,
-        state=json.loads(serialize_message(p2_state_msg)),
-        target_username=player2
-    ))
+    await coordinator.send(p1_obj, p1_state_msg)
+    await coordinator.send(p2_obj, p2_state_msg)
 
     return {"status": ResponseStatus.STARTED.value, "room_id": room_id, "server_id": SERVER_ID}
 
 
-async def handle_game_command(data: Dict[str, Any], reply_to: Optional[str]) -> Optional[Dict[str, Any]]:
-    room_id = data.get("room_id")
-    username = data.get("username")
-    cmd_data = data.get("data", {})
-    msg_type = cmd_data.get("type")
+async def handle_game_command(data: GameCommandPayload, reply_to: Optional[str]) -> Optional[Dict[str, Any]]:
+    room_id = data.room_id
+    username = data.username
+    cmd_data = data.data or {}
+    msg_type = cmd_data.get("type") if isinstance(cmd_data, dict) else None
 
     if not room_id or room_id not in coordinator.rooms:
         if msg_type == MessageType.CREATE_ROOM and room_id:
@@ -171,8 +161,8 @@ async def handle_game_command(data: Dict[str, Any], reply_to: Optional[str]) -> 
 async def main():
     await nats_bus.connect()
     logger.info("Game Server '%s' online. Subscribing to NATS topics...", SERVER_ID)
-    await nats_bus.subscribe(GAME_ASSIGNED, handle_game_assigned)
-    await nats_bus.subscribe(GAME_COMMAND, handle_game_command)
+    await nats_bus.subscribe(GAME_ASSIGNED, handle_game_assigned, dto_class=GameAssignedPayload)
+    await nats_bus.subscribe(GAME_COMMAND, handle_game_command, dto_class=GameCommandPayload)
 
     await asyncio.Event().wait()
 
