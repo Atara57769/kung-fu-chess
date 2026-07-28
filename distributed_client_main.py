@@ -71,23 +71,44 @@ def main() -> None:
             piece_size=(cell_size, cell_size),
             board_size=(8 * cell_size, 8 * cell_size)
         )
+        logger.info("Loading graphic sprites...")
         asset_loader.load_all()
 
-        animation_mgr = AnimationManager()
-
-        board_px = 8 * cell_size
-        win_w = LEFT_PADDING + board_px + RIGHT_PADDING
-        win_h = board_px
-        window = Window("Kung-Fu Chess (Distributed)", win_w, win_h)
-
+        score_tracker = ScoreTracker(client.pubsub)
         history_tracker = UIHistoryTracker()
-        score_tracker = ScoreTracker()
-        renderer = GameRenderer(geometry, asset_loader, animation_mgr, history_tracker, score_tracker)
 
-        screen_mgr = ScreenManager(renderer)
-        coordinator = OnlineCoordinator(client, screen_mgr)
-        runner = OnlineUIRunner(window, coordinator, time_step_ms=TIME_STEP_MS)
-        runner.run()
+        animation_manager = AnimationManager(geometry, asset_loader)
+        window = Window(title=f"Kung-Fu Chess (Distributed): {client.username}")
+
+        renderer = GameRenderer(
+            asset_loader,
+            geometry,
+            history_tracker=history_tracker,
+            left_padding=LEFT_PADDING,
+            right_padding=RIGHT_PADDING,
+            score_tracker=score_tracker
+        )
+
+        screen_manager = ScreenManager()
+
+        coordinator = OnlineCoordinator(
+            client=client,
+            screen_manager=screen_manager,
+            geometry=geometry,
+            renderer=renderer,
+            animation_manager=animation_manager
+        )
+        coordinator.setup_screens()
+
+        runner = OnlineUIRunner(
+            client=client,
+            screen_manager=screen_manager,
+            window=window,
+            coordinator=coordinator,
+            time_step_ms=TIME_STEP_MS
+        )
+
+        runner.start_loop()
 
     except KeyboardInterrupt:
         logger.info("Client terminated by user.")
