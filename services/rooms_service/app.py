@@ -5,14 +5,9 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional
 import redis.asyncio as aioredis
-
 from shared.constants import ResponseStatus
-from shared.message_contracts.subjects import (
-    ROOM_CREATE, ROOM_CREATED, ROOM_JOIN, ROOM_JOINED, ROOM_LEAVE, ROOM_UPDATED
-)
-from shared.message_contracts.contracts import (
-    RoomCreatedPayload, RoomJoinPayload, RoomLeavePayload
-)
+from shared.message_contracts.subjects import (ROOM_CREATE, ROOM_CREATED, ROOM_JOIN, ROOM_JOINED, ROOM_LEAVE, ROOM_UPDATED, GAME_ALLOCATE)
+from shared.message_contracts.contracts import (RoomCreatedPayload, RoomJoinPayload, RoomLeavePayload, GameAllocatePayload)
 from shared.message_contracts.nats_client import NatsBus
 from server.network.models import GameRoom, ConnectedPlayer
 from server.services.room_service import RoomService, RoomJoinEvent
@@ -42,7 +37,7 @@ async def handle_room_create(data: Dict[str, Any], reply_to: Optional[str]) -> O
     room_id = data.get("room_id")
     host_name = data.get("host") or data.get("username") or "anonymous"
 
-    host_player = ConnectedPlayer(ws=None, ip="remote")
+    host_player = ConnectedPlayer(ws=None, ip_address="remote")
     host_player.username = host_name
     host_player.authenticated = True
 
@@ -78,7 +73,7 @@ async def handle_room_join(data: Dict[str, Any], reply_to: Optional[str]) -> Opt
     if not room_id or not username:
         return None
 
-    player = ConnectedPlayer(ws=None, ip="remote")
+    player = ConnectedPlayer(ws=None, ip_address="remote")
     player.username = username
     player.authenticated = True
 
@@ -103,6 +98,17 @@ async def handle_room_join(data: Dict[str, Any], reply_to: Optional[str]) -> Opt
     join_dto = RoomJoinPayload(room_id=room_id, username=username)
     await nats_bus.publish(ROOM_JOINED, join_dto)
     await nats_bus.publish(ROOM_UPDATED, join_dto)
+
+    if event == RoomJoinEvent.GAME_CAN_START and room and room.white_player and room.black_player:
+        allocate_dto = GameAllocatePayload(
+            room_id=room_id,
+            player1=room.white_player.username,
+            player2=room.black_player.username
+        )
+        logger.info("Room '%s' has 2 players. Publishing GAME_ALLOCATE for %s vs %s",
+                    room_id, room.white_player.username, room.black_player.username)
+        await nats_bus.publish(GAME_ALLOCATE, allocate_dto)
+
     return join_dto
 
 
@@ -113,7 +119,7 @@ async def handle_room_leave(data: Dict[str, Any], reply_to: Optional[str]) -> Op
     if not room_id or not username:
         return None
 
-    player = ConnectedPlayer(ws=None, ip="remote")
+    player = ConnectedPlayer(ws=None, ip_address="remote")
     player.username = username
     player.room_id = room_id
 

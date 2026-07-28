@@ -105,3 +105,29 @@ def test_nats_contracts_serialization():
 
     res_payload = AuthResultPayload(success=True, username="alice", token="token-123", rating=1350)
     assert res_payload.to_dict()["rating"] == 1350
+
+
+def test_handle_room_join_triggers_game_allocate():
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+    from services.rooms_service.app import handle_room_create, handle_room_join, nats_bus, rooms_domain
+
+    async def run_test():
+        rooms_domain.clear()
+        mock_redis = AsyncMock()
+        mock_redis.get.return_value = None
+        with patch("services.rooms_service.app.get_redis", return_value=mock_redis), \
+             patch.object(nats_bus, "publish", new_callable=AsyncMock) as mock_publish:
+
+            # 1. Host creates room
+            await handle_room_create({"room_id": "room_test1", "username": "alice"}, reply_to=None)
+
+            # 2. Second player joins room
+            await handle_room_join({"room_id": "room_test1", "username": "bob"}, reply_to=None)
+
+            # Verify GAME_ALLOCATE was published with alice vs bob
+            published_subjects = [call.args[0] for call in mock_publish.call_args_list]
+            assert "game.allocate" in published_subjects
+
+    asyncio.run(run_test())
+
