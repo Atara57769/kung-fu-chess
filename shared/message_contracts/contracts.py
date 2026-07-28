@@ -117,8 +117,9 @@ class RoomCreatePayload:
 @dataclass
 class RoomCreatedPayload:
     room_id: str
-    host: str
-    created_at: float
+    host: Optional[str] = None
+    username: Optional[str] = None
+    created_at: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
