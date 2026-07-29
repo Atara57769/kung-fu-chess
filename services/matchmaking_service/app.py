@@ -108,7 +108,7 @@ async def _on_pair_matched(username1: str, rating1: int, username2: str, rating2
         logger.warning("Failed to save player->match in Redis: %s", e)
 
 
-#
+
 async def _run_match_loop(username: str, rating: int) -> None:
     """Polls Redis every MATCH_POLL_INTERVAL seconds looking for an ELO opponent.
     Gives up after MATCH_TIMEOUT_SECONDS and notifies the client.
@@ -170,11 +170,6 @@ async def handle_matchmaking_request(data: MatchmakingRequestPayload, reply_to: 
         return MatchmakingResponsePayload(status=ResponseStatus.REMOVED.value, username=username)
 
     return MatchmakingResponsePayload(status=ResponseStatus.FAILED.value, username=username)
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 
 async def main():
     await nats_bus.connect()
