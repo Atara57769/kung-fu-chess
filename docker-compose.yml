@@ -149,3 +149,30 @@ services:
       - postgres
     restart: unless-stopped
 
+  observability_service:
+    build:
+      context: .
+      dockerfile: services/observability_service/Dockerfile
+    container_name: kungfu_observability_service
+    ports:
+      - "8002:8002"
+    environment:
+      - NATS_URL=nats://nats:4222
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=kung_fu_chess
+      - API_GATEWAY_URL=http://api_gateway:8000
+      - WS_GATEWAY_URL=http://websocket_gateway:8001
+      - PORT=8002
+    depends_on:
+      - nats
+      - redis
+      - postgres
+      - api_gateway
+      - websocket_gateway
+    restart: unless-stopped
+
+

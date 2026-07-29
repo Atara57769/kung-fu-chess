@@ -73,12 +73,15 @@ def test_microservice_entry_points():
     import services.matchmaking_service.main as match_main
     import services.game_allocator.main as alloc_main
     import services.game_server.main as game_main
+    import services.observability_service.main as obs_main
 
     assert callable(getattr(api_main, "main", None))
     assert callable(getattr(ws_main, "run_ws_gateway", None)) or hasattr(ws_main, "__name__")
     assert callable(getattr(match_main, "run_matchmaking_service", None)) or hasattr(match_main, "__name__")
     assert callable(getattr(alloc_main, "run_game_allocator", None)) or hasattr(alloc_main, "__name__")
     assert callable(getattr(game_main, "run_game_server", None)) or hasattr(game_main, "__name__")
+    assert callable(getattr(obs_main, "main", None))
+
 
 
 def test_nats_subject_constants():
