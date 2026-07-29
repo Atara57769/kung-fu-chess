@@ -26,7 +26,8 @@ class GameCoordinator:
         self.rooms: Dict[str, GameRoom] = {}
         self.matchmaking_queue: List[ConnectedPlayer] = []
         self.send = None
-        self.game_session = GameSessionService(self.db)
+        self.on_room_cleanup = None
+        self.game_session = GameSessionService(self.db, on_room_finished=self.cleanup_room)
         self.room_service = RoomService()
         self.message_handlers = {
             MessageType.MATCHMAKING: self._handle_matchmaking,
@@ -39,6 +40,23 @@ class GameCoordinator:
             MessageType.GET_SNAPSHOT: self._handle_get_snapshot,
             MessageType.HEARTBEAT: self._handle_heartbeat,
         }
+
+    async def cleanup_room(self, room_id: str) -> None:
+        """Stops running tasks, removes room from self.rooms, and releases references for GC."""
+        room = self.rooms.pop(room_id, None)
+        if not room:
+            return
+        if room.tick_task:
+            room.tick_task.cancel()
+            room.tick_task = None
+        if room.countdown_task:
+            room.countdown_task.cancel()
+            room.countdown_task = None
+        room.white_player = None
+        room.black_player = None
+        room.spectators.clear()
+        if self.on_room_cleanup:
+            await self.on_room_cleanup(room_id)
 
     def set_send(self, send) -> None:
         self.send = send

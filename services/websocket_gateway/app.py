@@ -31,6 +31,20 @@ NATS_URL = os.getenv("NATS_URL", "nats://localhost:4222")
 nats_bus = NatsBus(url=NATS_URL)
 
 
+import redis.asyncio as aioredis
+
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+redis_client: Optional[aioredis.Redis] = None
+
+
+async def get_redis() -> aioredis.Redis:
+    global redis_client
+    if redis_client is None:
+        redis_client = aioredis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+    return redis_client
+
+
 @dataclass
 class GatewaySession:
     authenticated: bool = False
@@ -155,17 +169,26 @@ async def handle_client_message(ws: Any, raw_msg: str) -> None:
         room_id = f"room_{os.urandom(4).hex()}"
         data["room_id"] = room_id
 
+    target_server = None
     if room_id:
         info.room_id = room_id
         room_subscriptions.setdefault(room_id, set()).add(ws)
+        try:
+            redis = await get_redis()
+            target_server = await redis.hget("room_routes", room_id)
+        except Exception as e:
+            logger.warning("Failed to query room_routes from Redis: %s", e)
 
     cmd_dto = GameCommandPayload(
         room_id=room_id,
         username=username,
         gateway_id=GATEWAY_ID,
-        data=data
+        data=data,
+        target_server=target_server
     )
     await nats_bus.publish(GAME_COMMAND, cmd_dto)
+    if target_server:
+        await nats_bus.publish(f"game.command.{target_server}", cmd_dto)
 
 
 async def handle_connection(ws: Any, path: str = None) -> None:

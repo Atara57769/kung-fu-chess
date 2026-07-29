@@ -196,6 +196,7 @@ class GameCommandPayload:
     username: str
     gateway_id: str
     data: Dict[str, Any]
+    target_server: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

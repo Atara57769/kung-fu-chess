@@ -18,9 +18,10 @@ logger = logging.getLogger(__name__)
 class GameSessionService:
     """Manages authoritative game state: ticking, moves, snapshots, and end-game resolution."""
 
-    def __init__(self, db: BaseDBManager, send: Optional[Callable] = None) -> None:
+    def __init__(self, db: BaseDBManager, send: Optional[Callable] = None, on_room_finished: Optional[Callable] = None) -> None:
         self.db = db
         self.send = send
+        self.on_room_finished = on_room_finished
 
     async def start_game(self, room: GameRoom) -> None:
         """Transitions room status to active and starts the tick task."""
@@ -131,6 +132,10 @@ class GameSessionService:
             for c in clients:
                 await self.send(c.ws or c, payload)
         logger.info(f"Game resolved in Room {room.room_id}. Winner={winner_color}")
+        if self.on_room_finished:
+            res = self.on_room_finished(room.room_id)
+            if asyncio.iscoroutine(res):
+                await res
 
     @staticmethod
     def _calculate_elo(rating_w: int, rating_b: int, outcome: float) -> tuple[int, int]:

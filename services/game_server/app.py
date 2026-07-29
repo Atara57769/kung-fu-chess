@@ -3,13 +3,15 @@ import json
 import asyncio
 import logging
 from typing import Dict, Any, Optional
+import redis.asyncio as aioredis
 
-from shared.constants import ResponseStatus, ROOM_STATUS_ACTIVE
+from shared.constants import ResponseStatus, ROOM_STATUS_ACTIVE, MSG_ROOM_NOT_FOUND
 from shared.protocol import (
     MessageType,
     deserialize_message,
     serialize_message,
-    RoomStateMessage
+    RoomStateMessage,
+    ErrorMessage
 )
 from shared.models.color import Color
 from shared.message_contracts.subjects import (
@@ -23,14 +25,35 @@ from server.network.models import GameRoom, ConnectedPlayer
 from server.database.sqlite_db_manager import SQLiteDBManager
 from server.database.postgres_db_manager import PostgresDBManager
 from server.services.game_coordinator import GameCoordinator
+from server.services.room_service import RoomJoinEvent
 
 SERVER_ID = os.getenv("SERVER_ID", "game_server_1")
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+NATS_URL = os.getenv("NATS_URL", "nats://localhost:4222")
+
 logging.basicConfig(level=logging.INFO, format=f"%(asctime)s [%(levelname)s] GameServer[{SERVER_ID}]: %(message)s")
 logger = logging.getLogger(f"GameServer[{SERVER_ID}]")
 
-NATS_URL = os.getenv("NATS_URL", "nats://localhost:4222")
 db_manager = PostgresDBManager()
 nats_bus = NatsBus(url=NATS_URL)
+redis_client: Optional[aioredis.Redis] = None
+
+
+async def get_redis() -> aioredis.Redis:
+    global redis_client
+    if redis_client is None:
+        redis_client = aioredis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+    return redis_client
+
+
+async def delete_redis_route(room_id: str) -> None:
+    try:
+        redis = await get_redis()
+        await redis.hdel("room_routes", room_id)
+        logger.info("Removed route for room '%s' from Redis", room_id)
+    except Exception as e:
+        logger.warning("Failed to remove room_routes for %s in Redis: %s", room_id, e)
 
 
 class NatsGameCoordinator(GameCoordinator):
@@ -39,6 +62,7 @@ class NatsGameCoordinator(GameCoordinator):
     def __init__(self, db=db_manager):
         super().__init__(db=db)
         self.set_send(self._nats_send)
+        self.on_room_cleanup = delete_redis_route
 
     async def _nats_send(self, ws_target, message_obj: Any) -> None:
         """Publishes game state snapshots and events to NATS subject using GameStatePayload DTO."""
@@ -72,69 +96,85 @@ async def handle_game_assigned(data: GameAssignedPayload, reply_to: Optional[str
     player1 = data.player1
     player2 = data.player2
 
-    if not room_id or not player1 or not player2:
+    if not room_id or not player1:
         return None
 
-    logger.info("Initializing game session for room '%s' (%s vs %s)", room_id, player1, player2)
+    logger.info("Assigning game session for room '%s' (%s vs %s)", room_id, player1, player2)
 
-    room = GameRoom(room_id=room_id)
     p1_obj = ConnectedPlayer(ws=None, ip_address="remote")
     p1_obj.username = player1
     p1_obj.authenticated = True
-    p1_obj.color = Color.WHITE
-    p1_obj.room_id = room_id
 
-    p2_obj = ConnectedPlayer(ws=None, ip_address="remote")
-    p2_obj.username = player2
-    p2_obj.authenticated = True
-    p2_obj.color = Color.BLACK
-    p2_obj.room_id = room_id
+    p2_obj = None
+    if player2:
+        p2_obj = ConnectedPlayer(ws=None, ip_address="remote")
+        p2_obj.username = player2
+        p2_obj.authenticated = True
 
-    room.white_player = p1_obj
-    room.black_player = p2_obj
-    coordinator.rooms[room_id] = room
+    room = coordinator.rooms.get(room_id)
+    if not room:
+        room = coordinator.room_service.build_room(room_id, coordinator.rooms, white=p1_obj, black=p2_obj)
+    else:
+        room.white_player = p1_obj
+        if p2_obj:
+            room.black_player = p2_obj
 
-    await coordinator.game_session.start_game(room)
-    logger.info("Game engine loop active for room '%s'", room_id)
+    try:
+        redis = await get_redis()
+        await redis.hset("room_routes", room_id, SERVER_ID)
+    except Exception as e:
+        logger.warning("Failed to write room_routes to Redis: %s", e)
 
-    p1_state_msg = RoomStateMessage(
-        room_id=room_id,
-        status=ROOM_STATUS_ACTIVE,
-        white=player1,
-        black=player2,
-        your_color=Color.WHITE.value
-    )
-    p2_state_msg = RoomStateMessage(
-        room_id=room_id,
-        status=ROOM_STATUS_ACTIVE,
-        white=player1,
-        black=player2,
-        your_color=Color.BLACK.value
-    )
+    if player2:
+        await coordinator.game_session.start_game(room)
+        logger.info("Game engine loop active for room '%s'", room_id)
 
-    await coordinator.send(p1_obj, p1_state_msg)
-    await coordinator.send(p2_obj, p2_state_msg)
+    await coordinator.room_service.broadcast_room_state(room)
 
-    return {"status": ResponseStatus.STARTED.value, "room_id": room_id, "server_id": SERVER_ID}
+    return {"status": ResponseStatus.STARTED.value if player2 else ResponseStatus.CREATED.value, "room_id": room_id, "server_id": SERVER_ID}
 
 
 async def handle_game_command(data: GameCommandPayload, reply_to: Optional[str]) -> Optional[Dict[str, Any]]:
+    target_server = getattr(data, "target_server", None)
+    if target_server and target_server != SERVER_ID:
+        return None
+
     room_id = data.room_id
     username = data.username
     cmd_data = data.data or {}
     msg_type = cmd_data.get("type") if isinstance(cmd_data, dict) else None
+    if not msg_type and isinstance(cmd_data, str):
+        msg_type = cmd_data
 
-    if not room_id or room_id not in coordinator.rooms:
-        if msg_type == MessageType.CREATE_ROOM and room_id:
-            room = GameRoom(room_id=room_id)
-            coordinator.rooms[room_id] = room
-            logger.info("Dynamically created room '%s'", room_id)
-        else:
+    # CREATE_ROOM handling using RoomService:
+    if msg_type in (MessageType.CREATE_ROOM, MessageType.CREATE_ROOM.value, "create_room"):
+        if not room_id:
             return None
+        room = coordinator.rooms.get(room_id)
+        if not room and username:
+            p_obj = ConnectedPlayer(ws=None, ip_address="remote")
+            p_obj.username = username
+            p_obj.authenticated = True
+            await coordinator.room_service.create_room(p_obj, coordinator.rooms, room_id=room_id)
+            logger.info("Created new GameRoom '%s' via RoomService on server '%s'", room_id, SERVER_ID)
+            try:
+                redis = await get_redis()
+                await redis.hset("room_routes", room_id, SERVER_ID)
+            except Exception as e:
+                logger.warning("Failed to record room_routes in Redis: %s", e)
 
-    room = coordinator.rooms.get(room_id)
+        return {"status": ResponseStatus.CREATED.value, "room_id": room_id}
+
+    # All other commands MUST resolve room from self.rooms and error if not found
+    room = coordinator.rooms.get(room_id) if room_id else None
     if not room:
-        return None
+        logger.warning("Received room command '%s' for non-existent room '%s'", msg_type, room_id)
+        if username:
+            err_player = ConnectedPlayer(ws=None, ip_address="remote")
+            err_player.username = username
+            err_player.room_id = room_id
+            await coordinator.send(err_player, ErrorMessage(message=MSG_ROOM_NOT_FOUND))
+            return {"status": ResponseStatus.FAILED.value, "error": MSG_ROOM_NOT_FOUND}
 
     player = ConnectedPlayer(ws=None, ip_address="remote")
     player.username = username
@@ -146,12 +186,21 @@ async def handle_game_command(data: GameCommandPayload, reply_to: Optional[str])
     elif room.black_player and room.black_player.username == username:
         player.color = Color.BLACK
 
-    if msg_type in (MessageType.MOVE, MessageType.MOVE.value, "move"):
+    if msg_type in (MessageType.JOIN_ROOM, MessageType.JOIN_ROOM.value, "join_room"):
+        event, joined_room = await coordinator.room_service.join_room(player, room_id, coordinator.rooms)
+        if event == RoomJoinEvent.GAME_CAN_START:
+            await coordinator.game_session.start_game(joined_room)
+            await coordinator.room_service.broadcast_room_state(joined_room)
+        elif event in (RoomJoinEvent.RECONNECTED, RoomJoinEvent.SPECTATOR_ACTIVE):
+            await coordinator.game_session.send_snapshot(player, joined_room)
+    elif msg_type in (MessageType.MOVE, MessageType.MOVE.value, "move"):
         raw_str = json.dumps(cmd_data)
         await coordinator.game_session.process_move(player, deserialize_message(raw_str), coordinator.rooms)
     elif msg_type in (MessageType.JUMP, MessageType.JUMP.value, "jump"):
         raw_str = json.dumps(cmd_data)
         await coordinator.game_session.process_jump(player, deserialize_message(raw_str), coordinator.rooms)
+    elif msg_type in (MessageType.LEAVE_ROOM, MessageType.LEAVE_ROOM.value, "leave_room"):
+        await coordinator.room_service.leave_room(player, coordinator.rooms)
     elif msg_type in (MessageType.GET_SNAPSHOT, MessageType.GET_SNAPSHOT.value, "get_snapshot"):
         await coordinator.game_session.send_snapshot(player, room)
 
@@ -163,6 +212,7 @@ async def main():
     logger.info("Game Server '%s' online. Subscribing to NATS topics...", SERVER_ID)
     await nats_bus.subscribe(GAME_ASSIGNED, handle_game_assigned, dto_class=GameAssignedPayload)
     await nats_bus.subscribe(GAME_COMMAND, handle_game_command, dto_class=GameCommandPayload)
+    await nats_bus.subscribe(f"game.command.{SERVER_ID}", handle_game_command, dto_class=GameCommandPayload)
 
     await asyncio.Event().wait()
 

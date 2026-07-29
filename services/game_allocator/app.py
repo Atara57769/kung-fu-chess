@@ -6,9 +6,9 @@ from typing import Dict, Any, Optional
 import redis.asyncio as aioredis
 
 from shared.message_contracts.subjects import (
-    MATCHMAKING_MATCH_FOUND, GAME_ALLOCATE, GAME_ASSIGNED
+    MATCHMAKING_MATCH_FOUND, GAME_ALLOCATE, GAME_ASSIGNED, ROOM_CREATE
 )
-from shared.message_contracts.contracts import GameAssignedPayload, GameAllocatePayload
+from shared.message_contracts.contracts import GameAssignedPayload, GameAllocatePayload, RoomCreatePayload
 from shared.message_contracts.nats_client import NatsBus
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] Game Allocator: %(message)s")
@@ -64,11 +64,36 @@ async def handle_match_found_or_allocate(data: GameAllocatePayload, reply_to: Op
     return assigned_dto
 
 
+async def handle_room_create(data: RoomCreatePayload, reply_to: Optional[str]) -> Optional[GameAssignedPayload]:
+    room_id = getattr(data, "room_id", None)
+    host = getattr(data, "host", None) or getattr(data, "username", None) or "anonymous"
+
+    if not room_id:
+        logger.warning("Received invalid room create payload: %s", data)
+        return None
+
+    target_server = select_next_game_server()
+    logger.info("Allocating room '%s' (Host: %s) to Game Server '%s'", room_id, host, target_server)
+
+    redis = await get_redis()
+    await redis.hset("room_routes", room_id, target_server)
+
+    assigned_dto = GameAssignedPayload(
+        room_id=room_id,
+        game_server_id=target_server,
+        player1=host,
+        player2=""
+    )
+
+    await nats_bus.publish(GAME_ASSIGNED, assigned_dto)
+    return assigned_dto
+
+
 async def main():
     await nats_bus.connect()
     logger.info("Game Allocator active. Managing servers: %s", GAME_SERVERS)
     await nats_bus.subscribe(MATCHMAKING_MATCH_FOUND, handle_match_found_or_allocate, dto_class=GameAllocatePayload)
-    await nats_bus.subscribe(GAME_ALLOCATE, handle_match_found_or_allocate, dto_class=GameAllocatePayload)
+    await nats_bus.subscribe(ROOM_CREATE, handle_room_create, dto_class=RoomCreatePayload)
 
     await asyncio.Event().wait()
 

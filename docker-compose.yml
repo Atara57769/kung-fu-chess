@@ -83,20 +83,6 @@ services:
       - redis
     restart: unless-stopped
 
-  rooms_service:
-    build:
-      context: .
-      dockerfile: services/rooms_service/Dockerfile
-    container_name: kungfu_rooms_service
-    environment:
-      - NATS_URL=nats://nats:4222
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    depends_on:
-      - nats
-      - redis
-    restart: unless-stopped
-
   matchmaking_service:
     build:
       context: .
@@ -133,6 +119,8 @@ services:
     container_name: kungfu_game_server_1
     environment:
       - NATS_URL=nats://nats:4222
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - SERVER_ID=game_server_1
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=postgres
@@ -141,4 +129,5 @@ services:
     depends_on:
       - nats
       - postgres
+      - redis
     restart: unless-stopped
