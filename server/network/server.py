@@ -95,8 +95,13 @@ class GameServer:
 
     async def _send_json(self, ws, data: any) -> None:
         """Utility to safely send a serialized message string to a WebSocket client."""
+        if hasattr(ws, "ws"):
+            ws = ws.ws
+        if ws is None:
+            return
         try:
             await ws.send(serialize_message(data))
         except ConnectionClosed:
             pass
+
 

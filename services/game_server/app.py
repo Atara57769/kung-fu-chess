@@ -15,10 +15,11 @@ from shared.protocol import (
 )
 from shared.models.color import Color
 from shared.message_contracts.subjects import (
-    GAME_ASSIGNED, GAME_COMMAND, GAME_STATE, GAME_FINISHED, GAME_EVENTS
+    GAME_ASSIGNED, GAME_COMMAND, GAME_STATE, GAME_FINISHED, GAME_EVENTS, ROOM_JOIN, ROOM_LEAVE
 )
 from shared.message_contracts.contracts import (
-    GameStatePayload, GameAssignedPayload, GameFinishedPayload, GameCommandPayload
+    GameStatePayload, GameAssignedPayload, GameFinishedPayload, GameCommandPayload,
+    RoomJoinPayload, RoomLeavePayload
 )
 from shared.message_contracts.nats_client import NatsBus
 from server.network.models import GameRoom, ConnectedPlayer
@@ -66,22 +67,35 @@ class NatsGameCoordinator(GameCoordinator):
 
     async def _nats_send(self, ws_target, message_obj: Any) -> None:
         """Publishes game state snapshots and events to NATS subject using GameStatePayload DTO."""
-        if hasattr(message_obj, "__dict__"):
-            data = message_obj.__dict__
-        else:
-            data = message_obj
-
-        raw = serialize_message(message_obj) if not isinstance(data, str) else data
-        target_user = getattr(ws_target, "username", None) if hasattr(ws_target, "username") else None
-        room_id = getattr(ws_target, "room_id", None)
+        raw = serialize_message(message_obj) if not isinstance(message_obj, str) else message_obj
         state_content = json.loads(raw) if isinstance(raw, str) and raw.startswith("{") else raw
 
+        # ws_target is None for remote players (distributed mode).
+        # Extract target info from the player object if available, otherwise from the message itself.
+        target_user = None
+        room_id = None
+
+        if ws_target is not None:
+            target_user = getattr(ws_target, "username", None)
+            room_id = getattr(ws_target, "room_id", None)
+
+        # Fallback: extract from the message object fields directly
+        if target_user is None:
+            target_user = getattr(message_obj, "target_username", None) or state_content.get("target_username")
+        if room_id is None:
+            room_id = getattr(message_obj, "room_id", None) or state_content.get("room_id")
+
+        # For RoomStateMessage sent via broadcast_room_state, ws_target is c.ws (None),
+        # but the RoomStateMessage itself has room_id. We need the target username from
+        # the per-player msg (each client gets their own colored msg), but it's not stored
+        # in RoomStateMessage. So we broadcast to all sockets subscribed to this room instead.
         payload_dto = GameStatePayload(
             room_id=room_id,
             state=state_content,
             target_username=target_user
         )
         await nats_bus.publish(GAME_STATE, payload_dto)
+
 
 
 coordinator = NatsGameCoordinator(db=db_manager)
@@ -146,7 +160,9 @@ async def handle_game_command(data: GameCommandPayload, reply_to: Optional[str])
     if not msg_type and isinstance(cmd_data, str):
         msg_type = cmd_data
 
-    # CREATE_ROOM handling using RoomService:
+    if msg_type in (MessageType.HEARTBEAT, MessageType.HEARTBEAT.value, "heartbeat"):
+        return None
+
     if msg_type in (MessageType.CREATE_ROOM, MessageType.CREATE_ROOM.value, "create_room"):
         if not room_id:
             return None
@@ -207,14 +223,56 @@ async def handle_game_command(data: GameCommandPayload, reply_to: Optional[str])
     return None
 
 
+async def handle_room_join(data: RoomJoinPayload, reply_to: Optional[str]) -> None:
+    room_id = data.room_id
+    username = data.username
+    if not room_id or not username:
+        return
+
+    room = coordinator.rooms.get(room_id)
+    if not room:
+        return
+
+    player = ConnectedPlayer(ws=None, ip_address="remote")
+    player.username = username
+    player.authenticated = True
+    player.room_id = room_id
+
+    event, joined_room = await coordinator.room_service.join_room(player, room_id, coordinator.rooms)
+    if event == RoomJoinEvent.GAME_CAN_START:
+        await coordinator.game_session.start_game(joined_room)
+    await coordinator.room_service.broadcast_room_state(joined_room)
+
+
+async def handle_room_leave(data: RoomLeavePayload, reply_to: Optional[str]) -> None:
+    room_id = data.room_id
+    username = data.username
+    if not room_id or not username:
+        return
+
+    room = coordinator.rooms.get(room_id)
+    if not room:
+        return
+
+    player = ConnectedPlayer(ws=None, ip_address="remote")
+    player.username = username
+    player.authenticated = True
+    player.room_id = room_id
+
+    await coordinator.room_service.leave_room(player, coordinator.rooms)
+
+
 async def main():
     await nats_bus.connect()
     logger.info("Game Server '%s' online. Subscribing to NATS topics...", SERVER_ID)
     await nats_bus.subscribe(GAME_ASSIGNED, handle_game_assigned, dto_class=GameAssignedPayload)
     await nats_bus.subscribe(GAME_COMMAND, handle_game_command, dto_class=GameCommandPayload)
     await nats_bus.subscribe(f"game.command.{SERVER_ID}", handle_game_command, dto_class=GameCommandPayload)
+    await nats_bus.subscribe(ROOM_JOIN, handle_room_join, dto_class=RoomJoinPayload)
+    await nats_bus.subscribe(ROOM_LEAVE, handle_room_leave, dto_class=RoomLeavePayload)
 
     await asyncio.Event().wait()
+
 
 
 if __name__ == "__main__":

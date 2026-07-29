@@ -82,6 +82,7 @@ async def list_rooms() -> RoomListResponsePayload:
 @app.post("/rooms/create", response_model=None)
 async def create_room(req: RoomCreatePayload) -> RoomCreatedPayload:
     room_id = req.room_id or f"room_{uuid.uuid4().hex[:8]}"
+    req.room_id = room_id
     created_payload = RoomCreatedPayload(room_id=room_id, host=req.host, created_at=time.time())
     try:
         await nats_bus.publish(ROOM_CREATE, req)

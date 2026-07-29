@@ -88,6 +88,7 @@ class DistributedGameClient(BaseGameClient):
 
         self.message_handlers = {
             MessageType.AUTH_RESPONSE: self._handle_auth_response,
+            MessageType.HEARTBEAT_ACK: lambda msg: None,
             MessageType.ROOM_STATE: self._handle_room_state,
             MessageType.SNAPSHOT: self._handle_snapshot,
             MessageType.COUNTDOWN: self._handle_countdown,
@@ -95,6 +96,7 @@ class DistributedGameClient(BaseGameClient):
             MessageType.ERROR: self._handle_error,
             MessageType.MATCHMAKING_STATUS: self._handle_matchmaking_status,
         }
+
 
     def health(self) -> HealthStatusPayload:
         """Calls GET /healthz endpoint on API Gateway returning HealthStatusPayload DTO."""
@@ -173,6 +175,9 @@ class DistributedGameClient(BaseGameClient):
                 self.ws = ws
                 logger.info(f"Connected to WebSocket Gateway at {uri}")
 
+                if self.username:
+                    await self._send_json_async(AuthMessage(username=self.username, token=self.token))
+
                 ping_task = asyncio.create_task(self._ping_loop())
 
                 while self.running:
@@ -195,6 +200,7 @@ class DistributedGameClient(BaseGameClient):
                 await self._send_json_async(HeartbeatMessage())
         except asyncio.CancelledError:
             pass
+
 
     async def _handle_incoming_message(self, raw_msg: str) -> None:
         try:
@@ -249,15 +255,19 @@ class DistributedGameClient(BaseGameClient):
         self.pubsub.publish(MessageType.MATCHMAKING_STATUS, msg)
 
     def _send_json(self, data: Any) -> None:
-        if self.loop is not None and self.ws is not None:
+        if self.loop is not None:
             asyncio.run_coroutine_threadsafe(self._send_json_async(data), self.loop)
 
     async def _send_json_async(self, data: Any) -> None:
-        if self.ws is not None:
-            try:
-                await self.ws.send(serialize_message(data))
-            except websockets.exceptions.ConnectionClosed:
-                pass
+        for _ in range(50):
+            if self.ws is not None:
+                try:
+                    await self.ws.send(serialize_message(data))
+                    return
+                except websockets.exceptions.ConnectionClosed:
+                    return
+            await asyncio.sleep(0.1)
+
 
     def authenticate(self, username: str, password_or_token: str) -> None:
         """Authenticates user via REST API /auth/login (auto-registering if non-existent) to obtain token, then sends AuthMessage over WS."""

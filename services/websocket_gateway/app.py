@@ -9,7 +9,7 @@ from websockets.exceptions import ConnectionClosed
 
 from shared.constants import DEFAULT_RATING
 from shared.protocol import (
-    MessageType, serialize_message, ErrorMessage, AuthResponseMessage
+    MessageType, serialize_message, ErrorMessage, AuthResponseMessage, HeartbeatAckMessage
 )
 from shared.message_contracts.subjects import (
     AUTH_LOGIN, GAME_COMMAND, GAME_STATE, GAME_FINISHED, GAME_EVENTS,
@@ -62,27 +62,36 @@ async def handle_nats_game_state(data: GameStatePayload, reply_to: Optional[str]
     target_username = data.target_username
     payload = data.state
 
+    logger.info("NATS Game State received: room_id=%s, target_user=%s, active_sockets_count=%d", room_id, target_username, len(active_sockets))
+
     if not payload:
         return
 
     serialized = json.dumps(payload) if isinstance(payload, dict) else str(payload)
 
     if target_username:
+        sent = False
         for ws, info in list(active_sockets.items()):
+            logger.info("Checking socket user: info.username=%s, target=%s", info.username, target_username)
             if info.username == target_username:
                 if room_id and info.room_id != room_id:
                     info.room_id = room_id
                     room_subscriptions.setdefault(room_id, set()).add(ws)
                 try:
                     await ws.send(serialized)
-                except Exception:
-                    pass
+                    sent = True
+                    logger.info("Sent game state to user '%s' on WS", target_username)
+                except Exception as e:
+                    logger.warning("Error sending WS message to user '%s': %s", target_username, e)
+        if not sent:
+            logger.warning("Target user '%s' not found in active_sockets! active_users=%s", target_username, [i.username for i in active_sockets.values()])
     elif room_id and room_id in room_subscriptions:
         for ws in list(room_subscriptions[room_id]):
             try:
                 await ws.send(serialized)
             except Exception:
                 pass
+
 
 
 async def handle_nats_room_event(data: Any, reply_to: Optional[str]) -> None:
@@ -162,7 +171,12 @@ async def handle_client_message(ws: Any, raw_msg: str) -> None:
         await ws.send(serialize_message(ErrorMessage(message="Unauthorized connection.")))
         return
 
+    if msg_type in (MessageType.HEARTBEAT, MessageType.HEARTBEAT.value, "heartbeat"):
+        await ws.send(serialize_message(HeartbeatAckMessage()))
+        return
+
     username = info.username
+
     room_id = data.get("room_id") or info.room_id
 
     if msg_type in (MessageType.CREATE_ROOM, MessageType.CREATE_ROOM.value) and not room_id:

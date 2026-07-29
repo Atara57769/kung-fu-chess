@@ -146,4 +146,4 @@ class RoomService:
                 status=room.status,
                 your_color=c.color.value if c.color else None
             )
-            await self.send(c.ws, msg)
+            await self.send(c, msg)
