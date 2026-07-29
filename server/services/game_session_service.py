@@ -14,14 +14,15 @@ from shared.constants import (
 )
 
 logger = logging.getLogger(__name__)
+from server.services.server_event_bus import ServerEventBus, ServerEventType
 
 class GameSessionService:
     """Manages authoritative game state: ticking, moves, snapshots, and end-game resolution."""
 
-    def __init__(self, db: BaseDBManager, send: Optional[Callable] = None, on_room_finished: Optional[Callable] = None) -> None:
+    def __init__(self, db: BaseDBManager, on_room_finished: Optional[Callable] = None, event_bus: Optional[ServerEventBus] = None) -> None:
         self.db = db
-        self.send = send
         self.on_room_finished = on_room_finished
+        self.event_bus = event_bus
 
     async def start_game(self, room: GameRoom) -> None:
         """Transitions room status to active and starts the tick task."""
@@ -50,23 +51,14 @@ class GameSessionService:
             pass
 
     async def broadcast_snapshot(self, room: GameRoom) -> None:
-        """Broadcasts a game snapshot directly to players and spectators."""
-        if not self.send:
-            return
-        clients = []
-        if room.white_player: clients.append(room.white_player)
-        if room.black_player: clients.append(room.black_player)
-        clients.extend(room.spectators)
-        for c in clients:
-            snap = room.controller.get_snapshot(player_color=c.color)
-            await self.send(c.ws or c, SnapshotMessage(data=serialize_snapshot(snap)))
+        """Broadcasts a game snapshot via event_bus."""
+        if self.event_bus:
+            await self.event_bus.publish(ServerEventType.SNAPSHOT_UPDATED, target=room)
 
     async def send_snapshot(self, player: ConnectedPlayer, room: GameRoom) -> None:
-        """Sends current state snapshot to a specific player."""
-        if not self.send:
-            return
-        snap = room.controller.get_snapshot(player_color=player.color)
-        await self.send(player.ws or player, SnapshotMessage(data=serialize_snapshot(snap)))
+        """Sends current state snapshot to a specific player via event_bus."""
+        if self.event_bus:
+            await self.event_bus.publish(ServerEventType.SNAPSHOT_UPDATED, target=room, data={"player": player})
 
     async def process_move(self, player: ConnectedPlayer, msg: MoveMessage, rooms: Dict[str, GameRoom]) -> None:
         """Validates and executes an authorized move on the player's controller."""
@@ -124,13 +116,8 @@ class GameSessionService:
             white_rating=new_w,
             black_rating=new_b
         )
-        if self.send:
-            clients = []
-            if room.white_player: clients.append(room.white_player)
-            if room.black_player: clients.append(room.black_player)
-            clients.extend(room.spectators)
-            for c in clients:
-                await self.send(c.ws or c, payload)
+        if self.event_bus:
+            await self.event_bus.publish(ServerEventType.GAME_OVER, target=room, data=payload)
         logger.info(f"Game resolved in Room {room.room_id}. Winner={winner_color}")
         if self.on_room_finished:
             res = self.on_room_finished(room.room_id)

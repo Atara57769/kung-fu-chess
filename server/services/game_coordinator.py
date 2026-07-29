@@ -18,17 +18,23 @@ from shared.protocol import (MessageType, ErrorMessage, HeartbeatAckMessage, Bas
 logger = logging.getLogger(__name__)
 
 
+from server.services.server_event_bus import ServerEventBus, ServerEventType
+from server.services.server_event_listener import ServerEventListener
+
+
 class GameCoordinator:
     """Coordinates authentication, matchmaking, and authoritative game state routing."""
 
-    def __init__(self, db: Optional[BaseDBManager] = None) -> None:
+    def __init__(self, db: Optional[BaseDBManager] = None, event_bus: Optional[ServerEventBus] = None) -> None:
         self.db = db if db is not None else SQLiteDBManager()
         self.rooms: Dict[str, GameRoom] = {}
         self.matchmaking_queue: List[ConnectedPlayer] = []
         self.send = None
         self.on_room_cleanup = None
-        self.game_session = GameSessionService(self.db, on_room_finished=self.cleanup_room)
-        self.room_service = RoomService()
+        self.event_bus = event_bus if event_bus is not None else ServerEventBus()
+        self.listener = ServerEventListener(self.event_bus)
+        self.game_session = GameSessionService(self.db, on_room_finished=self.cleanup_room, event_bus=self.event_bus)
+        self.room_service = RoomService(event_bus=self.event_bus)
         self.message_handlers = {
             MessageType.MATCHMAKING: self._handle_matchmaking,
             MessageType.LEAVE_MATCHMAKING: self._handle_leave_matchmaking,
@@ -60,8 +66,7 @@ class GameCoordinator:
 
     def set_send(self, send) -> None:
         self.send = send
-        self.room_service.send = send
-        self.game_session.send = send
+        self.listener.set_send(send)
 
     async def dispatch_message(self, player: ConnectedPlayer, raw_msg: str) -> None:
         """Decodes raw message string and dispatches it to the correct action handler."""
@@ -74,9 +79,10 @@ class GameCoordinator:
 
 
         if msg.type == MessageType.AUTH:
-            await auth_service.handle_auth(player, msg, self.db, self.send)
+            await auth_service.handle_auth(player, msg, self.db, event_bus=self.event_bus)
         elif not player.authenticated:
-            await self.send(player.ws, ErrorMessage(message=MSG_UNAUTHORIZED))
+            if self.event_bus:
+                await self.event_bus.publish(ServerEventType.ERROR_MESSAGE, target=player, data=ErrorMessage(message=MSG_UNAUTHORIZED))
         else:
             await self._handle_authenticated_message(player, msg)
 
@@ -90,12 +96,12 @@ class GameCoordinator:
 
     async def _handle_matchmaking(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         await matchmaking_service.add_to_matchmaking(
-            player, self.matchmaking_queue, self.send, self._start_matched_game
+            player, self.matchmaking_queue, pair_callback=self._start_matched_game, event_bus=self.event_bus
         )
 
     async def _handle_leave_matchmaking(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
         await matchmaking_service.remove_from_matchmaking(
-            player, self.matchmaking_queue, self.send
+            player, self.matchmaking_queue, event_bus=self.event_bus
         )
 
     async def _handle_create_room(self, player: ConnectedPlayer, msg: BaseMessage) -> None:
@@ -179,11 +185,13 @@ class GameCoordinator:
         """Waits up to DISCONNECT_COUNTDOWN seconds; auto-resigns if player doesn't return."""
         try:
             while room.countdown_seconds > 0:
-                if opponent and self.send:
-                    await self.send(opponent.ws, CountdownMessage(
+                if opponent:
+                    countdown_msg = CountdownMessage(
                         seconds=room.countdown_seconds,
                         message=MSG_DISCONNECT_COUNTDOWN.format(room.countdown_seconds)
-                    ))
+                    )
+                    if self.event_bus:
+                        await self.event_bus.publish(ServerEventType.COUNTDOWN_TICK, target=opponent, data=countdown_msg)
                 await asyncio.sleep(1.0)
                 room.countdown_seconds -= 1
 

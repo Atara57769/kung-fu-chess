@@ -12,7 +12,6 @@ from shared.constants import (
 
 logger = logging.getLogger(__name__)
 
-
 class RoomJoinEvent(Enum):
     NOT_FOUND = "not_found"
     RECONNECTED = "reconnected"
@@ -20,14 +19,15 @@ class RoomJoinEvent(Enum):
     SPECTATOR_ACTIVE = "spectator_active"
     SPECTATOR_WAITING = "spectator_waiting"
 
+from server.services.server_event_bus import ServerEventBus, ServerEventType
 
 class RoomService:
     """Manages room membership: creating, joining, leaving, and broadcasting room state.
     Has no knowledge of game session logic — returns events for the coordinator to act on.
     """
 
-    def __init__(self, send: Optional[Callable] = None) -> None:
-        self.send = send
+    def __init__(self, event_bus: Optional[ServerEventBus] = None) -> None:
+        self.event_bus = event_bus
 
 
     def build_room(self, room_id: str, rooms: Dict[str, GameRoom],
@@ -49,8 +49,8 @@ class RoomService:
         if not room_id:
             room_id = uuid.uuid4().hex[:8]
         elif room_id in rooms:
-            if self.send:
-                await self.send(player.ws, ErrorMessage(message=MSG_ROOM_ALREADY_EXISTS))
+            if self.event_bus:
+                await self.event_bus.publish(ServerEventType.ERROR_MESSAGE, target=player, data=MSG_ROOM_ALREADY_EXISTS)
             return
 
         room = self.build_room(room_id, rooms, white=player)
@@ -62,8 +62,8 @@ class RoomService:
         """Joins a lobby. Returns (RoomJoinEvent, room) so the coordinator decides game-level actions."""
         room = rooms.get(room_id)
         if not room:
-            if self.send:
-                await self.send(player.ws, ErrorMessage(message=MSG_ROOM_NOT_FOUND))
+            if self.event_bus:
+                await self.event_bus.publish(ServerEventType.ERROR_MESSAGE, target=player, data=MSG_ROOM_NOT_FOUND)
             return RoomJoinEvent.NOT_FOUND, None
 
         player.room_id = room_id
@@ -121,29 +121,11 @@ class RoomService:
         player.room_id = None
         player.color = None
         await self.broadcast_room_state(room)
-        if self.send:
-            await self.send(player.ws, RoomStateMessage(room_id=None))
+        left_msg = RoomStateMessage(room_id=None)
+        if self.event_bus:
+            await self.event_bus.publish(ServerEventType.ROOM_STATE_CHANGED, target=player, data=left_msg)
 
     async def broadcast_room_state(self, room: GameRoom) -> None:
-        """Sends current lobby roster to all participants."""
-        if not self.send:
-            return
-        white_name = room.white_player.username if room.white_player else None
-        black_name = room.black_player.username if room.black_player else None
-        specs = [p.username for p in room.spectators if p.username]
-
-        clients = []
-        if room.white_player: clients.append(room.white_player)
-        if room.black_player: clients.append(room.black_player)
-        clients.extend(room.spectators)
-
-        for c in clients:
-            msg = RoomStateMessage(
-                room_id=room.room_id,
-                white=white_name,
-                black=black_name,
-                spectators=specs,
-                status=room.status,
-                your_color=c.color.value if c.color else None
-            )
-            await self.send(c, msg)
+        """Sends current lobby roster to all participants via event_bus."""
+        if self.event_bus:
+            await self.event_bus.publish(ServerEventType.ROOM_STATE_CHANGED, target=room)

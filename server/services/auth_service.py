@@ -4,6 +4,7 @@ from server.network.models import ConnectedPlayer
 from server.database.base_db_manager import DEFAULT_RATING, User, BaseDBManager
 from shared.constants import ResponseStatus
 from shared.protocol import AuthMessage, AuthResponseMessage
+from server.services.server_event_bus import ServerEventType
 
 logger = logging.getLogger(__name__)
 
@@ -40,19 +41,23 @@ def authenticate_user(username: str, password_plain: str, db: BaseDBManager) -> 
     return True, user_info, ResponseStatus.SUCCESS
 
 
-async def handle_auth(player: ConnectedPlayer, msg: AuthMessage, db: BaseDBManager, send) -> None:
+async def handle_auth(player: ConnectedPlayer, msg: AuthMessage, db: BaseDBManager, event_bus=None) -> None:
     """Authenticates an existing user or auto-registers a new one, then updates the player session."""
     success, user_info, err_msg = authenticate_user(msg.username, msg.password, db)
     if not success or not user_info:
-        await send(player.ws, AuthResponseMessage(success=False, error=err_msg))
+        response_msg = AuthResponseMessage(success=False, error=err_msg)
+        if event_bus:
+            await event_bus.publish(ServerEventType.AUTH_RESPONSE, target=player, data=response_msg)
         return
 
     player.username = user_info.username
     player.rating = user_info.rating
     player.authenticated = True
-    await send(player.ws, AuthResponseMessage(
+    response_msg = AuthResponseMessage(
         success=True,
         username=player.username,
         rating=player.rating
-    ))
+    )
+    if event_bus:
+        await event_bus.publish(ServerEventType.AUTH_RESPONSE, target=player, data=response_msg)
     logger.info(f"Player {player.username} authenticated successfully.")
