@@ -1,9 +1,11 @@
+import json
 import hashlib
 import logging
 import os
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Optional, Dict, Any
 
-from sqlalchemy import Column, Integer, String, create_engine
+from sqlalchemy import Column, Integer, String, DateTime, create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
@@ -25,9 +27,21 @@ class UserModel(Base):
     rating = Column(Integer, default=DEFAULT_RATING)
 
 
+class GameHistoryModel(Base):
+    """SQLAlchemy ORM model for completed game history."""
+    __tablename__ = "game_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    room_id = Column(String, nullable=False)
+    winner = Column(String, nullable=True)
+    reason = Column(String, nullable=True)
+    final_ratings = Column(String, nullable=True)  # JSON formatted string
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class SQLiteDBManager(BaseDBManager):
     """Manages database storage for users, authentication, and ELO ratings using SQLAlchemy ORM."""
-    
+
     def __init__(self, db_path: Optional[str] = None) -> None:
         if db_path is None:
             db_path = os.getenv("DATABASE_URL", DB_FILE)
@@ -110,5 +124,28 @@ class SQLiteDBManager(BaseDBManager):
                 return True
             logger.warning("Could not update rating: User '%s' does not exist.", username)
             return False
+
+    def save_game_history(self,room_id: str,winner: Optional[str] = None,reason: Optional[str] = None,final_ratings: Optional[dict] = None) -> bool:
+        """Saves completed game record into the game_history table via ORM."""
+        ratings_json = json.dumps(final_ratings) if final_ratings else None
+        record = GameHistoryModel(
+            room_id=room_id,
+            winner=winner,
+            reason=reason,
+            final_ratings=ratings_json
+        )
+        with self._get_session() as session:
+            try:
+                session.add(record)
+                session.commit()
+                logger.info("Saved game history for room '%s' (winner: %s) via ORM.", room_id, winner)
+                return True
+            except Exception as e:
+                session.rollback()
+                logger.error("Failed to save game history for room '%s': %s", room_id, e)
+                return False
+
+
+
 
 

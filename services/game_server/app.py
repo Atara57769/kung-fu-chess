@@ -15,18 +15,20 @@ from shared.protocol import (
 )
 from shared.models.color import Color
 from shared.message_contracts.subjects import (
-    GAME_ASSIGNED, GAME_COMMAND, GAME_STATE, GAME_FINISHED, GAME_EVENTS, ROOM_JOIN, ROOM_LEAVE
+    GAME_ASSIGNED, GAME_COMMAND, GAME_STATE, GAME_FINISHED, GAME_EVENTS, ROOM_JOIN, ROOM_LEAVE, ROOM_UPDATED
 )
 from shared.message_contracts.contracts import (
     GameStatePayload, GameAssignedPayload, GameFinishedPayload, GameCommandPayload,
-    RoomJoinPayload, RoomLeavePayload
+    RoomJoinPayload, RoomLeavePayload, RoomCreatedPayload
 )
+
 from shared.message_contracts.nats_client import NatsBus
 from server.network.models import GameRoom, ConnectedPlayer
 from server.database.sqlite_db_manager import SQLiteDBManager
 from server.database.postgres_db_manager import PostgresDBManager
 from server.services.game_coordinator import GameCoordinator
 from server.services.room_service import RoomJoinEvent
+from server.services.server_event_bus import ServerEventType, ServerEvent
 
 SERVER_ID = os.getenv("SERVER_ID", "game_server_1")
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
@@ -57,6 +59,45 @@ async def delete_redis_route(room_id: str) -> None:
         logger.warning("Failed to remove room_routes for %s in Redis: %s", room_id, e)
 
 
+async def handle_game_over_nats(event: ServerEvent) -> None:
+    """Handles ServerEventType.GAME_OVER from internal ServerEventBus and publishes GameFinishedPayload to NATS for game persistence service."""
+    room = event.target
+    payload = event.data
+
+    if not room:
+        return
+
+    room_id = getattr(room, "room_id", str(room) if isinstance(room, str) else None)
+    winner = getattr(payload, "winner", None) if payload else None
+    reason = getattr(payload, "reason", None) if payload else None
+
+    white_player = getattr(room, "white_player", None)
+    black_player = getattr(room, "black_player", None)
+
+    white_username = getattr(white_player, "username", None) if white_player else None
+    black_username = getattr(black_player, "username", None) if black_player else None
+
+    final_ratings = {}
+    if payload:
+        if getattr(payload, "white_rating", None) is not None and white_username:
+            final_ratings[white_username] = payload.white_rating
+        if getattr(payload, "black_rating", None) is not None and black_username:
+            final_ratings[black_username] = payload.black_rating
+
+    game_finished_dto = GameFinishedPayload(
+        room_id=room_id,
+        winner=winner,
+        reason=reason,
+        final_ratings=final_ratings if final_ratings else None
+    )
+
+    try:
+        await nats_bus.publish(GAME_FINISHED, game_finished_dto)
+        logger.info("Published GAME_FINISHED event to NATS for room '%s'", room_id)
+    except Exception as e:
+        logger.error("Failed to publish GAME_FINISHED event to NATS: %s", e)
+
+
 class NatsGameCoordinator(GameCoordinator):
     """Subclass of GameCoordinator adapted for NATS event bus communication."""
 
@@ -64,14 +105,13 @@ class NatsGameCoordinator(GameCoordinator):
         super().__init__(db=db)
         self.set_send(self._nats_send)
         self.on_room_cleanup = delete_redis_route
+        self.event_bus.subscribe(ServerEventType.GAME_OVER, handle_game_over_nats)
 
     async def _nats_send(self, ws_target, message_obj: Any) -> None:
         """Publishes game state snapshots and events to NATS subject using GameStatePayload DTO."""
         raw = serialize_message(message_obj) if not isinstance(message_obj, str) else message_obj
         state_content = json.loads(raw) if isinstance(raw, str) and raw.startswith("{") else raw
 
-        # ws_target is None for remote players (distributed mode).
-        # Extract target info from the player object if available, otherwise from the message itself.
         target_user = None
         room_id = None
 
@@ -79,16 +119,11 @@ class NatsGameCoordinator(GameCoordinator):
             target_user = getattr(ws_target, "username", None)
             room_id = getattr(ws_target, "room_id", None)
 
-        # Fallback: extract from the message object fields directly
         if target_user is None:
             target_user = getattr(message_obj, "target_username", None) or state_content.get("target_username")
         if room_id is None:
             room_id = getattr(message_obj, "room_id", None) or state_content.get("room_id")
 
-        # For RoomStateMessage sent via broadcast_room_state, ws_target is c.ws (None),
-        # but the RoomStateMessage itself has room_id. We need the target username from
-        # the per-player msg (each client gets their own colored msg), but it's not stored
-        # in RoomStateMessage. So we broadcast to all sockets subscribed to this room instead.
         payload_dto = GameStatePayload(
             room_id=room_id,
             state=state_content,
@@ -181,7 +216,6 @@ async def handle_game_command(data: GameCommandPayload, reply_to: Optional[str])
 
         return {"status": ResponseStatus.CREATED.value, "room_id": room_id}
 
-    # All other commands MUST resolve room from self.rooms and error if not found
     room = coordinator.rooms.get(room_id) if room_id else None
     if not room:
         logger.warning("Received room command '%s' for non-existent room '%s'", msg_type, room_id)

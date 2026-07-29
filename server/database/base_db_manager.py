@@ -43,3 +43,15 @@ class BaseDBManager(ABC):
     def update_user_rating(self, username: str, new_rating: int) -> bool:
         """Updates the ELO rating for the specified user."""
         pass
+
+    @abstractmethod
+    def save_game_history(
+        self,
+        room_id: str,
+        winner: Optional[str] = None,
+        reason: Optional[str] = None,
+        final_ratings: Optional[dict] = None
+    ) -> bool:
+        """Saves completed game details into game history persistence store."""
+        pass
+

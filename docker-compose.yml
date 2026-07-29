@@ -132,3 +132,20 @@ services:
       - postgres
       - redis
     restart: unless-stopped
+
+  game_persistence_service:
+    build:
+      context: .
+      dockerfile: services/game_persistence_service/Dockerfile
+    container_name: kungfu_game_persistence_service
+    environment:
+      - NATS_URL=nats://nats:4222
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=kung_fu_chess
+    depends_on:
+      - nats
+      - postgres
+    restart: unless-stopped
+

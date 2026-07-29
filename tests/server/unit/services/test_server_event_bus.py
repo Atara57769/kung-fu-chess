@@ -52,7 +52,7 @@ def test_server_event_listener_room_state():
         listener = ServerEventListener(bus, send=mock_send)
 
         ws_mock = MagicMock()
-        player = ConnectedPlayer(ws=ws_mock, ip="127.0.0.1")
+        player = ConnectedPlayer(ws=ws_mock, ip_address="127.0.0.1")
         player.username = "Alice"
 
         room = GameRoom("room_123")
@@ -77,7 +77,7 @@ def test_server_event_listener_auth_response():
         listener = ServerEventListener(bus, send=mock_send)
 
         ws_mock = MagicMock()
-        player = ConnectedPlayer(ws=ws_mock, ip="127.0.0.1")
+        player = ConnectedPlayer(ws=ws_mock, ip_address="127.0.0.1")
 
         auth_msg = AuthResponseMessage(success=True, username="Bob", rating=1200)
         await bus.publish(ServerEventType.AUTH_RESPONSE, target=player, data=auth_msg)
@@ -94,7 +94,7 @@ def test_server_event_listener_error_message():
         listener = ServerEventListener(bus, send=mock_send)
 
         ws_mock = MagicMock()
-        player = ConnectedPlayer(ws=ws_mock, ip="127.0.0.1")
+        player = ConnectedPlayer(ws=ws_mock, ip_address="127.0.0.1")
 
         await bus.publish(ServerEventType.ERROR_MESSAGE, target=player, data="Access Denied")
 
