@@ -40,11 +40,11 @@ PIECE_POINTS = {
     PieceType.KING: 0
 }
 
-# Network Server Configuration
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = 8765
 HEARTBEAT_INTERVAL = 5.0
-HEARTBEAT_TIMEOUT = 10.0
+HEARTBEAT_TIMEOUT = 20.0
+CLIENT_PING_TIMEOUT = 20.0
 DISCONNECT_COUNTDOWN = 20
 TICK_STEP_MS = 70                          # Server game-loop tick interval (ms)
 MSG_DISCONNECT_COUNTDOWN = "Opponent disconnected. Autoresign in {}s."

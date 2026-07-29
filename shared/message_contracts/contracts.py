@@ -244,6 +244,7 @@ class PlayerConnectedPayload:
 class PlayerDisconnectedPayload:
     gateway_id: str
     username: str
+    reason: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

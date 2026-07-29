@@ -6,9 +6,12 @@ from typing import Any, Optional
 import redis.asyncio as aioredis
 
 from shared.constants import DEFAULT_RATING, ResponseStatus
-from shared.message_contracts.subjects import MATCHMAKING_REQUEST, MATCHMAKING_MATCH_FOUND, MATCHMAKING_TIMEOUT
+from shared.message_contracts.subjects import (
+    MATCHMAKING_REQUEST, MATCHMAKING_MATCH_FOUND, MATCHMAKING_TIMEOUT, PLAYER_DISCONNECTED
+)
 from shared.message_contracts.contracts import (
-    MatchFoundPayload, MatchmakingResponsePayload, MatchmakingRequestPayload, MatchmakingTimeoutPayload
+    MatchFoundPayload, MatchmakingResponsePayload, MatchmakingRequestPayload, MatchmakingTimeoutPayload,
+    PlayerDisconnectedPayload
 )
 from shared.message_contracts.nats_client import NatsBus
 
@@ -171,10 +174,24 @@ async def handle_matchmaking_request(data: MatchmakingRequestPayload, reply_to: 
 
     return MatchmakingResponsePayload(status=ResponseStatus.FAILED.value, username=username)
 
+async def handle_player_disconnected(data: PlayerDisconnectedPayload, reply_to: Optional[str]) -> None:
+    username = data.username
+    if not username:
+        return
+    logger.info("PlayerDisconnected event received for user '%s' in Matchmaking Service", username)
+    await redis_dequeue(username)
+    try:
+        redis = await get_redis()
+        await redis.delete(f"player_match:{username}")
+    except Exception as e:
+        logger.warning("Failed to clean up player_match for '%s': %s", username, e)
+
+
 async def main():
     await nats_bus.connect()
-    logger.info("Matchmaking Service started. Subscribing to '%s'...", MATCHMAKING_REQUEST)
+    logger.info("Matchmaking Service started. Subscribing to '%s' and '%s'...", MATCHMAKING_REQUEST, PLAYER_DISCONNECTED)
     await nats_bus.subscribe(MATCHMAKING_REQUEST, handle_matchmaking_request, dto_class=MatchmakingRequestPayload)
+    await nats_bus.subscribe(PLAYER_DISCONNECTED, handle_player_disconnected, dto_class=PlayerDisconnectedPayload)
 
     await asyncio.Event().wait()
 

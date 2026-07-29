@@ -15,11 +15,11 @@ from shared.protocol import (
 )
 from shared.models.color import Color
 from shared.message_contracts.subjects import (
-    GAME_ASSIGNED, GAME_COMMAND, GAME_STATE, GAME_FINISHED, GAME_EVENTS, ROOM_JOIN, ROOM_LEAVE, ROOM_UPDATED
+    GAME_ASSIGNED, GAME_COMMAND, GAME_STATE, GAME_FINISHED, GAME_EVENTS, ROOM_JOIN, ROOM_LEAVE, ROOM_UPDATED, PLAYER_DISCONNECTED
 )
 from shared.message_contracts.contracts import (
     GameStatePayload, GameAssignedPayload, GameFinishedPayload, GameCommandPayload,
-    RoomJoinPayload, RoomLeavePayload, RoomCreatedPayload
+    RoomJoinPayload, RoomLeavePayload, RoomCreatedPayload, PlayerDisconnectedPayload
 )
 
 from shared.message_contracts.nats_client import NatsBus
@@ -296,6 +296,27 @@ async def handle_room_leave(data: RoomLeavePayload, reply_to: Optional[str]) -> 
     await coordinator.room_service.leave_room(player, coordinator.rooms)
 
 
+async def handle_player_disconnected(data: PlayerDisconnectedPayload, reply_to: Optional[str]) -> None:
+    username = data.username
+    reason = data.reason
+    if not username:
+        return
+
+    logger.info("PlayerDisconnected event received for user '%s' (reason: %s)", username, reason or "unspecified")
+
+    for room_id, room in list(coordinator.rooms.items()):
+        white_name = room.white_player.username if room.white_player else None
+        black_name = room.black_player.username if room.black_player else None
+        spec_names = [s.username for s in room.spectators if s and s.username]
+
+        if username in (white_name, black_name) or username in spec_names:
+            player = ConnectedPlayer(ws=None, ip_address="remote")
+            player.username = username
+            player.authenticated = True
+            player.room_id = room_id
+            await coordinator.handle_disconnect(player)
+
+
 async def main():
     await nats_bus.connect()
     logger.info("Game Server '%s' online. Subscribing to NATS topics...", SERVER_ID)
@@ -304,6 +325,7 @@ async def main():
     await nats_bus.subscribe(f"game.command.{SERVER_ID}", handle_game_command, dto_class=GameCommandPayload)
     await nats_bus.subscribe(ROOM_JOIN, handle_room_join, dto_class=RoomJoinPayload)
     await nats_bus.subscribe(ROOM_LEAVE, handle_room_leave, dto_class=RoomLeavePayload)
+    await nats_bus.subscribe(PLAYER_DISCONNECTED, handle_player_disconnected, dto_class=PlayerDisconnectedPayload)
 
     await asyncio.Event().wait()
 

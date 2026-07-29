@@ -2,12 +2,13 @@ import os
 import json
 import asyncio
 import logging
-from dataclasses import dataclass, asdict
+import time
+from dataclasses import dataclass, asdict, field
 from typing import Dict, Any, Set, Optional, List
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from shared.constants import DEFAULT_RATING
+from shared.constants import DEFAULT_RATING, CLIENT_PING_TIMEOUT
 from shared.protocol import (
     MessageType, serialize_message, ErrorMessage, AuthResponseMessage, HeartbeatAckMessage
 )
@@ -52,6 +53,7 @@ class GatewaySession:
     username: Optional[str] = None
     room_id: Optional[str] = None
     rating: int = DEFAULT_RATING
+    last_ping: float = field(default_factory=time.time)
 
 
 active_sockets: Dict[Any, GatewaySession] = {}
@@ -138,6 +140,8 @@ async def handle_client_message(ws: Any, raw_msg: str) -> None:
         info = GatewaySession()
         active_sockets[ws] = info
 
+    info.last_ping = time.time()
+
     try:
         data = json.loads(raw_msg)
     except json.JSONDecodeError:
@@ -145,6 +149,11 @@ async def handle_client_message(ws: Any, raw_msg: str) -> None:
         return
 
     msg_type = data.get("type")
+
+    ping_types = {
+        MessageType.HEARTBEAT, MessageType.HEARTBEAT.value,
+        MessageType.PING, MessageType.PING.value
+    }
 
     if msg_type in (MessageType.AUTH, MessageType.AUTH.value):
         username = data.get("username")
@@ -184,7 +193,7 @@ async def handle_client_message(ws: Any, raw_msg: str) -> None:
         await ws.send(serialize_message(ErrorMessage(message="Unauthorized connection.")))
         return
 
-    if msg_type in (MessageType.HEARTBEAT, MessageType.HEARTBEAT.value, "heartbeat"):
+    if msg_type in ping_types:
         await ws.send(serialize_message(HeartbeatAckMessage()))
         return
 
@@ -241,6 +250,34 @@ async def handle_connection(ws: Any, path: str = None) -> None:
             await nats_bus.publish(PLAYER_DISCONNECTED, disconnected_dto)
 
 
+async def ping_monitor_loop() -> None:
+    """Periodically checks connected WebSocket sessions and disconnects/publishes events for clients inactive > 20s."""
+    logger.info("Starting WebSocket Gateway ping monitor loop (%.1fs timeout)...", CLIENT_PING_TIMEOUT)
+    while True:
+        try:
+            await asyncio.sleep(1.0)
+            now = time.time()
+            for ws, info in list(active_sockets.items()):
+                if now - info.last_ping > CLIENT_PING_TIMEOUT:
+                    username = info.username or "unauthenticated"
+                    logger.warning("Client '%s' ping timeout (no ping received for %.1fs). Disconnecting and publishing event...", username, now - info.last_ping)
+                    if info.username:
+                        disconnected_dto = PlayerDisconnectedPayload(
+                            gateway_id=GATEWAY_ID,
+                            username=info.username,
+                            reason="ping_timeout"
+                        )
+                        await nats_bus.publish(PLAYER_DISCONNECTED, disconnected_dto)
+                    try:
+                        await ws.close(code=4000, reason="Ping timeout")
+                    except Exception as e:
+                        logger.debug("Error closing timed out socket for '%s': %s", username, e)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error("Error in ping_monitor_loop: %s", e)
+
+
 from shared.security.ssl_config import get_server_ssl_context
 
 USE_SSL = os.getenv("USE_SSL", "true").lower() not in ("false", "0", "no", "off")
@@ -257,11 +294,16 @@ async def main() -> None:
     await nats_bus.subscribe(ROOM_UPDATED, handle_nats_room_event, dto_class=RoomCreatedPayload)
     await nats_bus.subscribe(MATCHMAKING_TIMEOUT, handle_nats_matchmaking_timeout, dto_class=MatchmakingTimeoutPayload)
 
+    monitor_task = asyncio.create_task(ping_monitor_loop())
+
     ssl_context = get_server_ssl_context(auto_generate=True) if USE_SSL else None
     scheme = "wss" if ssl_context else "ws"
     logger.info("Starting WebSocket Gateway on %s://0.0.0.0:%d...", scheme, PORT)
-    async with websockets.serve(handle_connection, "0.0.0.0", PORT, ssl=ssl_context):
-        await asyncio.Future()
+    try:
+        async with websockets.serve(handle_connection, "0.0.0.0", PORT, ssl=ssl_context):
+            await asyncio.Future()
+    finally:
+        monitor_task.cancel()
 
 
 if __name__ == "__main__":

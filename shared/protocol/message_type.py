@@ -6,6 +6,8 @@ class MessageType(str, Enum):
     AUTH_RESPONSE = "auth_response"
     HEARTBEAT = "heartbeat"
     HEARTBEAT_ACK = "heartbeat_ack"
+    PING = "ping"
+    PONG = "pong"
     ERROR = "error"
 
     MATCHMAKING = "matchmaking"

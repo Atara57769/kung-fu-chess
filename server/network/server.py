@@ -1,10 +1,11 @@
 import asyncio
 import logging
 import ssl
+import time
 from typing import Dict, Tuple, Optional
 import websockets
 from websockets.exceptions import ConnectionClosed
-from shared.constants import DEFAULT_HOST, DEFAULT_PORT
+from shared.constants import DEFAULT_HOST, DEFAULT_PORT, CLIENT_PING_TIMEOUT
 from shared.protocol import serialize_message
 from shared.security.ssl_config import get_server_ssl_context
 from server.network.models import ConnectedPlayer
@@ -47,6 +48,7 @@ class GameServer:
     async def start(self) -> None:
         """Starts the message-worker and WebSocket listening loop."""
         worker_task = asyncio.create_task(self._message_worker())
+        ping_task = asyncio.create_task(self._ping_monitor_loop())
         scheme = "wss" if self.ssl_context else "ws"
         try:
             async with websockets.serve(self.handle_client_connection, self.host, self.port, ssl=self.ssl_context):
@@ -54,10 +56,34 @@ class GameServer:
                 await asyncio.Future()
         finally:
             worker_task.cancel()
+            ping_task.cancel()
             try:
                 await worker_task
             except asyncio.CancelledError:
                 pass
+            try:
+                await ping_task
+            except asyncio.CancelledError:
+                pass
+
+    async def _ping_monitor_loop(self) -> None:
+        """Checks connected players for heartbeat/ping timeouts (> 20s)."""
+        while True:
+            try:
+                await asyncio.sleep(1.0)
+                now = time.time()
+                for ws, player in list(self.players.items()):
+                    if now - player.last_heartbeat > CLIENT_PING_TIMEOUT:
+                        username = player.username or player.ip_address
+                        logger.warning(f"Player '{username}' ping timeout (>20s). Disconnecting.")
+                        try:
+                            await ws.close(code=4000, reason="Ping timeout")
+                        except Exception:
+                            pass
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in server ping monitor: {e}")
 
     async def _message_worker(self) -> None:
         """Single coroutine that drains the message queue one item at a time.
