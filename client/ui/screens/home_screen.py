@@ -94,3 +94,7 @@ class HomeScreen(Screen):
         for btn in self.buttons:
             btn.render(canvas)
 
+    def update(self, dt: float = 0.0) -> None:
+        """Frame update logic for home screen."""
+        pass
+

@@ -57,7 +57,7 @@ def test_distributed_client_instantiation():
     client_mono = GameClient()
     client_dist = DistributedGameClient()
 
-    assert client_dist.api_url == "http://localhost:8000"
+    assert client_dist.api_url == "https://localhost:8000"
     assert client_dist.ws_port == 8001
 
 

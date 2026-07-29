@@ -25,13 +25,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--host", type=str, default=DEFAULT_HOST, help="Game Server Host")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Game Server Port")
     parser.add_argument("--scale", type=float, default=1.0, help="UI Scale Factor")
+    parser.add_argument("--no-ssl", action="store_true", help="Disable SSL/TLS encryption")
+    parser.add_argument("--verify-ssl", action="store_true", help="Verify SSL certificates")
     return parser.parse_args()
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     args = parse_args()
 
-    client = GameClient(host=args.host, port=args.port)
+    client = GameClient(
+        host=args.host,
+        port=args.port,
+        use_ssl=not args.no_ssl,
+        verify_ssl=args.verify_ssl,
+    )
     client.start()
     
     try:

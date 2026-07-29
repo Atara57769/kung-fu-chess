@@ -10,12 +10,14 @@ import time
 import urllib.request
 import urllib.parse
 import asyncio
+import ssl
 from typing import Optional, Callable, Dict, Any, List
 import websockets
 
 from shared.constants import DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_INTERVAL, DEFAULT_RATING, ResponseStatus
 from shared.models.color import Color
 from shared.models.cell import Cell
+from shared.security.ssl_config import get_client_ssl_context
 from shared.protocol import (
     MessageType, AuthMessage, AuthResponseMessage, HeartbeatMessage, MatchmakingMessage,
     LeaveMatchmakingMessage, MatchmakingStatusMessage, CreateRoomMessage, JoinRoomMessage,
@@ -40,7 +42,25 @@ class DistributedGameClient(BaseGameClient):
     Interfaces with API Gateway (REST) and WebSocket Gateway (Real-Time WS) using DTO Dataclasses.
     """
 
-    def __init__(self, api_url: str = "http://localhost:8000", ws_host: str = DEFAULT_HOST, ws_port: int = 8001) -> None:
+    def __init__(
+        self,
+        api_url: str = "http://localhost:8000",
+        ws_host: str = DEFAULT_HOST,
+        ws_port: int = 8001,
+        use_ssl: bool = True,
+        verify_ssl: bool = False,
+        ssl_context: Optional[ssl.SSLContext] = None,
+    ) -> None:
+        self.use_ssl = use_ssl
+        self.verify_ssl = verify_ssl
+
+        if use_ssl:
+            self.ssl_context = ssl_context or get_client_ssl_context(verify_ssl=verify_ssl)
+            if api_url.startswith("http://"):
+                api_url = "https://" + api_url[len("http://"):]
+        else:
+            self.ssl_context = None
+
         self.api_url = api_url.rstrip('/')
         self.ws_host = ws_host
         self.ws_port = ws_port
@@ -110,14 +130,14 @@ class DistributedGameClient(BaseGameClient):
 
     def _http_get(self, url: str) -> Dict[str, Any]:
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req, context=self.ssl_context) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
     def _http_post(self, url: str, payload: Any) -> Dict[str, Any]:
         payload_dict = payload.to_dict() if hasattr(payload, "to_dict") else payload
         data = json.dumps(payload_dict).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req, context=self.ssl_context) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
     def start(self) -> None:
@@ -146,9 +166,10 @@ class DistributedGameClient(BaseGameClient):
             self.loop.close()
 
     async def _main_network_coro(self) -> None:
-        uri = f"ws://{self.ws_host}:{self.ws_port}"
+        scheme = "wss" if self.ssl_context else "ws"
+        uri = f"{scheme}://{self.ws_host}:{self.ws_port}"
         try:
-            async with websockets.connect(uri) as ws:
+            async with websockets.connect(uri, ssl=self.ssl_context) as ws:
                 self.ws = ws
                 logger.info(f"Connected to WebSocket Gateway at {uri}")
 

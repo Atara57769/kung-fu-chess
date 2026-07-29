@@ -29,6 +29,8 @@ def parse_args(args=None) -> argparse.Namespace:
     parser.add_argument("--ws-host", type=str, default="localhost", help="WebSocket Gateway Host")
     parser.add_argument("--ws-port", type=int, default=8001, help="WebSocket Gateway Port")
     parser.add_argument("--scale", type=float, default=1.0, help="UI Scale Factor")
+    parser.add_argument("--no-ssl", action="store_true", help="Disable SSL/TLS encryption")
+    parser.add_argument("--verify-ssl", action="store_true", help="Verify SSL certificates")
     return parser.parse_args(args)
 
 
@@ -36,7 +38,13 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     args = parse_args()
 
-    client = DistributedGameClient(api_url=args.api_host, ws_host=args.ws_host, ws_port=args.ws_port)
+    client = DistributedGameClient(
+        api_url=args.api_host,
+        ws_host=args.ws_host,
+        ws_port=args.ws_port,
+        use_ssl=not args.no_ssl,
+        verify_ssl=args.verify_ssl,
+    )
 
     username, password = prompt_terminal_credentials()
     print("\nAuthenticating via API Gateway REST Endpoint...")

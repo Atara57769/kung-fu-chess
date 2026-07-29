@@ -2,15 +2,17 @@ from dataclasses import is_dataclass, asdict
 import asyncio
 import json
 import logging
+import ssl
 import threading
 import time
-from typing import Optional, Callable
+from typing import Optional, Callable, Any
 import websockets
 
 from shared.constants import DEFAULT_HOST, DEFAULT_PORT, HEARTBEAT_INTERVAL, DEFAULT_RATING
 from shared.protocol.protocol import deserialize_snapshot
 from shared.models.color import Color
 from shared.models.cell import Cell
+from shared.security.ssl_config import get_client_ssl_context
 from shared.protocol import (
     MessageType, AuthMessage, AuthResponseMessage, HeartbeatMessage, MatchmakingMessage,
     LeaveMatchmakingMessage, MatchmakingStatusMessage, CreateRoomMessage, JoinRoomMessage,
@@ -27,9 +29,23 @@ logger = logging.getLogger(__name__)
 class GameClient(BaseGameClient):
     """Handles network connection, heartbeat ping loops, and snapshot deserialization for Monolithic Server."""
 
-    def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> None:
+    def __init__(
+        self,
+        host: str = DEFAULT_HOST,
+        port: int = DEFAULT_PORT,
+        use_ssl: bool = True,
+        verify_ssl: bool = False,
+        ssl_context: Optional[ssl.SSLContext] = None,
+    ) -> None:
         self.host = host
         self.port = port
+        self.use_ssl = use_ssl
+        self.verify_ssl = verify_ssl
+
+        if use_ssl:
+            self.ssl_context = ssl_context or get_client_ssl_context(verify_ssl=verify_ssl)
+        else:
+            self.ssl_context = None
 
         self.username: Optional[str] = None
         self.rating: int = DEFAULT_RATING
@@ -89,9 +105,10 @@ class GameClient(BaseGameClient):
 
     async def _main_network_coro(self) -> None:
         """Coordinating coroutine establishing connections and running pings."""
-        uri = f"ws://{self.host}:{self.port}"
+        scheme = "wss" if self.ssl_context else "ws"
+        uri = f"{scheme}://{self.host}:{self.port}"
         try:
-            async with websockets.connect(uri) as ws:
+            async with websockets.connect(uri, ssl=self.ssl_context) as ws:
                 self.ws = ws
                 logger.info(f"Connected to Game Server at {uri}")
 

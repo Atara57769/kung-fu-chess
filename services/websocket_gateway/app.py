@@ -214,6 +214,11 @@ async def handle_connection(ws: Any, path: str = None) -> None:
             await nats_bus.publish(PLAYER_DISCONNECTED, disconnected_dto)
 
 
+from shared.security.ssl_config import get_server_ssl_context
+
+USE_SSL = os.getenv("USE_SSL", "true").lower() not in ("false", "0", "no", "off")
+
+
 async def main() -> None:
     await nats_bus.connect()
     logger.info("WS Gateway subscribing to NATS topics...")
@@ -224,8 +229,10 @@ async def main() -> None:
     await nats_bus.subscribe(ROOM_JOINED, handle_nats_room_event, dto_class=RoomCreatedPayload)
     await nats_bus.subscribe(ROOM_UPDATED, handle_nats_room_event, dto_class=RoomCreatedPayload)
 
-    logger.info("Starting WebSocket Gateway on ws://0.0.0.0:%d...", PORT)
-    async with websockets.serve(handle_connection, "0.0.0.0", PORT):
+    ssl_context = get_server_ssl_context(auto_generate=True) if USE_SSL else None
+    scheme = "wss" if ssl_context else "ws"
+    logger.info("Starting WebSocket Gateway on %s://0.0.0.0:%d...", scheme, PORT)
+    async with websockets.serve(handle_connection, "0.0.0.0", PORT, ssl=ssl_context):
         await asyncio.Future()
 
 
