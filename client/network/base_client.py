@@ -36,10 +36,6 @@ class BaseGameClient(ABC):
         """Leaves matchmaking queue."""
         pass
 
-    def enter_matchmaking(self) -> Any:
-        """Alias for join_matchmaking for backwards compatibility."""
-        return self.join_matchmaking()
-
     @abstractmethod
     def create_room(self, room_id: Optional[str] = None) -> None:
         """Creates a custom room."""

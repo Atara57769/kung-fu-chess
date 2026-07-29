@@ -192,9 +192,6 @@ class GameClient(BaseGameClient):
     def join_matchmaking(self) -> None:
         self._send_json(MatchmakingMessage())
 
-    def enter_matchmaking(self) -> None:
-        self.join_matchmaking()
-
     def leave_matchmaking(self) -> None:
         self._send_json(LeaveMatchmakingMessage())
 

@@ -110,10 +110,6 @@ class OnlineGameScreen(Screen):
         home = HomeScreen(self.screen_manager, self.renderer.geometry.cell_size * 8 + 500, self.renderer.geometry.cell_size * 8, self.client.username, self.client.rating)
         self.screen_manager.switch_to(home)
 
-    def handle_mouse_move(self, x: int, y: int) -> None:
-        """Mouse move updates if needed."""
-        pass
-
     def update(self, dt: float) -> None:
         """Advances active piece animations based on the current authoritative server snapshot."""
         snapshot = self.client.current_snapshot

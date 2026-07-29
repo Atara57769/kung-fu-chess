@@ -19,6 +19,9 @@ class DummyScreen(Screen):
         self.updated = True
         self.dt_value = dt
 
+    def render(self, canvas) -> None:
+        pass
+
 def test_screen_manager_delegation():
     """Verify ScreenManager correctly routes click and update events."""
     sm = ScreenManager()

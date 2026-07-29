@@ -23,7 +23,7 @@ class ScreenManager:
 
     def handle_mouse_move(self, x: int, y: int) -> None:
         """Delegates mouse movement/hover event to the active screen."""
-        if self.active_screen is not None and hasattr(self.active_screen, "handle_mouse_move"):
+        if self.active_screen is not None:
             self.active_screen.handle_mouse_move(x, y)
 
     def render(self, canvas: Img) -> None:

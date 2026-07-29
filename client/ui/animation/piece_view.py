@@ -39,10 +39,6 @@ class PieceView:
 
         assets = self.asset_loader.get_piece_assets(self.color, self.kind, state_name)
         
-        old_state = self.state
-        if old_state:
-            old_state.on_exit(self, snapshot)
-
         self.state = state_class(
             name=state_name,
             config=assets.config,

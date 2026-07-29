@@ -18,10 +18,6 @@ class AnimationState(ABC):
         if hasattr(piece_view, "target_cell"):
             delattr(piece_view, "target_cell")
 
-    def on_exit(self, piece_view, snapshot: GameSnapshot) -> None:
-        """Called when exiting the state."""
-        pass
-
     @abstractmethod
     def update(self, dt: float, piece_view, snapshot: GameSnapshot) -> None:
         """

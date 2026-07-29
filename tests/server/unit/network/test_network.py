@@ -74,8 +74,8 @@ async def _run_full_network_flow():
         assert client_b.authenticated is True, "Client B authentication failed"
         
         # 4. Join matchmaking
-        client_a.enter_matchmaking()
-        client_b.enter_matchmaking()
+        client_a.join_matchmaking()
+        client_b.join_matchmaking()
         
         # Active wait for pairing room status
         for _ in range(40):

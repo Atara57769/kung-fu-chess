@@ -26,9 +26,6 @@ class DummyClient:
     def join_matchmaking(self):
         self.calls.append('join_matchmaking')
 
-    def enter_matchmaking(self):
-        self.calls.append('enter_matchmaking')
-
     def leave_matchmaking(self):
         self.calls.append('leave_matchmaking')
 
@@ -367,6 +364,7 @@ def test_distributed_client_room_actions():
     client = DistributedGameClient()
     client._http_post = MagicMock(side_effect=[
         {"room_id": "room_123", "host": "anonymous", "created_at": 12345.0},
+        {"room_id": "room_123", "username": "anonymous"},
         {"room_id": "room_123", "username": "anonymous"},
         {"room_id": "room_123", "username": "anonymous"}
     ])
