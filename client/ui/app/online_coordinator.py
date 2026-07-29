@@ -14,11 +14,10 @@ from client.ui.animation.animation_manager import AnimationManager
 from client.ui.components.popup_dialog import show_error_dialog, show_warning_dialog
 from client.network.base_client import BaseGameClient
 from shared.protocol import (
-    MessageType, BaseMessage, RoomStateMessage, ErrorMessage, MatchmakingStatusMessage
+    MessageType, BaseMessage, RoomStateMessage, ErrorMessage, MatchmakingStatusMessage, MatchmakingTimeoutMessage
 )
 from shared.constants import (
-    ROOM_STATUS_WAITING, ROOM_STATUS_ACTIVE,
-    MATCHMAKING_STATUS_TIMEOUT
+    ROOM_STATUS_WAITING, ROOM_STATUS_ACTIVE
 )
 
 EMPTY_PLAYER = "[Empty]"
@@ -30,7 +29,7 @@ SPECTATORS_NONE = "None"
 ERROR_DIALOG_TITLE = "Error"
 SERVER_ERROR_LOG_PREFIX = "Server error: "
 MATCHMAKING_TIMEOUT_TITLE = "Matchmaking Timeout"
-MATCHMAKING_TIMEOUT_MSG = "No opponent was found within 60 seconds."
+MATCHMAKING_TIMEOUT_MSG = "No opponent was found. Please try again."
 
 
 class OnlineCoordinator:
@@ -48,6 +47,7 @@ class OnlineCoordinator:
         self.client.pubsub.subscribe(MessageType.ROOM_STATE, self._on_room_state)
         self.client.pubsub.subscribe(MessageType.ERROR, self._on_error)
         self.client.pubsub.subscribe(MessageType.MATCHMAKING_STATUS, self._on_matchmaking_status)
+        self.client.pubsub.subscribe(MessageType.MATCHMAKING_TIMEOUT, self._on_matchmaking_timeout)
 
     def _on_room_state(self, state: RoomStateMessage) -> None:
         self._pending_events.append((MessageType.ROOM_STATE, state))
@@ -58,6 +58,9 @@ class OnlineCoordinator:
     def _on_matchmaking_status(self, data: MatchmakingStatusMessage) -> None:
         self._pending_events.append((MessageType.MATCHMAKING_STATUS, data))
 
+    def _on_matchmaking_timeout(self, data: MatchmakingTimeoutMessage) -> None:
+        self._pending_events.append((MessageType.MATCHMAKING_TIMEOUT, data))
+
 
     def _create_online_home_screen(self) -> HomeScreen:
         """Helper to construct HomeScreen with online match and custom room callbacks."""
@@ -67,24 +70,13 @@ class OnlineCoordinator:
         
         def trigger_quick_match():
             self.client.join_matchmaking()
-            waiting = WaitingScreen(
-                self.screen_manager, 
-                total_w, 
-                total_h,
-                timeout_seconds=60.0,
-                on_timeout=handle_client_timeout
-            )
+            waiting = WaitingScreen(self.screen_manager, total_w, total_h)
             waiting.buttons[0].callback = cancel_quick_match
             self.screen_manager.switch_to(waiting)
             
         def cancel_quick_match():
             self.client.leave_matchmaking()
             self.screen_manager.switch_to(home)
-
-        def handle_client_timeout():
-            self.client.leave_matchmaking()
-            self.screen_manager.switch_to(home)
-            show_warning_dialog(MATCHMAKING_TIMEOUT_TITLE, MATCHMAKING_TIMEOUT_MSG)
 
         home = HomeScreen(self.screen_manager, total_w, total_h, self.client.username, self.client.rating, client=self.client)
         home.buttons[0].callback = trigger_quick_match
@@ -158,13 +150,15 @@ class OnlineCoordinator:
             show_error_dialog(ERROR_DIALOG_TITLE, msg.message)
 
     def _handle_matchmaking_status(self, data: MatchmakingStatusMessage) -> None:
-        status = data.status
-        if status == MATCHMAKING_STATUS_TIMEOUT:
-            curr_screen = self.screen_manager.active_screen
-            if curr_screen and curr_screen.screen_type == ScreenType.WAITING:
-                home = self._create_online_home_screen()
-                self.screen_manager.switch_to(home)
-            show_warning_dialog(MATCHMAKING_TIMEOUT_TITLE, MATCHMAKING_TIMEOUT_MSG)
+        pass
+
+    def _handle_matchmaking_timeout(self, data: MatchmakingTimeoutMessage) -> None:
+        curr_screen = self.screen_manager.active_screen
+        if curr_screen and curr_screen.screen_type == ScreenType.WAITING:
+            home = self._create_online_home_screen()
+            self.screen_manager.switch_to(home)
+        msg_text = getattr(data, "message", None) or MATCHMAKING_TIMEOUT_MSG
+        show_warning_dialog(MATCHMAKING_TIMEOUT_TITLE, msg_text)
 
 
     def update(self, dt: float) -> None:
@@ -179,3 +173,5 @@ class OnlineCoordinator:
                 self._handle_error_message(payload)
             elif event_type == MessageType.MATCHMAKING_STATUS:
                 self._handle_matchmaking_status(payload)
+            elif event_type == MessageType.MATCHMAKING_TIMEOUT:
+                self._handle_matchmaking_timeout(payload)

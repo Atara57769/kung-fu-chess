@@ -130,15 +130,60 @@ def test_game_allocator_room_create_stores_redis_route():
 
 def test_handle_matchmaking_request_pairs_players():
     import asyncio
-    from unittest.mock import AsyncMock, patch
-    from services.matchmaking_service.app import handle_matchmaking_request, nats_bus, matchmaking_queue, player_registry
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from services.matchmaking_service.app import handle_matchmaking_request, nats_bus
     from shared.message_contracts.contracts import MatchmakingRequestPayload
 
     async def run_test():
-        matchmaking_queue.clear()
-        player_registry.clear()
+        queue_dict = {}
+        player_matches = {}
 
-        with patch.object(nats_bus, "publish", new_callable=AsyncMock) as mock_publish:
+        class FakePipeline:
+            def zadd(self, key, mapping):
+                for k, v in mapping.items():
+                    queue_dict[k] = v
+                return self
+            def hset(self, key, mapping=None):
+                return self
+            def expire(self, key, ttl):
+                return self
+            def zrem(self, key, member):
+                return self
+            def delete(self, *keys):
+                return self
+            def set(self, key, val, ex=None):
+                player_matches[key] = val
+                return self
+            async def execute(self):
+                return [1]
+
+        fake_redis = MagicMock()
+        fake_redis.pipeline.side_effect = lambda: FakePipeline()
+
+        async def fake_zscore(key, member):
+            return float(queue_dict[member]) if member in queue_dict else None
+
+        async def fake_zrangebyscore(key, min_score, max_score):
+            return [user for user, r in queue_dict.items() if min_score <= r <= max_score]
+
+        async def fake_zrem(key, member):
+            if member in queue_dict:
+                del queue_dict[member]
+                return 1
+            return 0
+
+        async def fake_delete(*keys):
+            return 1
+
+        fake_redis.zscore.side_effect = fake_zscore
+        fake_redis.zrangebyscore.side_effect = fake_zrangebyscore
+        fake_redis.zrem.side_effect = fake_zrem
+        fake_redis.delete.side_effect = fake_delete
+
+        with patch("services.matchmaking_service.app.get_redis", new_callable=AsyncMock, return_value=fake_redis), \
+             patch.object(nats_bus, "publish", new_callable=AsyncMock) as mock_publish, \
+             patch("services.matchmaking_service.app.MATCH_POLL_INTERVAL", 0.01):
+
             res1 = await handle_matchmaking_request(MatchmakingRequestPayload(action="join", username="alice", rating=1200), reply_to=None)
             assert res1.status == "queued"
 

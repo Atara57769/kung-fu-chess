@@ -11,6 +11,7 @@ class MessageType(str, Enum):
     MATCHMAKING = "matchmaking"
     LEAVE_MATCHMAKING = "leave_matchmaking"
     MATCHMAKING_STATUS = "matchmaking_status"
+    MATCHMAKING_TIMEOUT = "matchmaking_timeout"
     CREATE_ROOM = "create_room"
     JOIN_ROOM = "join_room"
     LEAVE_ROOM = "leave_room"

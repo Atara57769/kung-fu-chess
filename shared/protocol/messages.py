@@ -66,6 +66,12 @@ class MatchmakingStatusMessage(BaseMessage):
 
 
 @dataclass
+class MatchmakingTimeoutMessage(BaseMessage):
+    message: Optional[str] = None
+    type: MessageType = MessageType.MATCHMAKING_TIMEOUT
+
+
+@dataclass
 class CreateRoomMessage(BaseMessage):
     room_id: Optional[str] = None
     type: MessageType = MessageType.CREATE_ROOM
@@ -153,6 +159,8 @@ MESSAGE_CLASSES: Dict[Any, Type[BaseMessage]] = {
     MessageType.LEAVE_MATCHMAKING.value: LeaveMatchmakingMessage,
     MessageType.MATCHMAKING_STATUS: MatchmakingStatusMessage,
     MessageType.MATCHMAKING_STATUS.value: MatchmakingStatusMessage,
+    MessageType.MATCHMAKING_TIMEOUT: MatchmakingTimeoutMessage,
+    MessageType.MATCHMAKING_TIMEOUT.value: MatchmakingTimeoutMessage,
     MessageType.CREATE_ROOM: CreateRoomMessage,
     MessageType.CREATE_ROOM.value: CreateRoomMessage,
     MessageType.JOIN_ROOM: JoinRoomMessage,

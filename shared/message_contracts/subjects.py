@@ -10,6 +10,7 @@ AUTH_REGISTER = "auth.register"
 # Matchmaking subjects
 MATCHMAKING_REQUEST = "matchmaking.request"
 MATCHMAKING_MATCH_FOUND = "matchmaking.match_found"
+MATCHMAKING_TIMEOUT = "matchmaking.timeout"
 
 # Room subjects
 ROOM_CREATE = "room.create"

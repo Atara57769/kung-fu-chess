@@ -1,6 +1,7 @@
 import cv2
+import time
 import numpy as np
-from typing import Optional, Callable
+from typing import Optional
 from client.ui.rendering.img import Img
 from client.ui.screens.base_screen import Screen, ScreenType
 from client.ui.components.button import Button
@@ -17,18 +18,15 @@ class WaitingScreen(Screen):
     """Presents a loading/waiting state while searching for an opponent."""
     screen_type = ScreenType.WAITING
     
-    def __init__(self, screen_manager, width: int, height: int, 
-                 timeout_seconds: float = 60.0, on_timeout: Optional[Callable] = None) -> None:
+    def __init__(self, screen_manager, width: int, height: int) -> None:
         self.screen_manager = screen_manager
         self.width = width
         self.height = height
-        self.timeout_seconds = timeout_seconds
-        self.on_timeout = on_timeout
-        self._has_timed_out = False
         
         self.buttons: list[Button] = []
         self.labels: list[Label] = []
         self.elapsed_time = 0.0
+        self._start_time = time.time()
         
         self._setup_components()
  
@@ -59,17 +57,9 @@ class WaitingScreen(Screen):
             btn.update_hover(x, y)
  
     def update(self, dt: float) -> None:
-        """Ticks the elapsed matchmaking time and updates the duration label."""
-        if self._has_timed_out:
-            return
- 
-        self.elapsed_time += dt
+        """Updates the elapsed time label using wall-clock time."""
+        self.elapsed_time = time.time() - self._start_time
         self.labels[2].text = LABEL_WAITING_TIME_FORMAT.format(int(self.elapsed_time))
-        
-        if self.elapsed_time >= self.timeout_seconds:
-            self._has_timed_out = True
-            if self.on_timeout:
-                self.on_timeout()
  
     def _draw_gradient_background(self, canvas: Img) -> None:
         """Fills canvas with a sleek dark radial-like vertical gradient."""

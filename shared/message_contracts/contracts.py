@@ -93,6 +93,14 @@ class MatchmakingResponsePayload:
 
 
 @dataclass
+class MatchmakingTimeoutPayload:
+    username: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class MatchFoundPayload:
     match_id: str
     room_id: str

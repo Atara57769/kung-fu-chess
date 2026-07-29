@@ -13,11 +13,12 @@ from shared.protocol import (
 )
 from shared.message_contracts.subjects import (
     AUTH_LOGIN, GAME_COMMAND, GAME_STATE, GAME_FINISHED, GAME_EVENTS,
-    PLAYER_CONNECTED, PLAYER_DISCONNECTED, ROOM_CREATED, ROOM_JOINED, ROOM_UPDATED
+    PLAYER_CONNECTED, PLAYER_DISCONNECTED, ROOM_CREATED, ROOM_JOINED, ROOM_UPDATED,
+    MATCHMAKING_TIMEOUT
 )
 from shared.message_contracts.contracts import (
     AuthLoginPayload, GameCommandPayload, PlayerConnectedPayload, PlayerDisconnectedPayload,
-    GameStatePayload, RoomCreatedPayload
+    GameStatePayload, RoomCreatedPayload, MatchmakingTimeoutPayload
 )
 from shared.message_contracts.nats_client import NatsBus
 
@@ -117,6 +118,18 @@ async def handle_nats_room_event(data: Any, reply_to: Optional[str]) -> None:
                 await ws.send(serialized)
             except Exception:
                 pass
+
+
+async def handle_nats_matchmaking_timeout(data: MatchmakingTimeoutPayload, reply_to: Optional[str]) -> None:
+    username = data.username
+    message = json.dumps({"type": "matchmaking_timeout", "message": "No opponent found. Please try again."})
+    for ws, info in list(active_sockets.items()):
+        if info.username == username:
+            try:
+                await ws.send(message)
+                logger.info("Sent matchmaking timeout to user '%s'", username)
+            except Exception as e:
+                logger.warning("Error sending timeout message to '%s': %s", username, e)
 
 
 async def handle_client_message(ws: Any, raw_msg: str) -> None:
@@ -242,6 +255,7 @@ async def main() -> None:
     await nats_bus.subscribe(ROOM_CREATED, handle_nats_room_event, dto_class=RoomCreatedPayload)
     await nats_bus.subscribe(ROOM_JOINED, handle_nats_room_event, dto_class=RoomCreatedPayload)
     await nats_bus.subscribe(ROOM_UPDATED, handle_nats_room_event, dto_class=RoomCreatedPayload)
+    await nats_bus.subscribe(MATCHMAKING_TIMEOUT, handle_nats_matchmaking_timeout, dto_class=MatchmakingTimeoutPayload)
 
     ssl_context = get_server_ssl_context(auto_generate=True) if USE_SSL else None
     scheme = "wss" if ssl_context else "ws"

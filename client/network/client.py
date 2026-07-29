@@ -14,9 +14,11 @@ from shared.models.color import Color
 from shared.models.cell import Cell
 from shared.security.ssl_config import get_client_ssl_context
 from shared.protocol import (
-    MessageType, AuthMessage, AuthResponseMessage, HeartbeatMessage, MatchmakingMessage,
-    LeaveMatchmakingMessage, MatchmakingStatusMessage, CreateRoomMessage, JoinRoomMessage,
-    LeaveRoomMessage, RoomStateMessage, MoveMessage, JumpMessage, SnapshotMessage, CountdownMessage, GameOverMessage, ErrorMessage,
+    MessageType, AuthMessage, AuthResponseMessage, HeartbeatMessage,
+    ErrorMessage, MatchmakingMessage, LeaveMatchmakingMessage,
+    CreateRoomMessage, JoinRoomMessage, LeaveRoomMessage, MoveMessage, JumpMessage,
+    GetSnapshotMessage, RoomStateMessage, SnapshotMessage, CountdownMessage, GameOverMessage,
+    MatchmakingStatusMessage, MatchmakingTimeoutMessage,
     serialize_message, deserialize_message
 )
 
@@ -75,6 +77,7 @@ class GameClient(BaseGameClient):
             MessageType.GAME_OVER: self._handle_game_over,
             MessageType.ERROR: self._handle_error,
             MessageType.MATCHMAKING_STATUS: self._handle_matchmaking_status,
+            MessageType.MATCHMAKING_TIMEOUT: self._handle_matchmaking_timeout,
         }
 
     def start(self) -> None:
@@ -188,6 +191,9 @@ class GameClient(BaseGameClient):
 
     def _handle_matchmaking_status(self, msg: MatchmakingStatusMessage) -> None:
         self.pubsub.publish(MessageType.MATCHMAKING_STATUS, msg)
+
+    def _handle_matchmaking_timeout(self, msg: MatchmakingTimeoutMessage) -> None:
+        self.pubsub.publish(MessageType.MATCHMAKING_TIMEOUT, msg)
 
     def _send_json(self, data: any) -> None:
         """Invokes raw socket write from external threads using loop scheduling."""
