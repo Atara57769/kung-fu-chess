@@ -55,7 +55,6 @@ def main() -> None:
         print(f"Authentication failed for user '{username}'")
         sys.exit(1)
 
-    # Step 2: Start WebSocket thread and send WS auth message
     client.start()
     client.authenticate(client.username, client.token)
 

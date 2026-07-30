@@ -4,24 +4,11 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional
 import redis.asyncio as aioredis
-
 from shared.constants import ResponseStatus, ROOM_STATUS_ACTIVE, MSG_ROOM_NOT_FOUND
-from shared.protocol import (
-    MessageType,
-    deserialize_message,
-    serialize_message,
-    RoomStateMessage,
-    ErrorMessage
-)
+from shared.protocol import (MessageType,deserialize_message,serialize_message,RoomStateMessage,ErrorMessage)
 from shared.models.color import Color
-from shared.message_contracts.subjects import (
-    GAME_ASSIGNED, GAME_COMMAND, GAME_STATE, GAME_FINISHED, GAME_EVENTS, ROOM_JOIN, ROOM_LEAVE, ROOM_UPDATED, PLAYER_DISCONNECTED
-)
-from shared.message_contracts.contracts import (
-    GameStatePayload, GameAssignedPayload, GameFinishedPayload, GameCommandPayload,
-    RoomJoinPayload, RoomLeavePayload, RoomCreatedPayload, PlayerDisconnectedPayload
-)
-
+from shared.message_contracts.subjects import (GAME_ASSIGNED, GAME_COMMAND, GAME_STATE, GAME_FINISHED, GAME_EVENTS, ROOM_JOIN, ROOM_LEAVE, ROOM_UPDATED, PLAYER_DISCONNECTED)
+from shared.message_contracts.contracts import (GameStatePayload, GameAssignedPayload, GameFinishedPayload, GameCommandPayload,RoomJoinPayload, RoomLeavePayload, RoomCreatedPayload, PlayerDisconnectedPayload)
 from shared.message_contracts.nats_client import NatsBus
 from server.network.models import GameRoom, ConnectedPlayer
 from server.database.sqlite_db_manager import SQLiteDBManager
@@ -67,21 +54,21 @@ async def handle_game_over_nats(event: ServerEvent) -> None:
     if not room:
         return
 
-    room_id = getattr(room, "room_id", str(room) if isinstance(room, str) else None)
-    winner = getattr(payload, "winner", None) if payload else None
-    reason = getattr(payload, "reason", None) if payload else None
+    room_id = room if isinstance(room, str) else room.room_id
+    winner = payload.winner if payload else None
+    reason = payload.reason if payload else None
 
-    white_player = getattr(room, "white_player", None)
-    black_player = getattr(room, "black_player", None)
+    white_player = room.white_player if not isinstance(room, str) else None
+    black_player = room.black_player if not isinstance(room, str) else None
 
-    white_username = getattr(white_player, "username", None) if white_player else None
-    black_username = getattr(black_player, "username", None) if black_player else None
+    white_username = white_player.username if white_player else None
+    black_username = black_player.username if black_player else None
 
     final_ratings = {}
     if payload:
-        if getattr(payload, "white_rating", None) is not None and white_username:
+        if payload.white_rating is not None and white_username:
             final_ratings[white_username] = payload.white_rating
-        if getattr(payload, "black_rating", None) is not None and black_username:
+        if payload.black_rating is not None and black_username:
             final_ratings[black_username] = payload.black_rating
 
     game_finished_dto = GameFinishedPayload(
