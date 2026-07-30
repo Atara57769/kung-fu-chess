@@ -1,6 +1,7 @@
 from enum import Enum
 
 CELL_SIZE = 100
+BOARD_DIMENSION = 8
 EMPTY_TOKEN = '.'
 from shared.models.color import Color
 

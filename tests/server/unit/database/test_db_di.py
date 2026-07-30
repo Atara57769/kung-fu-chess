@@ -39,6 +39,15 @@ class MemoryDBForTesting(BaseDBManager):
         self.users[username]["rating"] = new_rating
         return True
 
+    def save_game_history(
+        self,
+        room_id: str,
+        winner: Optional[str] = None,
+        reason: Optional[str] = None,
+        final_ratings: Optional[dict] = None
+    ) -> bool:
+        return True
+
 
 def test_sqlite_db_manager_inherits_base():
     """Verify SQLiteDBManager inherits from BaseDBManager."""

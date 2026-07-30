@@ -14,10 +14,10 @@ from client.ui.animation.animation_manager import AnimationManager
 from client.ui.components.popup_dialog import show_error_dialog, show_warning_dialog
 from client.network.base_client import BaseGameClient
 from shared.protocol import (
-    MessageType, BaseMessage, RoomStateMessage, ErrorMessage, MatchmakingStatusMessage, MatchmakingTimeoutMessage
+    MessageType, BaseMessage, RoomStateMessage, ErrorMessage, MatchmakingTimeoutMessage
 )
 from shared.constants import (
-    ROOM_STATUS_WAITING, ROOM_STATUS_ACTIVE
+    ROOM_STATUS_WAITING, ROOM_STATUS_ACTIVE, BOARD_DIMENSION
 )
 
 EMPTY_PLAYER = "[Empty]"
@@ -65,8 +65,8 @@ class OnlineCoordinator:
     def _create_online_home_screen(self) -> HomeScreen:
         """Helper to construct HomeScreen with online match and custom room callbacks."""
         cell_size = self.geometry.cell_size
-        total_w = cell_size * 8 + LEFT_PADDING + RIGHT_PADDING
-        total_h = cell_size * 8
+        total_w = cell_size * BOARD_DIMENSION + LEFT_PADDING + RIGHT_PADDING
+        total_h = cell_size * BOARD_DIMENSION
         
         def trigger_quick_match():
             self.client.join_matchmaking()
@@ -91,66 +91,68 @@ class OnlineCoordinator:
         """Transitions screen states based on room status updates."""
         curr_screen = self.screen_manager.active_screen
         cell_size = self.geometry.cell_size
-        total_w = cell_size * 8 + LEFT_PADDING + RIGHT_PADDING
-        total_h = cell_size * 8
+        total_w = cell_size * BOARD_DIMENSION + LEFT_PADDING + RIGHT_PADDING
+        total_h = cell_size * BOARD_DIMENSION
         
-        if state is None:
-            if curr_screen and curr_screen.screen_type not in (ScreenType.HOME, ScreenType.WAITING, ScreenType.ONLINE_GAME):
-                home = self._create_online_home_screen()
-                self.screen_manager.switch_to(home)
+        if state is None or state.room_id is None:
+            self._handle_no_room_state(curr_screen)
             return
 
-        status = state.status
-        room_id = state.room_id
-        
-        if room_id is None:
-            if curr_screen and curr_screen.screen_type not in (ScreenType.HOME, ScreenType.WAITING):
-                home = self._create_online_home_screen()
-                self.screen_manager.switch_to(home)
-        elif status == ROOM_STATUS_WAITING:
-            white_player = state.white
-            black_player = state.black
-            spectators = state.spectators
+        if state.status == ROOM_STATUS_WAITING:
+            self._handle_waiting_room_state(state, curr_screen, total_w, total_h)
+        elif state.status == ROOM_STATUS_ACTIVE:
+            self._handle_active_room_state(curr_screen)
 
-            if not curr_screen or curr_screen.screen_type != ScreenType.ROOM:
-                is_creator = (white_player == self.client.username)
-                room = RoomScreen(
-                    self.screen_manager, 
-                    total_w, 
-                    total_h,
-                    room_id=room_id,
-                    is_creator=is_creator,
-                    white_player=white_player,
-                    black_player=black_player,
-                    client=self.client
-                )
-                self.screen_manager.switch_to(room)
-            else:
-                curr_screen.white_player = white_player or EMPTY_PLAYER
-                curr_screen.black_player = black_player or EMPTY_PLAYER
-                curr_screen.labels[1].text = f"{WHITE_SEAT_PREFIX}{curr_screen.white_player}"
-                curr_screen.labels[2].text = f"{BLACK_SEAT_PREFIX}{curr_screen.black_player}"
-                curr_screen.spectators = spectators or []
-                specs_joined = SPECTATORS_SEPARATOR.join(curr_screen.spectators) if curr_screen.spectators else SPECTATORS_NONE
-                curr_screen.labels[3].text = f"{SPECTATORS_PREFIX}{specs_joined}"
-        elif status == ROOM_STATUS_ACTIVE:
-            if not curr_screen or curr_screen.screen_type != ScreenType.ONLINE_GAME:
-                online_game = OnlineGameScreen(
-                    self.screen_manager,
-                    self.client,
-                    self.geometry,
-                    self.renderer,
-                    self.animation_manager
-                )
-                self.screen_manager.switch_to(online_game)
+    def _handle_no_room_state(self, curr_screen: Optional[Any]) -> None:
+        """Handles screen fallback to home when there is no room state or room_id is missing."""
+        if curr_screen and curr_screen.screen_type not in (ScreenType.HOME, ScreenType.WAITING, ScreenType.ONLINE_GAME):
+            home = self._create_online_home_screen()
+            self.screen_manager.switch_to(home)
+
+    def _handle_waiting_room_state(self, state: RoomStateMessage, curr_screen: Optional[Any], total_w: int, total_h: int) -> None:
+        """Handles screen transitions and UI label updates for waiting rooms."""
+        white_player = state.white
+        black_player = state.black
+        spectators = state.spectators
+
+        if not curr_screen or curr_screen.screen_type != ScreenType.ROOM:
+            is_creator = (white_player == self.client.username)
+            room = RoomScreen(
+                self.screen_manager, 
+                total_w, 
+                total_h,
+                room_id=state.room_id,
+                is_creator=is_creator,
+                white_player=white_player,
+                black_player=black_player,
+                client=self.client
+            )
+            self.screen_manager.switch_to(room)
+        else:
+            curr_screen.white_player = white_player or EMPTY_PLAYER
+            curr_screen.black_player = black_player or EMPTY_PLAYER
+            curr_screen.labels[1].text = f"{WHITE_SEAT_PREFIX}{curr_screen.white_player}"
+            curr_screen.labels[2].text = f"{BLACK_SEAT_PREFIX}{curr_screen.black_player}"
+            curr_screen.spectators = spectators or []
+            specs_joined = SPECTATORS_SEPARATOR.join(curr_screen.spectators) if curr_screen.spectators else SPECTATORS_NONE
+            curr_screen.labels[3].text = f"{SPECTATORS_PREFIX}{specs_joined}"
+
+    def _handle_active_room_state(self, curr_screen: Optional[Any]) -> None:
+        """Handles screen transition when the game room becomes active."""
+        if not curr_screen or curr_screen.screen_type != ScreenType.ONLINE_GAME:
+            online_game = OnlineGameScreen(
+                self.screen_manager,
+                self.client,
+                self.geometry,
+                self.renderer,
+                self.animation_manager
+            )
+            self.screen_manager.switch_to(online_game)
 
     def _handle_error_message(self, msg: ErrorMessage) -> None:
         if msg.message:
             self.logger.error(f"{SERVER_ERROR_LOG_PREFIX}{msg.message}")
             show_error_dialog(ERROR_DIALOG_TITLE, msg.message)
-
-    def _handle_matchmaking_status(self, data: MatchmakingStatusMessage) -> None:
-        pass
 
     def _handle_matchmaking_timeout(self, data: MatchmakingTimeoutMessage) -> None:
         curr_screen = self.screen_manager.active_screen
@@ -171,7 +173,5 @@ class OnlineCoordinator:
                 self._handle_room_state_change(payload)
             elif event_type == MessageType.ERROR:
                 self._handle_error_message(payload)
-            elif event_type == MessageType.MATCHMAKING_STATUS:
-                self._handle_matchmaking_status(payload)
             elif event_type == MessageType.MATCHMAKING_TIMEOUT:
                 self._handle_matchmaking_timeout(payload)

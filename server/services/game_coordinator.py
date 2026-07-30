@@ -176,12 +176,7 @@ class GameCoordinator:
                 room.spectators.remove(player)
             await self.room_service.broadcast_room_state(room)
 
-    async def _run_resign_countdown(
-        self,
-        room: GameRoom,
-        disconnected: ConnectedPlayer,
-        opponent: Optional[ConnectedPlayer]
-    ) -> None:
+    async def _run_resign_countdown(self,room: GameRoom,disconnected: ConnectedPlayer,opponent: Optional[ConnectedPlayer]) -> None:
         """Waits up to DISCONNECT_COUNTDOWN seconds; auto-resigns if player doesn't return."""
         try:
             while room.countdown_seconds > 0:
