@@ -1,125 +1,192 @@
 # Kung-Fu Chess
 
-A real-time, turn-less chess game with cooldowns, collision rules, and visual movement animations. The application is built using a Python backend utilizing WebSockets for real-time communication, and a desktop client rendering via OpenCV.
+A real-time, turn-less chess game featuring individual piece move cooldowns, continuous physical movement, airborne jumps, dynamic mid-air collisions, and real-time path interception. Built with Python, OpenCV for client rendering, and supporting both a lightweight direct WebSocket server and a full cloud-native microservices backend.
 
 ---
 
 ## ⚡ Game Mechanics & Rules
 
-Unlike traditional chess, **Kung-Fu Chess** does not enforce turns. Both players can move their pieces simultaneously in real-time, subject to the following mechanics:
+Unlike traditional turn-based chess, **Kung-Fu Chess** operates in continuous real-time. Both players command their pieces simultaneously subject to physics and cooldown constraints:
 
-*   **Move Cooldowns:** After a piece finishes moving, it enters a cooldown phase during which it cannot be moved again.
-    *   *Normal Move Cooldown:* **1500 ms**
-*   **Airborne Jumps:** Players can command pieces to jump (specifically useful for Knights or dodging obstacles).
-    *   *Jump Duration:* **1000 ms** (the piece is considered airborne)
+*   **Move Cooldowns:** Upon completing a move, a piece enters a cooldown state (**1500 ms** by default) before it can move again.
+*   **Airborne Jumps:** Pieces can perform jump maneuvers (e.g. Knights jumping over obstacles or dodging incoming pieces).
+    *   *Jump Duration:* **1000 ms** (the piece is airborne and evades ground captures)
     *   *Jump Cooldown:* **700 ms** (applied after landing)
-*   **Airborne Capture:** Airborne pieces cannot be captured by normal ground moves. However, if an airborne piece is positioned on a cell when another piece arrives, or if it lands on an opponent's piece, captures are resolved dynamically based on their states.
-*   **Real-time Collision:** Pieces travel dynamically across the board rather than teleporting. If two pieces collide mid-transit, collision rules determine which piece is captured or blocked.
-*   **Pawn Promotion:** Pawns that successfully reach the opposite end of the board are automatically promoted to Queens.
+*   **Airborne Capture & Resolution:** Airborne pieces cannot be captured by ground moves while in mid-air. Overlapping landings or arrival at the same cell are resolved dynamically based on state and position.
+*   **Real-time Collision Detection:** Pieces travel continuously across the board geometry. Mid-transit collisions are arbitrated by the authoritative `GameEngine`.
+*   **Pawn Promotion:** Pawns reaching the opponent's back rank are automatically promoted to Queens.
 
 ---
 
-## 🛠️ Technology Stack
+## 🛠️ Technology Stack & Architecture
 
-*   **Language:** Python 3.10+
-*   **Networking:** WebSockets (`websockets` library) for low-latency client-server synchronization.
-*   **GUI & Rendering:** OpenCV (`cv2`) for window orchestration, sprite animation, scaling, and user event handling.
-*   **Database:** SQLite (`sqlite3`) for user registration, authentication, and ELO rating persistence.
-*   **Testing:** `pytest` for unit and integration tests, and a custom integration orchestrator (`test_runner.py`).
+Kung-Fu Chess offers dual execution modes depending on your deployment scale:
+
+*   **Language & Core Logic:** Python 3.10+
+*   **Client GUI & Rendering:** OpenCV (`cv2`), `numpy`, custom asset loaders, and animation managers.
+*   **Standalone / Monolithic Mode:**
+    *   **Networking:** Asynchronous WebSockets (`websockets`).
+    *   **Database:** SQLite (`sqlite3`) with `bcrypt` password hashing for user credentials and ELO persistence.
+*   **Distributed Microservices Mode:**
+    *   **API Gateway:** FastAPI & Uvicorn for RESTful auth, registration, and user profiles.
+    *   **Message Bus:** NATS JetStream (`nats-py`) for high-throughput inter-service messaging.
+    *   **Caching & State:** Redis (`redis`) for session management, queue states, and fast lookups.
+    *   **Persistence:** PostgreSQL (`psycopg2`, SQLAlchemy) for durable game history and user stats.
+    *   **Containerization:** Docker & Docker Compose orchestrating 7 microservices.
+*   **Testing & Diagnostics:** `pytest`, `pytest-cov`, and headless command script execution (`main.py`).
 
 ---
 
 ## 📂 Project Structure
 
 ```directory
-├── client/                  # Desktop Game Client
-│   ├── network/             # WebSocket connections and message dispatching
-│   ├── services/            # Score tracking and helper utilities
-│   └── ui/                  # OpenCV-based GUI
-│       ├── animation/       # Sprite rendering, idle/move/jump state animations
-│       ├── app/             # Matchmaking coordinators and terminal login
-│       ├── assets/          # Sprites, boards, and graphic asset loaders
-│       ├── board/           # Geometry mapping and coordinate calculations
-│       └── rendering/       # OpenCV window drawing and image utilities
+├── client/                      # Desktop Game Client
+│   ├── network/                 # Standalone & Distributed WS Client Adapters
+│   ├── services/                # Score tracking, sound, and client utilities
+│   └── ui/                      # OpenCV GUI System
+│       ├── animation/           # Sprite rendering, idle/move/jump animations
+│       ├── app/                 # Matchmaking coordinators and terminal onboarding
+│       ├── assets/              # Sprites, chessboards, and asset loaders
+│       ├── board/               # Geometry mapping and pixel/cell transformations
+│       ├── history/             # Game move history tracker
+│       ├── rendering/           # OpenCV window drawing pipeline & HUD
+│       └── screens/             # UI screen states (Login, Matchmaking, Game Board)
 │
-├── server/                  # Game Server
-│   ├── database/            # SQLite tables for credentials and ELO storage
-│   ├── game/                # Engine and rules controller
-│   │   ├── engine/          # Physics tick loop, move arbiter, and controller
-│   │   ├── rules/           # Legality checks, pawn promotion, win conditions
-│   │   └── services/        # Board parser, printer, path collision, script runner
-│   ├── matchmaking/         # ELO calculation mechanics
-│   └── network/             # Server WebSocket connection manager
+├── server/                      # Monolithic Game Server Engine
+│   ├── database/                # SQLite user table & ELO storage
+│   ├── game/                    # Core Game Engine & Rules Controller
+│   │   ├── engine/              # Physics tick loop, move arbiter, tick manager
+│   │   ├── rules/               # Move legality, pawn promotion, win conditions
+│   │   └── services/            # Board parser, path collision validator, script runner
+│   ├── matchmaking/             # Monolithic ELO queue system
+│   └── network/                 # Server WebSocket connection manager
 │
-├── shared/                  # Shared Protocols & Data Models
-│   ├── models/              # Game states, board snapshots, pieces, cells
-│   ├── protocol/            # Message serialization/deserialization schemas
-│   └── constants.py         # Global speeds, cooldown parameters, server ports
+├── services/                    # Cloud-Native Microservices Architecture
+│   ├── api_gateway/             # FastAPI REST endpoints for Auth, Profile, & Stats (Port 8000)
+│   ├── websocket_gateway/       # WS Gateway routing live client traffic to NATS (Port 8001)
+│   ├── matchmaking_service/     # Distributed Redis/NATS matchmaking queue engine
+│   ├── game_allocator/          # Room assignment & shard cluster scheduler
+│   ├── game_server/             # Authoritative microservice GameEngine shard
+│   ├── game_persistence_service/# Asynchronous PostgreSQL match history writer
+│   └── observability_service/   # Prometheus/Health-check metrics exporter (Port 8002)
 │
-└── tests/                   # Extensive Test Suite
-    ├── client/              # GUI and client network logic validation
-    └── server/              # Rules, engine tick, and database verification
+├── shared/                      # Shared Data Models & Protocols
+│   ├── models/                  # Game state, board snapshots, pieces, cells
+│   ├── protocol/                # JSON message schemas & serialization
+│   └── constants.py             # Physics timings, ports, speeds, cooldown parameters
+│
+├── certs/                       # TLS/SSL Certificates for Secure WebSockets
+├── tests/                       # Unit and Integration Test Suite
+│   ├── client/                  # Client UI & networking unit tests
+│   └── server/                  # Rules, tick loop, and microservices tests
+│
+├── client_main.py               # Entry point for Standalone Desktop Client
+├── server_main.py               # Entry point for Standalone Monolithic Server
+├── distributed_client_main.py   # Entry point for Distributed Microservices Client
+├── docker-compose.yml           # Microservices stack orchestration
+├── Dockerfile                   # Service base container image definition
+├── Server_Design.md             # Comprehensive High-Scale Architectural Document
+└── main.py                      # Simulation runner & headless script launcher
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Prerequisites
+### 1. Prerequisites & Installation
 
-Ensure you have Python 3.10+ installed. Install the required dependencies:
+Ensure **Python 3.10+** is installed on your system. Install required dependencies:
 
 ```bash
-pip install opencv-python websockets pytest
+pip install -r requirements.txt
 ```
 
-### 2. Running the Server
+---
 
-Start the game server first. By default, it listens on `localhost:8765`:
+### Option A: Standalone / Monolithic Mode (Simple)
+
+Run a local server with SQLite persistence and connect using the standalone client.
+
+#### Step 1: Launch Server
+By default, listens on `localhost:8765`:
 
 ```bash
 python server_main.py --host localhost --port 8765
 ```
 
-### 3. Running the Client
-
-Start one or more client instances to play or observe:
+#### Step 2: Launch Client(s)
+Open one or two client instances to play:
 
 ```bash
 python client_main.py --host localhost --port 8765 --scale 1.0
 ```
 
-*   **Controls:**
-    *   **Left Click:** Select a friendly piece, then left-click a destination cell to schedule a **normal move**.
-    *   **Right Click:** Right-click on a piece to trigger an **airborne jump**.
-*   **Onboarding:** If the username entered during login does not exist in the database, the server will auto-register the account with a starting rating of `1200`.
+---
 
-### 4. Running Simulations / Script Runners
+### Option B: Distributed Microservices Mode (High-Scale)
 
-You can execute pre-scripted gameplay matches or command-line pipelines using the core orchestration entry point:
+Run the full microservices stack (API Gateway, WS Gateway, NATS, Redis, Postgres, Game Shards) via Docker Compose.
+
+#### Step 1: Start Microservices Stack
+```bash
+docker-compose up --build
+```
+
+#### Step 2: Launch Distributed Client
+Connect through the API & WebSocket Gateways:
 
 ```bash
-python main.py
+python distributed_client_main.py --api-host http://localhost:8000 --ws-host localhost --ws-port 8001
 ```
+
+*Distributed Client Options:*
+* `--api-host`: REST API Gateway URL (default: `http://localhost:8000`)
+* `--ws-host`: WebSocket Gateway Host (default: `localhost`)
+* `--ws-port`: WebSocket Gateway Port (default: `8001`)
+* `--no-ssl`: Disable SSL/TLS encryption for local development
 
 ---
 
-## 🧪 Testing
+## 🎮 Controls & Onboarding
 
-The codebase includes an extensive suite of unit and integration tests.
+*   **Player Onboarding:**
+    *   Entering a new username during terminal login automatically registers the user account with an initial ELO rating of **1200**.
+*   **Controls:**
+    *   **Left Click:** Select a friendly piece, then left-click a destination square to schedule a **normal move**.
+    *   **Right Click:** Right-click on a piece to trigger an **airborne jump**.
+
+---
+
+## 🌐 Microservices & Infrastructure Endpoints
+
+| Service | Protocol | Host / Port | Description |
+| :--- | :--- | :--- | :--- |
+| **API Gateway** | REST (HTTP) | `http://localhost:8000` | User login, registration, user profiles, and room metadata |
+| **WebSocket Gateway** | WebSocket | `ws://localhost:8001` | Live client connection & realtime game event streaming |
+| **Observability Service** | REST (HTTP) | `http://localhost:8002` | Cluster metrics, health checks, and service monitoring |
+| **NATS Message Bus** | TCP / HTTP | `4222` / `8222` | Distributed event bus & NATS management console |
+| **Redis** | TCP | `6379` | In-memory session store & queue state cache |
+| **PostgreSQL** | TCP | `5432` | Relational storage for user accounts & match histories |
+
+---
+
+## 🧪 Testing & Simulation
 
 ### Run pytest suite
-
-Verify all components and network handlers:
+Verify all game rules, server tick loop logic, and client components:
 
 ```bash
 pytest
 ```
 
-### Run interactive script tests
+### Run coverage report
+```bash
+pytest --cov=server --cov=client --cov=shared --cov=services
+```
 
-Run terminal-based integration checks:
+### Run headless script simulation
+Execute pre-scripted gameplay pipelines or command-line matches:
 
 ```bash
-python test_runner.py
+python main.py
 ```
