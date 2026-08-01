@@ -137,11 +137,6 @@ async def leave_matchmaking(req: MatchmakingRequest) -> MatchmakingResponsePaylo
     return MatchmakingResponsePayload(status=ResponseStatus.REMOVED.value, username=req.username)
 
 
-@app.get("/history")
-async def get_history(username: Optional[str] = None):
-    return {"history": []}
-
-
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8000"))
